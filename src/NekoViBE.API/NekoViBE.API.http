@@ -1,0 +1,6 @@
+@NekoViBE.API_HostAddress = http://localhost:5240
+
+GET {{NekoViBE.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
