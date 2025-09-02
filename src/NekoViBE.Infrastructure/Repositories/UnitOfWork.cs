@@ -3,7 +3,7 @@ using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Domain.Common;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace NekoViBE.Application.Common.Implements;
+namespace NekoViBE.Infrastructure.Repositories;
 
 public class UnitOfWork : IUnitOfWork
 {

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Domain.Common;
 
-namespace NekoViBE.Application.Common.Implements;
+namespace NekoViBE.Infrastructure.Repositories;
 
 public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
 {

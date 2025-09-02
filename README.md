@@ -8,11 +8,11 @@ Architecture
   - DI configuration, middlewares, Swagger, CORS
   - Automatic Migrate/Seed in Development
 - src/NekoViBE.Application: Application layer
-  - Interfaces, Models, Generic Repository, Unit of Work, Query Builders, Feature (Future) including CQRS pattern
+  - Interfaces, Models, Query Builders, Features (Future) including CQRS pattern
 - src/NekoViBE.Domain: Domain layer
   - Entities, Enums, Base types (BaseEntity, IEntityLike)
 - src/NekoViBE.Infrastructure: Infrastructure layer
-  - EF Core NekoViDbContext + DI, Identity stores, SQL Server provider
+  - EF Core NekoViDbContext + DI, Identity stores, SQL Server provider, Repositories with GenericRepository and UnitOfWork
 
 Prerequisites
 

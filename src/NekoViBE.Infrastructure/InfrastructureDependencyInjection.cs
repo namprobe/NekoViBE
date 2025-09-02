@@ -3,11 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using NekoViBE.Application.Common.Implements;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Infrastructure.Context;
+using NekoViBE.Infrastructure.Repositories;
 using NekoViBE.Infrastructure.Services;
 
 namespace NekoViBE.Infrastructure;
