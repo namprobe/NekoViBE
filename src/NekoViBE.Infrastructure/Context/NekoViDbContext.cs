@@ -41,7 +41,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         // Đổi tên bảng Identity
         builder.Entity<AppUser>().ToTable("Users");
         builder.Entity<AppRole>().ToTable("Roles");
-        builder.Entity<AppUserRole>().ToTable("UserRoles");
+        builder.Entity<IdentityUserRole<Guid>>().ToTable("UserRoles");
         builder.Entity<IdentityUserClaim<Guid>>().ToTable("UserClaims");
         builder.Entity<IdentityUserLogin<Guid>>().ToTable("UserLogins");
         builder.Entity<IdentityUserToken<Guid>>().ToTable("UserTokens");
@@ -82,24 +82,10 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.Property(x => x.Status).HasConversion<int>();
         });
 
-        // AppUserRole (join table) - do not configure key on derived type
-        builder.Entity<AppUserRole>(entity =>
+        // Configure the base IdentityUserRole<Guid> key
+        builder.Entity<IdentityUserRole<Guid>>(entity =>
         {
-            entity.ToTable("UserRoles");
-
-            entity
-                .HasOne(ur => ur.User)
-                .WithMany(u => u.UserRoles)
-                .HasForeignKey(ur => ur.UserId)
-                .IsRequired()
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity
-                .HasOne(ur => ur.Role)
-                .WithMany(r => r.UserRoles)
-                .HasForeignKey(ur => ur.RoleId)
-                .IsRequired()
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasKey(ur => new { ur.UserId, ur.RoleId });
         });
 
         // UserAddress

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -85,6 +86,7 @@ public static class SeedingExtension
 
         // Ensure admin is in Admin role
         var adminRoleName = RoleEnum.Admin.ToString();
+
         if (!await userManager.IsInRoleAsync(existingAdmin, adminRoleName))
         {
             var addRoleResult = await userManager.AddToRoleAsync(existingAdmin, adminRoleName);
@@ -98,6 +100,10 @@ public static class SeedingExtension
                 logger.LogInformation("Added admin user to role {Role}", adminRoleName);
             }
         }
+
+        // Final verification
+        var roles = await userManager.GetRolesAsync(existingAdmin);
+        logger.LogInformation("Admin user {Email} roles: {Roles}", existingAdmin.Email, string.Join(", ", roles));
 
         logger.LogInformation("Data seeding completed.");
     }

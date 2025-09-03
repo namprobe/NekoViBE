@@ -12,6 +12,4 @@ public class AppRole : IdentityRole<Guid>, IEntityLike
     public DateTime? UpdatedAt { get; set; }
     public Guid? UpdatedBy { get; set; }
     public EntityStatusEnum Status { get; set; }
-    // navigation property
-    public virtual ICollection<AppUserRole> UserRoles { get; set; } = new List<AppUserRole>();
 }

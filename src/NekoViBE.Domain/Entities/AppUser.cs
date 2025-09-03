@@ -22,5 +22,4 @@ public class AppUser : IdentityUser<Guid>, IEntityLike
     public virtual CustomerProfile? CustomerProfile { get; set; }
     public virtual StaffProfile? StaffProfile { get; set; }
     public virtual ICollection<UserAddress> UserAddresses { get; set; } = new List<UserAddress>();
-    public virtual ICollection<AppUserRole> UserRoles { get; set; } = new List<AppUserRole>();
 }
