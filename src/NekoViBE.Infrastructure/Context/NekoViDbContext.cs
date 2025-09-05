@@ -118,7 +118,6 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         // AppRole
         builder.Entity<AppRole>(entity =>
         {
-            entity.ToTable("Roles");
             entity.Property(x => x.Status).HasConversion<int>();
         });
 

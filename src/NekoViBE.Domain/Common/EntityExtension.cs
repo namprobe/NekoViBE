@@ -9,7 +9,7 @@ public static class EntityExtension
         entity.CreatedBy = userId ?? Guid.Empty; //Guid.Empty is for system
     }
 
-    public static void UpdateEnitity(this IEntityLike entity, IEntityLike? oldEntity = null, Guid? userId = null)
+    public static void UpdateEnitity(this IEntityLike entity, Guid? userId = null, IEntityLike? oldEntity = null)
     {
         if (oldEntity != null)
         {
@@ -39,6 +39,26 @@ public static class EntityExtension
             baseEntity.DeletedAt = null;
             baseEntity.DeletedBy = null;
         }
+        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedBy = userId ?? Guid.Empty;
+    }
+
+    /// <summary>
+    /// Deactivate user account - safer than deletion for AppUser
+    /// </summary>
+    public static void DeactivateUser(this IEntityLike entity, Guid? userId = null)
+    {
+        entity.Status = Enums.EntityStatusEnum.Inactive;
+        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedBy = userId ?? Guid.Empty;
+    }
+
+    /// <summary>
+    /// Reactivate user account
+    /// </summary>
+    public static void ReactivateUser(this IEntityLike entity, Guid? userId = null)
+    {
+        entity.Status = Enums.EntityStatusEnum.Active;
         entity.UpdatedAt = DateTime.UtcNow;
         entity.UpdatedBy = userId ?? Guid.Empty;
     }

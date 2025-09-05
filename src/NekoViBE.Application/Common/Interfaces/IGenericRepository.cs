@@ -3,7 +3,7 @@ using NekoViBE.Domain.Common;
 
 namespace NekoViBE.Application.Common.Interfaces;
 
-public interface IGenericRepository<T> where T : BaseEntity
+public interface IGenericRepository<T> where T : class, IEntityLike
 {
     Task AddAsync(T entity);
     Task AddRangeAsync(IEnumerable<T> entities);

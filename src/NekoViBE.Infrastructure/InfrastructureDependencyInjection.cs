@@ -38,7 +38,6 @@ public static class InfrastructureDependencyInjection
             options.UseSqlServer(connectionString, sql =>
             {
                 sql.MigrationsAssembly(typeof(NekoViDbContext).Assembly.FullName);
-                sql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
                 sql.CommandTimeout(30);
             });
             options.ConfigureWarnings(warnings =>
@@ -91,19 +90,16 @@ public static class InfrastructureDependencyInjection
         // Configure Email settings
         //services.Configure<EmailSettings>(configuration.GetSection("Email"));
 
-
         // Register repositories
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
         // Register Unit of Work
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-        // Register storage services
-
-
         // Register services
         services.AddScoped<IJwtService, JwtService>();
-
+        services.AddScoped<IIdentityService, IdentityService>();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
         return services;
     }
 }

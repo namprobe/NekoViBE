@@ -67,7 +67,14 @@ public class GlobalExceptionHandlingMiddleware
     {
         return exception switch
         {
-            ValidationException validationEx => (
+            FluentValidation.ValidationException fluentValidationEx => (
+                HttpStatusCode.BadRequest,
+                ErrorCodeEnum.ValidationFailed,
+                "Validation failed",
+                fluentValidationEx.Errors.Select(e => e.ErrorMessage).ToList()
+            ),
+            
+            NekoViBE.Application.Common.Exceptions.ValidationException validationEx => (
                 HttpStatusCode.BadRequest,
                 ErrorCodeEnum.ValidationFailed,
                 "Validation failed",

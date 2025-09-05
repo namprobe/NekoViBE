@@ -5,7 +5,7 @@ public class JwtSettings
     /// <summary>
     /// Secret key for signing tokens
     /// </summary>
-    public string Secret { get; set; } = string.Empty;
+    public string Key { get; set; } = string.Empty;
     
     /// <summary>
     /// Token issuer
