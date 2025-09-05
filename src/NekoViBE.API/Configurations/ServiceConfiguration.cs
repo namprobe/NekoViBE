@@ -14,10 +14,16 @@ public static class ServiceConfiguration
         // Core ASP.NET services
         builder.Services.AddControllers();
         builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen();
+        
+        // Custom Swagger configuration with tagging and styling
+        builder.Services.AddSwaggerConfiguration();
 
         // Cross-cutting concerns
         builder.AddLoggingConfiguration();
+        
+        // Security configurations
+        builder.Services.AddJwtConfiguration(builder.Configuration);
+        builder.Services.AddCorsConfiguration(builder.Configuration);
 
         // Application & Infrastructure layers
         builder.Services.AddApplication();
@@ -36,11 +42,17 @@ public static class ServiceConfiguration
     {
         if (app.Environment.IsDevelopment())
         {
-            app.UseSwagger();
-            app.UseSwaggerUI();
+            // Use custom Swagger configuration with styling and tagging
+            app.UseSwaggerConfiguration(app.Environment);
         }
 
         app.UseHttpsRedirection();
+        
+        // Enable static files for Swagger custom CSS
+        app.UseStaticFiles();
+        
+        // Enable CORS
+        app.UseCorsConfiguration();
 
         // API-specific middlewares (exception handling, JWT, etc.)
         app.UseApiConfiguration();

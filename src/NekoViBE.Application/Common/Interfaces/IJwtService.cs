@@ -32,8 +32,8 @@ public interface IJwtService
     /// <summary>
     /// Generate refresh token for a user
     /// </summary>
-    /// <returns>Refresh token string</returns>
-    string GenerateRefreshToken();
+    /// <returns>Refresh token string and expiration time</returns>
+    (string refreshToken, DateTime refreshTokenExpiryTime) GenerateRefreshTokenWithExpiration();
     
     /// <summary>
     /// Validate JWT token

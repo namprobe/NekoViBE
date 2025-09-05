@@ -46,9 +46,9 @@ public static class SwaggerConfiguration
                 var relativePath = api.RelativePath?.ToLower();
                 string mainTag;
                 
-                if (relativePath?.Contains("/admin/") == true)
+                if (relativePath?.Contains("/cms/") == true)
                 {
-                    mainTag = "Admin";
+                    mainTag = "CMS";
                 }
                 else if (relativePath?.Contains("/customer/") == true)
                 {

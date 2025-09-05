@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using NekoViBE.Application.Common.DTOs.Auth;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Models;
+using NekoViBE.Domain.Enums;
 
 namespace NekoViBE.API.Attributes;
 
@@ -71,7 +72,7 @@ public class CustomerRoleAccessFilter : SystemAccessFilterBase
 {
     protected override bool IsAuthorizedForSystem(AuthResponse user)
     {
-        return HasRole(user, "Customer") || HasRole(user, "Staff") || HasRole(user, "Admin");
+        return HasRole(user, RoleEnum.Customer.ToString()) || HasRole(user, RoleEnum.Staff.ToString()) || HasRole(user, RoleEnum.Admin.ToString());
     }
     
     protected override string GetSystemName()
@@ -92,7 +93,7 @@ public class StaffRoleAccessFilter : SystemAccessFilterBase
 {
     protected override bool IsAuthorizedForSystem(AuthResponse user)
     {
-        return HasRole(user, "Staff") || HasRole(user, "Admin");
+        return HasRole(user, RoleEnum.Staff.ToString()) || HasRole(user, RoleEnum.Admin.ToString());
     }
     
     protected override string GetSystemName()
@@ -113,12 +114,12 @@ public class AdminRoleAccessFilter : SystemAccessFilterBase
 {
     protected override bool IsAuthorizedForSystem(AuthResponse user)
     {
-        return HasRole(user, "Admin") || HasRole(user, "Staff");
+        return HasRole(user, RoleEnum.Admin.ToString()) || HasRole(user, RoleEnum.Staff.ToString());
     }
     
     protected override string GetSystemName()
     {
-        return "Admin Portal";
+        return "CMS System";
     }
     
     protected override string GetAllowedRolesDescription()

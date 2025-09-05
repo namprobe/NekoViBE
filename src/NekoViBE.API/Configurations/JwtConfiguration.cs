@@ -16,12 +16,12 @@ public static class JwtConfiguration
         IConfiguration configuration, bool requireHttps = false)
     {
         // Get JWT settings
-        var jwtSecret = configuration["Jwt:Secret"];
+        var jwtKey = configuration["Jwt:Key"];
         var jwtIssuer = configuration["Jwt:Issuer"];
         var audience = configuration["Jwt:Audience"];
 
-        if (string.IsNullOrEmpty(jwtSecret))
-            throw new ArgumentNullException(nameof(jwtSecret), "JWT Secret is not configured");
+        if (string.IsNullOrEmpty(jwtKey))
+            throw new ArgumentNullException(nameof(jwtKey), "JWT Key is not configured");
 
         if (string.IsNullOrEmpty(jwtIssuer))
             throw new ArgumentNullException(nameof(jwtIssuer), "JWT Issuer is not configured");
@@ -30,7 +30,7 @@ public static class JwtConfiguration
             throw new ArgumentNullException(nameof(audience), "JWT Audience is not configured");
 
         // Add JWT authentication
-        var key = Encoding.UTF8.GetBytes(jwtSecret);
+        var key = Encoding.UTF8.GetBytes(jwtKey);
         services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;

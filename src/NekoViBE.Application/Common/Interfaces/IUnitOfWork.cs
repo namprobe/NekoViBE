@@ -4,7 +4,7 @@ namespace NekoViBE.Application.Common.Interfaces;
 
 public interface IUnitOfWork
 {
-    IGenericRepository<T> Repository<T>() where T : BaseEntity;
+    IGenericRepository<T> Repository<T>() where T : class, IEntityLike;
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);
     Task CommitTransactionAsync(CancellationToken cancellationToken = default);

@@ -35,4 +35,5 @@ public interface INekoViDbContext
     DbSet<PostTag> PostTags { get; set; }
     DbSet<Event> Events { get; set; }
     DbSet<EventProduct> EventProducts { get; set; }
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -3,8 +3,8 @@
     font-size: 16px;
 }
 
-/* Main tags: Admin, Customer */
-.opblock-tag-section h3.opblock-tag[data-tag="Admin"] span,
+/* Main tags: CMS, Customer */
+.opblock-tag-section h3.opblock-tag[data-tag="CMS"] span,
 .opblock-tag-section h3.opblock-tag[data-tag="Customer"] span {
     font-size: 20px !important;
     font-weight: bold !important;
@@ -15,7 +15,7 @@
 }
 
 /* CMS tag */
-.opblock-tag-section h3.opblock-tag[data-tag="Admin"] span {
+.opblock-tag-section h3.opblock-tag[data-tag="CMS"] span {
     border-left: 5px solid #e74c3c !important;
     color: #e74c3c !important;
 }
@@ -42,7 +42,7 @@
 }
 
 /* All CMS sub-tags */
-.opblock-tag-section h3.opblock-tag[data-tag^="Admin_"] span {
+.opblock-tag-section h3.opblock-tag[data-tag^="CMS_"] span {
     border-left: 3px solid #e74c3c !important;
     color: #c0392b !important;
 }

@@ -10,6 +10,7 @@ public class Result<T>
     [JsonPropertyName("message")]
     public string? Message { get; set; }
     [JsonPropertyName("data")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public T? Data { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("errors")]

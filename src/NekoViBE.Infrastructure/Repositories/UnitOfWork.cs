@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Domain.Common;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.AspNetCore.Identity;
 
 namespace NekoViBE.Infrastructure.Repositories;
 
@@ -15,7 +16,7 @@ public class UnitOfWork : IUnitOfWork
         _context = context;
     }
 
-    public IGenericRepository<T> Repository<T>() where T : BaseEntity
+    public IGenericRepository<T> Repository<T>() where T : class, IEntityLike
     {
         if (!_repositories.ContainsKey(typeof(T)))
         {
