@@ -7,14 +7,7 @@ var builder = WebApplication.CreateBuilder(args)
 var app = builder.Build()
     .ConfigurePipeline();
 
-if (app.Environment.IsDevelopment())
-{
-    // Apply pending migrations automatically on startup
-    var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("StartupMigration");
-    await app.ApplyMigrationsAsync(logger);
-    
-    // Seed initial data (roles, admin) if enabled
-    await app.SeedInitialDataAsync(logger);
-}
+// Configure application with proper order: migrations → hangfire → jobs
+await app.ConfigureApplicationAsync();
 
 app.Run();

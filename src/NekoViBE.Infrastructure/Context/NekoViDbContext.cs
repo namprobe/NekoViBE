@@ -51,20 +51,6 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-        // Apply soft delete filter to all entities inheriting from BaseEntity
-        foreach (var entityType in builder.Model.GetEntityTypes())
-        {
-            if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
-            {
-                var parameter = Expression.Parameter(entityType.ClrType, "e");
-                var property = Expression.Property(parameter, nameof(BaseEntity.IsDeleted));
-                var falseConstant = Expression.Constant(false);
-                var condition = Expression.Equal(property, falseConstant);
-                var lambda = Expression.Lambda(condition, parameter);
-                
-                builder.Entity(entityType.ClrType).HasQueryFilter(lambda);
-            }
-        }
 
         // Đổi tên bảng Identity
         builder.Entity<AppUser>().ToTable("Users");
@@ -574,42 +560,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         });
 
         // Gọi cấu hình chung cho BaseEntity
-        ConfigureBaseEntity(builder);
-    }
-
-    private void ConfigureBaseEntity(ModelBuilder modelBuilder)
-    {
-        // Cấu hình chung cho tất cả BaseEntity
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes()
-                     .Where(e => typeof(BaseEntity).IsAssignableFrom(e.ClrType)))
-        {
-            // Primary key
-            modelBuilder.Entity(entityType.ClrType).HasKey("Id");
-            
-            // Default values for audit fields
-            modelBuilder.Entity(entityType.ClrType)
-                .Property<DateTime?>("CreatedAt")
-                .HasDefaultValueSql("(getdate())")
-                .HasColumnType("datetime");
-                
-            modelBuilder.Entity(entityType.ClrType)
-                .Property<DateTime?>("UpdatedAt")
-                .HasColumnType("datetime");
-            
-            modelBuilder.Entity(entityType.ClrType)
-                .Property<DateTime?>("DeletedAt")
-                .HasColumnType("datetime");
-                
-            modelBuilder.Entity(entityType.ClrType)
-                .Property<bool>("IsDeleted")
-                .HasDefaultValue(false);
-
-            // Enum conversions
-            modelBuilder.Entity(entityType.ClrType)
-                .Property<EntityStatusEnum>("Status")
-                .HasConversion<int>();
-            
-        }
+        BaseEntityConfigurationHelper.ConfigureBaseEntities(builder);
     }
 }
     

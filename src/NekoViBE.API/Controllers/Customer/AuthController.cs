@@ -10,6 +10,7 @@ using NekoViBE.Application.Features.Auth.Commands.Register;
 using NekoViBE.API.Attributes;
 using NekoViBE.Domain.Enums;
 using NekoViBE.Application.Features.Auth.Queries.GetProfile;
+using NekoViBE.Application.Features.Auth.Commands.VerifyOtp;
 
 
 namespace NekoViBE.API.Controllers.Customer;
@@ -118,7 +119,7 @@ public class AuthController : ControllerBase
     /// Register a new customer
     /// </summary>
     /// <remarks>
-    /// This API is used for Registering a new customer. It will create a new customer in the database.
+    /// This API is used for Registering a new customer. It will cache an OTP code and send it to the user's email or phone number for verification.
     /// 
     /// Sample request:
     /// 
@@ -134,7 +135,6 @@ public class AuthController : ControllerBase
     /// - phoneNumber (required): Phone number (10-11 digits)
     /// - gender (optional): Gender (0=Male, 1=Female, 2=Other)
     /// - dateOfBirth (optional): Date of birth (YYYY-MM-DD format)
-    /// - avatar (optional): Avatar image file (jpg, jpeg, png, gif, webp - max 5MB)
     /// 
     /// Note: Use camelCase for form field names to maintain consistency with React client naming conventions.
     /// </remarks>
@@ -160,8 +160,7 @@ public class AuthController : ControllerBase
         [FromForm(Name = "lastName")] string lastName,
         [FromForm(Name = "phoneNumber")] string phoneNumber,
         [FromForm(Name = "gender")] GenderEnum? gender = null,
-        [FromForm(Name = "dateOfBirth")] DateTime? dateOfBirth = null,
-        IFormFile? avatar = null)
+        [FromForm(Name = "dateOfBirth")] DateTime? dateOfBirth = null)
     {
         var request = new RegisterRequest
         {
@@ -173,10 +172,48 @@ public class AuthController : ControllerBase
             PhoneNumber = phoneNumber,
             Gender = gender,
             DateOfBirth = dateOfBirth,
-            Avatar = avatar
         };
 
         var command = new RegisterCommand(request);
+        var result = await _mediator.Send(command);
+        if (!result.IsSuccess)
+        {
+            return StatusCode(result.GetHttpStatusCode(), result);
+        }
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Verify OTP for registration or password reset
+    /// </summary>
+    /// <remarks>
+    /// This API is used for Verifying OTP for registration or password reset. It will verify the OTP code and register the user or reset the password.
+    /// Sample request:
+    /// 
+    ///     POST /api/customer/auth/verify-otp
+    ///     {
+    ///        "contact": "user@example.com",
+    ///        "otp": "123456",
+    ///        "otpType": 1
+    ///        "otpSentChannel": 1
+    ///     }
+    /// 
+    /// `otpType` default is 1 (Registration), 2 (Password Reset)
+    /// `otpSentChannel` default is 1 (Email), 2 (Phone)
+    /// </remarks>
+    [HttpPost("verify-otp")]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
+    [SwaggerOperation(
+        Summary = "Verify OTP for registration",
+        Description = "This API is used for Verifying OTP for registration",
+        OperationId = "VerifyOtp",
+        Tags = new[] { "Customer", "Customer_Auth" }
+    )]
+    public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
+    {
+        var command = new VerifyOtpCommand(request);
         var result = await _mediator.Send(command);
         if (!result.IsSuccess)
         {

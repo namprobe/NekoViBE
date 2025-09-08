@@ -8,87 +8,85 @@ using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Common;
 using System.Transactions;
 using NekoViBE.Domain.Enums;
+using NekoViBE.Application.Common.Helpers;
 
 namespace NekoViBE.Application.Features.Auth.Commands.Register;
 
 public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
 {
     private readonly ILogger<RegisterCommandHandler> _logger;
-    private readonly IIdentityService _identityService;
-    private readonly IMapper _mapper;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly IOtpCacheService _otpCacheService;
+    private readonly INotificationFactory _notificationFactory;
 
-    public RegisterCommandHandler(ILogger<RegisterCommandHandler> logger, IIdentityService identityService, 
-    IMapper mapper, IUnitOfWork unitOfWork)
+    public RegisterCommandHandler(
+        ILogger<RegisterCommandHandler> logger, 
+        IOtpCacheService otpCacheService,
+        INotificationFactory notificationFactory)
     {
         _logger = logger;
-        _identityService = identityService;
-        _mapper = mapper;
-        _unitOfWork = unitOfWork;
+        _otpCacheService = otpCacheService;
+        _notificationFactory = notificationFactory;
     }
     public async Task<Result> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
         try
-        {
-            var user = _mapper.Map<AppUser>(command.Request);
-            user.Id = Guid.NewGuid();
-            var customerProfile = _mapper.Map<CustomerProfile>(command.Request);
-            user.InitializeEnitity(user.Id);
-            customerProfile.UserId = user.Id;
-            customerProfile.InitializeEnitity(customerProfile.Id);
-            using (var scope = new TransactionScope(
-                TransactionScopeOption.Required,
-                new TransactionOptions
-                {
-                    IsolationLevel = IsolationLevel.ReadCommitted,
-                    Timeout = TimeSpan.FromMinutes(1)
-                },
-                TransactionScopeAsyncFlowOption.Enabled
-            ))
-            {
-                var createResult = await _identityService.CreateUserAsync(user, command.Request.Password);
-                if (!createResult.Succeeded)
-                {
-                    var errors = createResult.Errors.Select(e => e.Description).ToList();
-                    return Result.Failure("Failed to create user", ErrorCodeEnum.ValidationFailed, errors);
-                }
-                
-                var roleResult = await _identityService.AddUserToRoleAsync(user, RoleEnum.Customer.ToString());
-                if (!roleResult.Succeeded)
-                {
-                    var errors = roleResult.Errors.Select(e => e.Description).ToList();
-                    return Result.Failure("Failed to add user to role", ErrorCodeEnum.ValidationFailed, errors);
-                }
-                
-                await _unitOfWork.Repository<CustomerProfile>().AddAsync(customerProfile);
+        {   
+            // Determine contact based on channel
+            var channel = command.Request.OtpSentChannel ?? NotificationChannelEnum.Email;
+            var contact = channel == NotificationChannelEnum.Email ? 
+                command.Request.Email : command.Request.PhoneNumber;
 
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-                
-                scope.Complete();
+            if (string.IsNullOrEmpty(contact))
+            {
+                return Result.Failure("Contact information is required", ErrorCodeEnum.ValidationFailed);
             }
 
-            // create shopping cart for customer (no need to wait for the task to complete)
-            _ = Task.Run(async () =>
-            {
-                var newShoppingCart = new ShoppingCart{
-                    UserId = user.Id,
-                };
-                newShoppingCart.InitializeEnitity(user.Id);
-                await _unitOfWork.Repository<ShoppingCart>().AddAsync(newShoppingCart);
-                await _unitOfWork.SaveChangesAsync();
-            });
+            // Generate and store OTP
+            var otpCode = _otpCacheService.GenerateAndStoreOtp(
+                contact, 
+                OtpTypeEnum.Registration, 
+                command.Request, 
+                channel);
 
-            if (command.Request.Avatar != null)
+            // Build notification using static template helper
+            var notification = NotificationTemplateHelper.BuildOtpNotification(
+                contact, 
+                otpCode, 
+                OtpTypeEnum.Registration, 
+                channel, 
+                command.Request,
+                _otpCacheService.ExpirationMinutes);
+
+            // Get notification sender based on channel
+            var notificationSender = _notificationFactory.GetSender(channel);
+
+            // Create recipient info
+            var recipient = new RecipientInfo
             {
-                // upload avatar to storage fire and foreground processing (future feature)
-                _logger.LogInformation("Has file upload, but not implemented yet");
+                Email = channel == NotificationChannelEnum.Email ? contact : null,
+                PhoneNumber = channel == NotificationChannelEnum.Email ? null : contact,
+                FullName = $"{command.Request.FirstName} {command.Request.LastName}".Trim()
+            };
+
+            // Send notification
+            var sendResult = await notificationSender.SendNotificationAsync(notification, recipient);
+
+            if (sendResult.ChannelResults.Any(cr => cr.Success))
+            {
+                _logger.LogInformation("OTP sent successfully to {Contact} via {Channel} for registration", 
+                    contact, channel);
+                return Result.Success($"Registration initiated. Please verify the OTP sent to your {channel.ToString().ToLower()} to complete the registration process.");
             }
-            return Result.Success("Register successfully!");
+            else
+            {
+                _logger.LogError("Failed to send OTP to {Contact} via {Channel}", contact, channel);
+                return Result.Failure("Failed to send verification code. Please try again.", ErrorCodeEnum.InternalError);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error registering");
-            return Result.Failure("Error registering", ErrorCodeEnum.InternalError);
+            _logger.LogError(ex, "Error during registration process");
+            return Result.Failure("Error during registration process", ErrorCodeEnum.InternalError);
         }
     }
 }

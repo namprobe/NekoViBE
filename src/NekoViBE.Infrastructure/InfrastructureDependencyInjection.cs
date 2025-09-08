@@ -8,7 +8,10 @@ using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Infrastructure.Context;
 using NekoViBE.Infrastructure.Repositories;
+using NekoViBE.Infrastructure.Repositories.Outer;
 using NekoViBE.Infrastructure.Services;
+using NekoViBE.Infrastructure.Configurations;
+using NekoViBE.Infrastructure.Factories;
 
 namespace NekoViBE.Infrastructure;
 
@@ -43,6 +46,20 @@ public static class InfrastructureDependencyInjection
             options.ConfigureWarnings(warnings =>
                 warnings.Ignore(CoreEventId.FirstWithoutOrderByAndFilterWarning));
         });
+
+        // Configure Outer Database Context for external services and Hangfire
+        var outerConnectionString = configuration.GetConnectionString("OuterDbConnection");
+        if (!string.IsNullOrEmpty(outerConnectionString))
+        {
+            services.AddDbContextPool<NekoViOuterDbContext>(options =>
+            {
+                options.UseSqlServer(outerConnectionString, sql =>
+                {
+                    sql.MigrationsAssembly(typeof(NekoViOuterDbContext).Assembly.FullName);
+                    sql.CommandTimeout(30);
+                });
+            });
+        }
         // Register contexts as interfaces
         services.AddScoped<INekoViDbContext>(provider => provider.GetRequiredService<NekoViDbContext>());
         // Map DbContext for services that depend on base DbContext (e.g., UnitOfWork)
@@ -81,6 +98,20 @@ public static class InfrastructureDependencyInjection
         // Configure JWT settings
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
 
+        // Configure OTP settings
+        services.Configure<OtpSettings>(configuration.GetSection("OTPSettings"));
+
+        // Configure Google settings
+        services.Configure<GoogleSettings>(configuration.GetSection("GoogleSettings"));
+
+        // Configure Hangfire - DISABLED vì không cần token management nữa
+        // Service Account hoàn toàn tự động
+        var useHangfire = false; // configuration.GetValue("Hangfire:UseOuterDatabase", true);
+        if (useHangfire && !string.IsNullOrEmpty(outerConnectionString))
+        {
+            services.AddHangfireServices(configuration);
+        }
+
         // Configure Storage settings
         //services.Configure<StorageSettings>(configuration.GetSection("Storage"));
 
@@ -88,7 +119,7 @@ public static class InfrastructureDependencyInjection
         //services.Configure<VNPaySettings>(configuration.GetSection("VNPay"));
 
         // Configure Email settings
-        //services.Configure<EmailSettings>(configuration.GetSection("Email"));
+        services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
 
         // Register repositories
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
@@ -96,10 +127,21 @@ public static class InfrastructureDependencyInjection
         // Register Unit of Work
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
+        // Register Outer Unit of Work for external services
+        services.AddScoped<IOuterUnitOfWork, OuterUnitOfWork>();
+        services.AddScoped<OuterUnitOfWork>(); // For direct injection in handlers
+
         // Register services
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<IOtpCacheService, OtpCacheService>();
+        services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<INotificationFactory, NotificationFactory>();
+        services.AddScoped<IFirebaseService, FirebaseService>();
+        // External services
+        
+        
         return services;
     }
 }
