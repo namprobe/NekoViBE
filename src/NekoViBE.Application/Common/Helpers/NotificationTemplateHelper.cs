@@ -7,10 +7,10 @@ namespace NekoViBE.Application.Common.Helpers;
 
 public static class NotificationTemplateHelper
 {
-    public static NotificationRequest BuildOtpNotification(string contact, string otpCode, OtpTypeEnum otpType, NotificationChannelEnum channel, object? userData = null, int expirationMinutes = 5)
+    public static NotificationRequest BuildOtpNotification(string contact, string otpCode, OtpTypeEnum otpType, NotificationChannelEnum channel, object? userData = null, int expirationMinutes = 5, string? supportEmail = null, string? appName = null)
     {
-        var templateData = GetOtpTemplateData(contact, otpCode, otpType, userData, expirationMinutes);
-        var subject = GetSubject(NotificationTemplateEnums.Otp, otpType, channel);
+        var templateData = GetOtpTemplateData(contact, otpCode, otpType, userData, expirationMinutes, supportEmail, appName);
+        var subject = GetSubject(NotificationTemplateEnums.Otp, otpType, channel, appName);
         var htmlContent = ProcessOtpTemplate(templateData);
 
         return new NotificationRequest
@@ -31,14 +31,14 @@ public static class NotificationTemplateHelper
         };
     }
 
-    public static NotificationRequest BuildWelcomeNotification(string contact, string fullName, NotificationChannelEnum channel)
+    public static NotificationRequest BuildWelcomeNotification(string contact, string fullName, NotificationChannelEnum channel, string? supportEmail = null, string? appName = null)
     {
         var templateData = new Dictionary<string, object>
         {
             ["fullName"] = fullName,
             ["contact"] = contact,
-            ["appName"] = "NekoViBE",
-            ["supportEmail"] = "support@nekovibe.com"
+            ["appName"] = appName ?? "NekoVi",
+            ["supportEmail"] = supportEmail ?? "support@nekovi.com"
         };
 
         var htmlContent = ProcessWelcomeTemplate(templateData);
@@ -46,7 +46,7 @@ public static class NotificationTemplateHelper
         return new NotificationRequest
         {
             To = contact,
-            Subject = GetSubject(NotificationTemplateEnums.Welcome, channel: channel),
+            Subject = GetSubject(NotificationTemplateEnums.Welcome, channel: channel, appName: appName),
             Content = htmlContent,
             HtmlContent = htmlContent,
             Template = NotificationTemplateEnums.Welcome,
@@ -55,16 +55,16 @@ public static class NotificationTemplateHelper
         };
     }
 
-    public static Dictionary<string, object> GetOtpTemplateData(string contact, string otpCode, OtpTypeEnum otpType, object? userData = null, int expirationMinutes = 5)
+    public static Dictionary<string, object> GetOtpTemplateData(string contact, string otpCode, OtpTypeEnum otpType, object? userData = null, int expirationMinutes = 5, string? supportEmail = null, string? appName = null)
     {
         var templateData = new Dictionary<string, object>
         {
             ["otpCode"] = otpCode,
             ["contact"] = contact,
             ["otpType"] = otpType.ToString(),
-            ["appName"] = "NekoViBE",
+            ["appName"] = appName ?? "NekoVi",
             ["expirationMinutes"] = expirationMinutes.ToString(),
-            ["supportEmail"] = "support@nekovibe.com"
+            ["supportEmail"] = supportEmail ?? "support@nekovi.com"
         };
 
         // Set default fullName from contact (email or phone)
@@ -76,7 +76,7 @@ public static class NotificationTemplateHelper
         {
             case OtpTypeEnum.Registration:
                 templateData["action"] = "complete your registration";
-                templateData["actionDescription"] = "Welcome to NekoViBE! Please verify your account to get started.";
+                templateData["actionDescription"] = $"Welcome to {templateData["appName"]}! Please verify your account to get started.";
                 
                 // Add registration specific data from userData
                 if (userData is RegisterRequest registerData)
@@ -110,18 +110,19 @@ public static class NotificationTemplateHelper
         return templateData;
     }
 
-    public static string GetSubject(NotificationTemplateEnums template, OtpTypeEnum? otpType = null, NotificationChannelEnum channel = NotificationChannelEnum.Email)
+    public static string GetSubject(NotificationTemplateEnums template, OtpTypeEnum? otpType = null, NotificationChannelEnum channel = NotificationChannelEnum.Email, string? appName = null)
     {
+        var appTitle = appName ?? "NekoVi";
         return template switch
         {
             NotificationTemplateEnums.Otp => otpType switch
             {
-                OtpTypeEnum.Registration => "NekoViBE - Complete Your Registration",
-                OtpTypeEnum.PasswordReset => "NekoViBE - Password Reset Request",
-                _ => "NekoViBE - Verification Code"
+                OtpTypeEnum.Registration => $"{appTitle} - Complete Your Registration",
+                OtpTypeEnum.PasswordReset => $"{appTitle} - Password Reset Request",
+                _ => $"{appTitle} - Verification Code"
             },
-            NotificationTemplateEnums.Welcome => "Welcome to NekoViBE!",
-            _ => "NekoViBE Notification"
+            NotificationTemplateEnums.Welcome => $"Welcome to {appTitle}!",
+            _ => $"{appTitle} Notification"
         };
     }
 

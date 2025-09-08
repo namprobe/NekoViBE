@@ -1,4 +1,5 @@
 using System.Net.Mail;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NekoViBE.Application.Common.Enums;
@@ -11,13 +12,16 @@ public class EmailService : IEmailService
 {
     private readonly EmailSettings _emailSettings;
     private readonly ILogger<EmailService> _logger;
+    private readonly IConfiguration _configuration;
 
     public EmailService(
         IOptions<EmailSettings> emailSettings, 
-        ILogger<EmailService> logger)
+        ILogger<EmailService> logger,
+        IConfiguration configuration)
     {
         _emailSettings = emailSettings.Value;
         _logger = logger;
+        _configuration = configuration;
     }
 
     public Task<List<NotificationSendResult>> SendMultiCastAsync(NotificationRequest message, List<RecipientInfo> recipients)
@@ -31,6 +35,8 @@ public class EmailService : IEmailService
         {
             // Use the pre-built HTML content from the notification request
             string htmlContent = message.HtmlContent ?? message.Content;
+            string appName = _configuration["AppSettings:AppName"] ?? "NekoVi";
+            string supportEmail = _configuration["AppSettings:SupportEmail"] ?? "support@nekovibe.com";
 
             // Send email using SMTP client
             using (var client = new SmtpClient(_emailSettings.SmtpServer, _emailSettings.SmtpPort))

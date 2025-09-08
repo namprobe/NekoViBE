@@ -1,5 +1,6 @@
 using AutoMapper;
 using MediatR;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
@@ -17,15 +18,18 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
     private readonly ILogger<RegisterCommandHandler> _logger;
     private readonly IOtpCacheService _otpCacheService;
     private readonly INotificationFactory _notificationFactory;
+    private readonly IConfiguration _configuration;
 
     public RegisterCommandHandler(
         ILogger<RegisterCommandHandler> logger, 
         IOtpCacheService otpCacheService,
-        INotificationFactory notificationFactory)
+        INotificationFactory notificationFactory,
+        IConfiguration configuration)
     {
         _logger = logger;
         _otpCacheService = otpCacheService;
         _notificationFactory = notificationFactory;
+        _configuration = configuration;
     }
     public async Task<Result> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
@@ -48,6 +52,10 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
                 command.Request, 
                 channel);
 
+            // Get app settings from configuration
+            var appName = _configuration["AppSettings:AppName"] ?? "NekoVi";
+            var supportEmail = _configuration["AppSettings:SupportEmail"] ?? "support@nekovi.com";
+
             // Build notification using static template helper
             var notification = NotificationTemplateHelper.BuildOtpNotification(
                 contact, 
@@ -55,7 +63,9 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
                 OtpTypeEnum.Registration, 
                 channel, 
                 command.Request,
-                _otpCacheService.ExpirationMinutes);
+                _otpCacheService.ExpirationMinutes,
+                supportEmail,
+                appName);
 
             // Get notification sender based on channel
             var notificationSender = _notificationFactory.GetSender(channel);
