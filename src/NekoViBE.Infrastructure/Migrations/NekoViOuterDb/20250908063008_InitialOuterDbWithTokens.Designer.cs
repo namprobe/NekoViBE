@@ -12,7 +12,7 @@ using NekoViBE.Infrastructure.Context;
 namespace NekoViBE.Infrastructure.Migrations.NekoViOuterDb
 {
     [DbContext(typeof(NekoViOuterDbContext))]
-    [Migration("20250907063757_InitialOuterDbWithTokens")]
+    [Migration("20250908063008_InitialOuterDbWithTokens")]
     partial class InitialOuterDbWithTokens
     {
         /// <inheritdoc />
