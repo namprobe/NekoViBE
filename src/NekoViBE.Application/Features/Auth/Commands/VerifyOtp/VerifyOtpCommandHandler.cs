@@ -1,0 +1,106 @@
+using System.Transactions;
+using AutoMapper;
+using MediatR;
+using Microsoft.Extensions.Logging;
+using NekoViBE.Application.Common.DTOs.Auth;
+using NekoViBE.Application.Common.Enums;
+using NekoViBE.Application.Common.Interfaces;
+using NekoViBE.Application.Common.Models;
+using NekoViBE.Domain.Common;
+using NekoViBE.Domain.Entities;
+using NekoViBE.Domain.Enums;
+
+namespace NekoViBE.Application.Features.Auth.Commands.VerifyOtp;
+
+public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
+{
+    private readonly IOtpCacheService _otpCacheService;
+    private readonly ILogger<VerifyOtpCommandHandler> _logger;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+    private readonly IIdentityService _identityService;
+
+    public VerifyOtpCommandHandler(IOtpCacheService otpCacheService, ILogger<VerifyOtpCommandHandler> logger, IUnitOfWork unitOfWork, IIdentityService identityService, IMapper mapper)
+    {
+        _otpCacheService = otpCacheService;
+        _logger = logger;
+        _unitOfWork = unitOfWork;
+        _identityService = identityService;
+        _mapper = mapper;
+    }
+
+    public async Task<Result> Handle(VerifyOtpCommand command, CancellationToken cancellationToken)
+    {
+        try
+        {
+            //1. Verify OTP
+            var otpResult = _otpCacheService.VerifyOtp(command.Request.Contact, command.Request.Otp, command.Request.OtpType, command.Request.OtpSentChannel);
+            if (!otpResult.Success)
+            {
+                return Result.Failure(otpResult.Message, ErrorCodeEnum.ValidationFailed);
+            }
+            //2. If OTP is valid, proceed with user registration or password reset based on OTP type
+            var registerRequest = (RegisterRequest)otpResult.UserData;
+            if (registerRequest == null)
+            {
+                return Result.Failure("User data is missing after OTP verification.", ErrorCodeEnum.NotFound);
+            }
+            var user = _mapper.Map<AppUser>(registerRequest);
+            user.Id = Guid.NewGuid();
+            var customerProfile = _mapper.Map<CustomerProfile>(registerRequest);
+            user.InitializeEntity(user.Id);
+            customerProfile.UserId = user.Id;
+            customerProfile.InitializeEntity(customerProfile.Id);
+            using (var scope = new TransactionScope(
+                TransactionScopeOption.Required,
+                new TransactionOptions
+                {
+                    IsolationLevel = IsolationLevel.ReadCommitted,
+                    Timeout = TimeSpan.FromMinutes(1)
+                },
+                TransactionScopeAsyncFlowOption.Enabled
+            ))
+            {
+                var createResult = await _identityService.CreateUserAsync(user, registerRequest.Password);
+                if (!createResult.Succeeded)
+                {
+                    var errors = createResult.Errors.Select(e => e.Description).ToList();
+                    return Result.Failure("Failed to create user", ErrorCodeEnum.ValidationFailed, errors);
+                }
+
+                var roleResult = await _identityService.AddUserToRoleAsync(user, RoleEnum.Customer.ToString());
+                if (!roleResult.Succeeded)
+                {
+                    var errors = roleResult.Errors.Select(e => e.Description).ToList();
+                    return Result.Failure("Failed to add user to role", ErrorCodeEnum.ValidationFailed, errors);
+                }
+
+                await _unitOfWork.Repository<CustomerProfile>().AddAsync(customerProfile);
+
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                scope.Complete();
+            }
+
+            // create shopping cart for customer and remove OTP from cache (no need to wait for the task to complete)
+            _ = Task.Run(async () =>
+            {
+                _otpCacheService.RemoveOtp(command.Request.Contact, command.Request.OtpType);
+                var newShoppingCart = new ShoppingCart
+                {
+                    UserId = user.Id,
+                };
+                newShoppingCart.InitializeEntity(user.Id);
+                await _unitOfWork.Repository<ShoppingCart>().AddAsync(newShoppingCart);
+                await _unitOfWork.SaveChangesAsync();
+            });
+            //todo : send welcome email via background task (future)
+            return Result.Success("OTP verified and user registered successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying OTP for {Contact}", command.Request.Contact);
+            return Result.Failure("An error occurred while verifying the OTP.", ErrorCodeEnum.InternalError);
+        }
+    }
+}

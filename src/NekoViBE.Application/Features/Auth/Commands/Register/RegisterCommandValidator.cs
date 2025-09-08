@@ -1,16 +1,24 @@
 using FluentValidation;
+using NekoViBE.Application.Common.Interfaces;
+using NekoViBE.Domain.Entities;
 namespace NekoViBE.Application.Features.Auth.Commands.Register;
 
 public class RegisterCommandValidator : AbstractValidator<RegisterCommand>
 {
-    private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
-    private const int MaxFileSizeBytes = 5 * 1024 * 1024; // 5MB
+    // private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+    // private const int MaxFileSizeBytes = 5 * 1024 * 1024; // 5MB
+    private readonly IUnitOfWork _unitOfWork;
 
-    public RegisterCommandValidator()
+    public RegisterCommandValidator(IUnitOfWork unitOfWork)
     {
+        _unitOfWork = unitOfWork;
+
+       
         RuleFor(x => x.Request.Email)
             .NotEmpty().WithMessage("Email is required")
-            .EmailAddress().WithMessage("Invalid email format");
+            .EmailAddress().WithMessage("Invalid email format")
+            .MustAsync(async (email, cancellationToken) => !await _unitOfWork.Repository<AppUser>().AnyAsync(x => x.Email == email))
+            .WithMessage("Email already exists");
 
         RuleFor(x => x.Request.Password)
             .NotEmpty().WithMessage("Password is required")
@@ -30,34 +38,36 @@ public class RegisterCommandValidator : AbstractValidator<RegisterCommand>
 
         RuleFor(x => x.Request.PhoneNumber)
             .NotEmpty().WithMessage("Phone number is required")
-            .Matches(@"^[0-9]{10,11}$").WithMessage("Invalid phone number format");
+            .Matches(@"^[0-9]{10,11}$").WithMessage("Invalid phone number format")
+            .MustAsync(async (phoneNumber, cancellationToken) => !await _unitOfWork.Repository<AppUser>().AnyAsync(x => x.PhoneNumber == phoneNumber))
+            .WithMessage("Phone number already exists");
 
         RuleFor(x => x.Request.Gender)
             .IsInEnum().When(x => x.Request.Gender.HasValue)
             .WithMessage("Invalid gender value");
-        
+
         // Avatar validation - only when avatar is not null
-        RuleFor(x => x.Request.Avatar)
-            .Must(BeValidImageFile)
-            .WithMessage($"Avatar must be an image file ({string.Join(", ", _allowedImageExtensions)}) and less than {MaxFileSizeBytes / (1024 * 1024)}MB")
-            .When(x => x.Request.Avatar != null);
+        // RuleFor(x => x.Request.Avatar)
+        //     .Must(BeValidImageFile)
+        //     .WithMessage($"Avatar must be an image file ({string.Join(", ", _allowedImageExtensions)}) and less than {MaxFileSizeBytes / (1024 * 1024)}MB")
+        //     .When(x => x.Request.Avatar != null);
     }
 
-    private bool BeValidImageFile(Microsoft.AspNetCore.Http.IFormFile? file)
-    {
-        if (file == null) return true; // Allow null files
+    // private bool BeValidImageFile(Microsoft.AspNetCore.Http.IFormFile? file)
+    // {
+    //     if (file == null) return true; // Allow null files
 
-        // Check file size
-        if (file.Length > MaxFileSizeBytes) return false;
+    //     // Check file size
+    //     if (file.Length > MaxFileSizeBytes) return false;
 
-        // Check file extension
-        var extension = System.IO.Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!_allowedImageExtensions.Contains(extension)) return false;
+    //     // Check file extension
+    //     var extension = System.IO.Path.GetExtension(file.FileName).ToLowerInvariant();
+    //     if (!_allowedImageExtensions.Contains(extension)) return false;
 
-        // Check content type
-        var allowedContentTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp" };
-        if (!allowedContentTypes.Contains(file.ContentType?.ToLowerInvariant())) return false;
+    //     // Check content type
+    //     var allowedContentTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp" };
+    //     if (!allowedContentTypes.Contains(file.ContentType?.ToLowerInvariant())) return false;
 
-        return true;
-    }
+    //     return true;
+    // }
 }

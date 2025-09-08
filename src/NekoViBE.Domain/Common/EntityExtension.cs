@@ -2,14 +2,14 @@ namespace NekoViBE.Domain.Common;
 
 public static class EntityExtension
 {
-    public static void InitializeEnitity(this IEntityLike entity, Guid? userId = null)
+    public static void InitializeEntity(this IEntityLike entity, Guid? userId = null)
     {
         entity.Id = entity.Id == Guid.Empty ? Guid.NewGuid() : entity.Id;
         entity.CreatedAt = DateTime.UtcNow;
         entity.CreatedBy = userId ?? Guid.Empty; //Guid.Empty is for system
     }
 
-    public static void UpdateEnitity(this IEntityLike entity, Guid? userId = null, IEntityLike? oldEntity = null)
+    public static void UpdateEntity(this IEntityLike entity, Guid? userId = null, IEntityLike? oldEntity = null)
     {
         if (oldEntity != null)
         {

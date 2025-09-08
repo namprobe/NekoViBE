@@ -1,8 +1,10 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
+using NekoViBE.Application.Common.Enums;
 using NekoViBE.Domain.Enums;
 
 namespace NekoViBE.Application.Common.DTOs.Auth;
+
 public class RegisterRequest
 {
     [JsonPropertyName("email")]
@@ -26,6 +28,7 @@ public class RegisterRequest
     public GenderEnum? Gender { get; set; }
     [JsonPropertyName("dateOfBirth")]
     public DateTime? DateOfBirth { get; set; }
-    [JsonPropertyName("avatar")]
-    public IFormFile? Avatar { get; set; }
+
+    [JsonPropertyName("otpSentChannel")]
+    public NotificationChannelEnum? OtpSentChannel { get; set; } = NotificationChannelEnum.Email;
 }

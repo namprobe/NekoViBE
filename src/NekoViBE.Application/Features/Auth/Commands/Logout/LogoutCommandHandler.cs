@@ -37,7 +37,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
             var user = result.Data!;
             user.RefreshToken = null;
             user.RefreshTokenExpiryTime = null;
-            user.UpdateEnitity(Guid.Parse(userId));
+            user.UpdateEntity(Guid.Parse(userId));
             await _identityService.UpdateUserAsync(user);
             return Result.Success("Logout successfully!");
         }
