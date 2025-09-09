@@ -30,11 +30,11 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
                 return Result.Failure("Not authorized", ErrorCodeEnum.Unauthorized);
             }
             var result = await _identityService.GetUserByIdAsync(userId);
-            if (!result.IsSuccess)
+            if (result == null)
             {
-                return Result.Failure(result.Message?? "User not found", ErrorCodeEnum.NotFound);
+                return Result.Failure("User not found", ErrorCodeEnum.NotFound);
             }
-            var user = result.Data!;
+            var user = result;
             user.RefreshToken = null;
             user.RefreshTokenExpiryTime = null;
             user.UpdateEntity(Guid.Parse(userId));

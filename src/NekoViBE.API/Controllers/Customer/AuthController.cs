@@ -12,6 +12,7 @@ using NekoViBE.Domain.Enums;
 using NekoViBE.Application.Features.Auth.Queries.GetProfile;
 using NekoViBE.Application.Features.Auth.Commands.VerifyOtp;
 using NekoViBE.Application.Features.Auth.Commands.ResetPassword;
+using NekoViBE.Application.Features.Auth.Commands.ChangePassword;
 
 
 namespace NekoViBE.API.Controllers.Customer;
@@ -301,6 +302,53 @@ public class AuthController : ControllerBase
     {
         var query = new GetProfileQuery();
         var result = await _mediator.Send(query);
+        if (!result.IsSuccess)
+        {
+            return StatusCode(result.GetHttpStatusCode(), result);
+        }
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Change password
+    /// </summary>
+    /// <remarks>
+    /// This API is used for Changing password. It will change the password of the currently authenticated user.
+    /// 
+    /// Sample request:
+    /// 
+    ///     POST /api/customer/auth/change-password
+    ///     {
+    ///        "currentPassword": "User@123",
+    ///        "newPassword": "User@123",
+    ///        "confirmPassword": "User@123"
+    ///     }
+    /// </remarks>
+    /// `currentPassword` is required
+    /// `newPassword` is required
+    /// `confirmPassword` is required
+    /// <response code="200">Change password successfully</response>
+    /// <response code="404">Change password failed (user not found)</response>
+    /// <response code="400">Change password failed (validation error)</response>
+    /// <response code="401">Change password failed (not authorized)</response>
+    /// <response code="500">Change password failed (internal server error)</response>
+    [HttpPost("change-password")]
+    [AuthorizeRoles("Customer")]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
+    [SwaggerOperation(
+        Summary = "Change password",
+        Description = "This API is used for Changing password",
+        OperationId = "ChangePassword",
+        Tags = new[] { "Customer", "Customer_Auth" }
+    )]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var command = new ChangePasswordCommand(request);
+        var result = await _mediator.Send(command);
         if (!result.IsSuccess)
         {
             return StatusCode(result.GetHttpStatusCode(), result);

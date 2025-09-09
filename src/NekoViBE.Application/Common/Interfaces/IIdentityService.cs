@@ -13,7 +13,7 @@ public interface IIdentityService
     Task<IdentityResult> CreateUserAsync(AppUser user, string password);
     Task<IdentityResult> AddUserToRoleAsync(AppUser user, string role);
     Task<Result<IList<string>>> GetUserRolesAsync(AppUser user);
-    Task<Result<AppUser>> GetUserByIdAsync(string userId);
+    Task<AppUser> GetUserByIdAsync(string userId);
     Task<AppUser> GetUserByFirstOrDefaultAsync(Expression<Func<AppUser, bool>> predicate);
     Task<Result<bool>> IsEmailDuplicateAsync(AppUser user, string email);
     Task<Result<bool>> IsPhoneNumberDuplicateAsync(AppUser user, string phoneNumber);
@@ -21,5 +21,6 @@ public interface IIdentityService
     Task<IdentityResult> RemoveUserRolesAsync(AppUser user, string role);
     string HashPassword(string password);
     Task<IdentityResult> ResetUserPasswordAsync(Expression<Func<AppUser, bool>> contactPredicate, string newPasswordHash);
+    Task<IdentityResult> ChangePasswordAsync(AppUser user, string currentPassword, string newPassword);
 
 }
