@@ -5,6 +5,7 @@ using NekoViBE.Application.Common.DTOs.Auth;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
+using NekoViBE.Domain.Common;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 
@@ -117,14 +118,12 @@ public class IdentityService : IIdentityService
         }
     }
 
-    public async Task<Result<AppUser>> GetUserByIdAsync(string userId)
+    public async Task<AppUser> GetUserByIdAsync(string userId)
     {
         try
         {
             var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-                return Result<AppUser>.Failure("User not found", ErrorCodeEnum.NotFound);
-            return Result<AppUser>.Success(user);
+            return user;
         }
         catch
         {
@@ -225,6 +224,7 @@ public class IdentityService : IIdentityService
 
             // Gán password mới đã hash
             user.PasswordHash = newPasswordHash;
+            user.UpdateEntity(user.Id);
 
             // Update vào DB
             var updateResult = await _userManager.UpdateAsync(user);
@@ -243,5 +243,18 @@ public class IdentityService : IIdentityService
             throw;
         }
 
+    }
+
+    public async Task<IdentityResult> ChangePasswordAsync(AppUser user, string currentPassword, string newPassword)
+    {
+        try
+        {
+            var result = await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+            return result;
+        }
+        catch
+        {
+            throw;
+        }
     }
 }
