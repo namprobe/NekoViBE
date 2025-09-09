@@ -18,7 +18,6 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
     private readonly ILogger<RegisterCommandHandler> _logger;
     private readonly IOtpCacheService _otpCacheService;
     private readonly INotificationFactory _notificationFactory;
-    private readonly IConfiguration _configuration;
 
     public RegisterCommandHandler(
         ILogger<RegisterCommandHandler> logger, 
@@ -29,7 +28,6 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
         _logger = logger;
         _otpCacheService = otpCacheService;
         _notificationFactory = notificationFactory;
-        _configuration = configuration;
     }
     public async Task<Result> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
@@ -44,28 +42,34 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
             {
                 return Result.Failure("Contact information is required", ErrorCodeEnum.ValidationFailed);
             }
+            
+            // Generate and store OTP with rate limiting check
+            string otpCode;
+            try
+            {
+                otpCode = _otpCacheService.GenerateAndStoreOtp(
+                    contact, 
+                    OtpTypeEnum.Registration, 
+                    command.Request, 
+                    channel);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Rate limiting error - return user-friendly message
+                return Result.Failure(ex.Message, ErrorCodeEnum.TooManyRequests);
+            }
 
-            // Generate and store OTP
-            var otpCode = _otpCacheService.GenerateAndStoreOtp(
-                contact, 
-                OtpTypeEnum.Registration, 
-                command.Request, 
-                channel);
-
-            // Get app settings from configuration
-            var appName = _configuration["AppSettings:AppName"] ?? "NekoVi";
-            var supportEmail = _configuration["AppSettings:SupportEmail"] ?? "support@nekovi.com";
-
-            // Build notification using static template helper
-            var notification = NotificationTemplateHelper.BuildOtpNotification(
-                contact, 
-                otpCode, 
-                OtpTypeEnum.Registration, 
-                channel, 
-                command.Request,
-                _otpCacheService.ExpirationMinutes,
-                supportEmail,
-                appName);
+            // Build minimal notification; EmailService will render by template
+            var notification = new NotificationRequest
+            {
+                To = contact,
+                Template = NotificationTemplateEnums.Otp,
+                TemplateData = new Dictionary<string, object>
+                {
+                    ["otpCode"] = otpCode,
+                    ["otpType"] = OtpTypeEnum.Registration.ToString(),
+                }
+            };
 
             // Get notification sender based on channel
             var notificationSender = _notificationFactory.GetSender(channel);

@@ -19,6 +19,7 @@ public enum ErrorCodeEnum
     InvalidInput = 2002,
     DuplicateEntry = 2003,
     InvalidOperation = 2004,
+    TooManyRequests = 2005,
     
     // Not Found (404)
     NotFound = 3001,

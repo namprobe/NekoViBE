@@ -1,17 +1,27 @@
 using FluentValidation;
+using NekoViBE.Application.Common.Interfaces;
+using NekoViBE.Application.Common.Validators;
 
 namespace NekoViBE.Application.Features.Auth.Commands.Login;
 
-public class LoginCommandValidator : AbstractValidator<LoginCommand>
+public class LoginCommandValidator : BaseAuthValidator<LoginCommand>
 {
-    public LoginCommandValidator()
+    public LoginCommandValidator(IUnitOfWork unitOfWork) : base(unitOfWork)
     {
-        RuleFor(x => x.Request.Email).NotEmpty().WithMessage("Email is required")
-            .EmailAddress().WithMessage("Email is not valid");
-        RuleFor(x => x.Request.Password).NotEmpty().WithMessage("Password is required");
-            //.MinimumLength(8).WithMessage("Password must be at least 8 characters long");
-            //.Must(BeAValidPassword).WithMessage("Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character");
-        
+        SetupValidationRules();
+    }
+
+    protected override void SetupValidationRules()
+    {
+        RuleFor(x => x.Request.Email)
+            .ValidEmail();
+
+        RuleFor(x => x.Request.Password)
+            .NotEmpty().WithMessage("Password is required");
+
+        RuleFor(x => x.Request.GrantType)
+            .IsInEnum()
+            .WithMessage("Grant type is required");
     }
 
     // private static bool BeAValidPassword(string password)
