@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Transactions;
 using AutoMapper;
 using MediatR;
@@ -34,73 +35,118 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
         try
         {
             //1. Verify OTP
-            var otpResult = _otpCacheService.VerifyOtp(command.Request.Contact, command.Request.Otp, command.Request.OtpType, command.Request.OtpSentChannel);
+            var otpResult = _otpCacheService.VerifyOtp(command.Request.Contact, command.Request.Otp,
+             command.Request.OtpType, command.Request.OtpSentChannel);
             if (!otpResult.Success)
             {
                 return Result.Failure(otpResult.Message, ErrorCodeEnum.ValidationFailed);
             }
+
             //2. If OTP is valid, proceed with user registration or password reset based on OTP type
-            var registerRequest = (RegisterRequest)otpResult.UserData;
-            if (registerRequest == null)
+            var userData = otpResult.UserData;
+            if (userData == null)
             {
                 return Result.Failure("User data is missing after OTP verification.", ErrorCodeEnum.NotFound);
             }
-            var user = _mapper.Map<AppUser>(registerRequest);
-            user.Id = Guid.NewGuid();
-            var customerProfile = _mapper.Map<CustomerProfile>(registerRequest);
-            user.InitializeEntity(user.Id);
-            customerProfile.UserId = user.Id;
-            customerProfile.InitializeEntity(customerProfile.Id);
-            using (var scope = new TransactionScope(
-                TransactionScopeOption.Required,
-                new TransactionOptions
-                {
-                    IsolationLevel = IsolationLevel.ReadCommitted,
-                    Timeout = TimeSpan.FromMinutes(1)
-                },
-                TransactionScopeAsyncFlowOption.Enabled
-            ))
+
+            var result = command.Request.OtpType switch
             {
-                var createResult = await _identityService.CreateUserAsync(user, registerRequest.Password);
-                if (!createResult.Succeeded)
+                OtpTypeEnum.Registration => await HandleVerfiyOtpForRegister(command, cancellationToken, userData),
+                OtpTypeEnum.PasswordReset => await HandleVerfiyOtpForResetPassword(command, cancellationToken, userData),
+                _ => Result.Failure("Invalid OTP type.", ErrorCodeEnum.ValidationFailed)
+            };
+            // remove OTP from cache and clear rate limiting tracker (no need to wait for the task to complete)
+            if (result.IsSuccess)
+            {
+                _ = Task.Run(() =>
                 {
-                    var errors = createResult.Errors.Select(e => e.Description).ToList();
-                    return Result.Failure("Failed to create user", ErrorCodeEnum.ValidationFailed, errors);
-                }
-
-                var roleResult = await _identityService.AddUserToRoleAsync(user, RoleEnum.Customer.ToString());
-                if (!roleResult.Succeeded)
-                {
-                    var errors = roleResult.Errors.Select(e => e.Description).ToList();
-                    return Result.Failure("Failed to add user to role", ErrorCodeEnum.ValidationFailed, errors);
-                }
-
-                await _unitOfWork.Repository<CustomerProfile>().AddAsync(customerProfile);
-
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-                scope.Complete();
+                    _otpCacheService.RemoveOtp(command.Request.Contact, command.Request.OtpType);
+                    _otpCacheService.ClearRateLimitTracker(command.Request.Contact); // Clear rate limiting after successful verification
+                });
             }
-
-            // create shopping cart for customer and remove OTP from cache (no need to wait for the task to complete)
-            _ = Task.Run(async () =>
-            {
-                _otpCacheService.RemoveOtp(command.Request.Contact, command.Request.OtpType);
-                var newShoppingCart = new ShoppingCart
-                {
-                    UserId = user.Id,
-                };
-                newShoppingCart.InitializeEntity(user.Id);
-                await _unitOfWork.Repository<ShoppingCart>().AddAsync(newShoppingCart);
-                await _unitOfWork.SaveChangesAsync();
-            });
-            //todo : send welcome email via background task (future)
-            return Result.Success("OTP verified and user registered successfully.");
+            return result;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error verifying OTP for {Contact}", command.Request.Contact);
             return Result.Failure("An error occurred while verifying the OTP.", ErrorCodeEnum.InternalError);
         }
+    }
+
+    private async Task<Result> HandleVerfiyOtpForRegister(VerifyOtpCommand command, CancellationToken cancellationToken, object userData)
+    {
+        var registerRequest = (RegisterRequest)userData;
+        var user = _mapper.Map<AppUser>(registerRequest);
+        user.Id = Guid.NewGuid();
+        var customerProfile = _mapper.Map<CustomerProfile>(registerRequest);
+        user.InitializeEntity(user.Id);
+        customerProfile.UserId = user.Id;
+        customerProfile.InitializeEntity(customerProfile.Id);
+        using (var scope = new TransactionScope(
+            TransactionScopeOption.Required,
+            new TransactionOptions
+            {
+                IsolationLevel = IsolationLevel.ReadCommitted,
+                Timeout = TimeSpan.FromMinutes(1)
+            },
+            TransactionScopeAsyncFlowOption.Enabled
+        ))
+        {
+            var createResult = await _identityService.CreateUserAsync(user, registerRequest.Password);
+            if (!createResult.Succeeded)
+            {
+                var errors = createResult.Errors.Select(e => e.Description).ToList();
+                return Result.Failure("Failed to create user", ErrorCodeEnum.ValidationFailed, errors);
+            }
+
+            var roleResult = await _identityService.AddUserToRoleAsync(user, RoleEnum.Customer.ToString());
+            if (!roleResult.Succeeded)
+            {
+                var errors = roleResult.Errors.Select(e => e.Description).ToList();
+                return Result.Failure("Failed to add user to role", ErrorCodeEnum.ValidationFailed, errors);
+            }
+
+            await _unitOfWork.Repository<CustomerProfile>().AddAsync(customerProfile);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            scope.Complete();
+        }
+
+        // create shopping cart for customer and remove OTP from cache (no need to wait for the task to complete)
+        _ = Task.Run(async () =>
+        {
+            var newShoppingCart = new ShoppingCart
+            {
+                UserId = user.Id,
+            };
+            newShoppingCart.InitializeEntity(user.Id);
+            await _unitOfWork.Repository<ShoppingCart>().AddAsync(newShoppingCart);
+            await _unitOfWork.SaveChangesAsync();
+        });
+
+
+        //todo : send welcome email via background task (future)
+        return Result.Success("User registered successfully.");
+    }
+
+    private async Task<Result> HandleVerfiyOtpForResetPassword(VerifyOtpCommand command, CancellationToken cancellationToken, object userData)
+    {
+        var passwordHash = (string)userData;
+        Expression<Func<AppUser, bool>> expression = command.Request.OtpSentChannel switch
+        {
+            NotificationChannelEnum.Email => x => x.Email == command.Request.Contact,
+            NotificationChannelEnum.SMS => x => x.PhoneNumber == command.Request.Contact,
+            _ => throw new ArgumentException("Invalid notification channel.")
+        };
+
+        var updateResult = await _identityService.ResetUserPasswordAsync(expression, passwordHash);
+        if (!updateResult.Succeeded)
+        {
+            var errors = updateResult.Errors.Select(e => e.Description).ToList();
+            return Result.Failure("Failed to update user", ErrorCodeEnum.InternalError, errors);
+        }
+
+        return Result.Success("Password reset successfully.");
     }
 }

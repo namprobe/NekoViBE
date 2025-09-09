@@ -95,6 +95,9 @@ public static class InfrastructureDependencyInjection
             options.TokenLifespan = TimeSpan.FromHours(24);
         });
 
+        //config app settings
+        services.Configure<AppSettings>(configuration.GetSection("AppSettings"));
+
         // Configure JWT settings
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
 

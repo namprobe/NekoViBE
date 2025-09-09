@@ -21,6 +21,10 @@ public interface IOtpCacheService
     int GetActiveCacheCount();
     void ClearAllCache();
 
+    // Rate Limiting Operations
+    void ClearRateLimitTracker(string contact);
+    (bool IsBlocked, TimeSpan? RemainingTime) GetRateLimitStatus(string contact);
+
     // Settings
     int ExpirationMinutes { get; }
 }

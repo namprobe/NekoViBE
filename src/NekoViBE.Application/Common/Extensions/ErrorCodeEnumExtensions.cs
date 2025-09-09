@@ -25,6 +25,9 @@ public static class ErrorCodeEnumExtensions
             ErrorCodeEnum.InvalidFileType => StatusCodes.Status400BadRequest,
             ErrorCodeEnum.FileSizeTooLarge => StatusCodes.Status400BadRequest,
             
+            // 429 Too Many Requests
+            ErrorCodeEnum.TooManyRequests => StatusCodes.Status429TooManyRequests,
+            
             // 401 Unauthorized
             ErrorCodeEnum.Unauthorized => StatusCodes.Status401Unauthorized,
             ErrorCodeEnum.InvalidCredentials => StatusCodes.Status401Unauthorized,

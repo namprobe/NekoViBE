@@ -11,6 +11,7 @@ using NekoViBE.API.Attributes;
 using NekoViBE.Domain.Enums;
 using NekoViBE.Application.Features.Auth.Queries.GetProfile;
 using NekoViBE.Application.Features.Auth.Commands.VerifyOtp;
+using NekoViBE.Application.Features.Auth.Commands.ResetPassword;
 
 
 namespace NekoViBE.API.Controllers.Customer;
@@ -175,6 +176,49 @@ public class AuthController : ControllerBase
         };
 
         var command = new RegisterCommand(request);
+        var result = await _mediator.Send(command);
+        if (!result.IsSuccess)
+        {
+            return StatusCode(result.GetHttpStatusCode(), result);
+        }
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Reset password
+    /// </summary>
+    /// <remarks>
+    /// This API is used for Resetting password. It will cache an OTP code and send it to the user's email or phone number for verification.
+    /// 
+    /// Sample request:
+    /// 
+    ///     POST /api/customer/auth/reset-password
+    ///     {
+    ///        "contact": "user@example.com",
+    ///        "newPassword": "User@123",
+    ///        "otpSentChannel": 1
+    ///     }
+    /// 
+    /// `otpSentChannel` default is 1 (Email), 2 (Phone). 
+    /// `newPassword` is required
+    /// `contact` is required
+    /// </remarks>
+    /// <response code="200">Reset password successfully</response>
+    /// <response code="400">Reset password failed (validation error)</response>
+    /// <response code="500">Reset password failed (internal server error)</response>
+    [HttpPost("reset-password")]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
+    [SwaggerOperation(
+        Summary = "Reset password",
+        Description = "This API is used for Resetting password",
+        OperationId = "ResetPassword",
+        Tags = new[] { "Customer", "Customer_Auth" }
+    )]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        var command = new ResetPasswordCommand(request);
         var result = await _mediator.Send(command);
         if (!result.IsSuccess)
         {

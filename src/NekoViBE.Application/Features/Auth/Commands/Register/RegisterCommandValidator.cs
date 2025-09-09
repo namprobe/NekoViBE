@@ -1,50 +1,46 @@
 using FluentValidation;
 using NekoViBE.Application.Common.Interfaces;
-using NekoViBE.Domain.Entities;
+using NekoViBE.Application.Common.Validators;
+
 namespace NekoViBE.Application.Features.Auth.Commands.Register;
 
-public class RegisterCommandValidator : AbstractValidator<RegisterCommand>
+public class RegisterCommandValidator : BaseAuthValidator<RegisterCommand>
 {
     // private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
     // private const int MaxFileSizeBytes = 5 * 1024 * 1024; // 5MB
-    private readonly IUnitOfWork _unitOfWork;
 
-    public RegisterCommandValidator(IUnitOfWork unitOfWork)
+    public RegisterCommandValidator(IUnitOfWork unitOfWork) : base(unitOfWork)
     {
-        _unitOfWork = unitOfWork;
+        SetupValidationRules();
+    }
 
-       
+    protected override void SetupValidationRules()
+    {
         RuleFor(x => x.Request.Email)
-            .NotEmpty().WithMessage("Email is required")
-            .EmailAddress().WithMessage("Invalid email format")
-            .MustAsync(async (email, cancellationToken) => !await _unitOfWork.Repository<AppUser>().AnyAsync(x => x.Email == email))
-            .WithMessage("Email already exists");
+            .ValidEmailUnique(UnitOfWork);
 
         RuleFor(x => x.Request.Password)
-            .NotEmpty().WithMessage("Password is required")
-            .MinimumLength(6).WithMessage("Password must be at least 6 characters");
+            .ValidPassword(6);
 
         RuleFor(x => x.Request.ConfirmPassword)
-            .NotEmpty().WithMessage("Confirm password is required")
-            .Equal(x => x.Request.Password).WithMessage("Passwords do not match");
+            .ValidConfirmPassword(x => x.Request.Password);
 
         RuleFor(x => x.Request.FirstName)
-            .NotEmpty().WithMessage("First name is required")
-            .MaximumLength(50).WithMessage("First name cannot exceed 50 characters");
+            .ValidPersonName("First name", 50);
 
         RuleFor(x => x.Request.LastName)
-            .NotEmpty().WithMessage("Last name is required")
-            .MaximumLength(50).WithMessage("Last name cannot exceed 50 characters");
+            .ValidPersonName("Last name", 50);
 
         RuleFor(x => x.Request.PhoneNumber)
-            .NotEmpty().WithMessage("Phone number is required")
-            .Matches(@"^[0-9]{10,11}$").WithMessage("Invalid phone number format")
-            .MustAsync(async (phoneNumber, cancellationToken) => !await _unitOfWork.Repository<AppUser>().AnyAsync(x => x.PhoneNumber == phoneNumber))
-            .WithMessage("Phone number already exists");
+            .ValidPhoneNumberUnique(UnitOfWork);
 
         RuleFor(x => x.Request.Gender)
             .IsInEnum().When(x => x.Request.Gender.HasValue)
             .WithMessage("Invalid gender value");
+
+        RuleFor(x => x.Request.OtpSentChannel)
+            .IsInEnum().When(x => x.Request.OtpSentChannel.HasValue)
+            .WithMessage("Invalid OTP sent channel");
 
         // Avatar validation - only when avatar is not null
         // RuleFor(x => x.Request.Avatar)
