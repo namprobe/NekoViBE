@@ -33,6 +33,10 @@ public static class ApplicationDependencyInjection
             // Đăng ký các profile riêng (ví dụ):
             cfg.AddProfile(new AuthMappingProfile());
             cfg.AddProfile(new PaymentMethodMappingProfile());
+            cfg.AddProfile(new AnimeSeriesMappingProfile());
+            //cfg.AddProfile(new CategoryMappingProfile());
+            //cfg.AddProfile(new ProductMappingProfile());
+
 
             // Và tự động quét tất cả Profile trong assembly này    
             cfg.AddMaps(Assembly.GetExecutingAssembly());
