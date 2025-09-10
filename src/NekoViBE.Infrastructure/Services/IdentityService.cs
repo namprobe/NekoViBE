@@ -55,18 +55,6 @@ public class IdentityService : IIdentityService
         }
     }
 
-    public string HashPassword(string password)
-    {
-        try
-        {
-            return _passwordHasher.HashPassword(null!, password);
-        }
-        catch
-        {
-            throw;
-        }
-    }
-
     public async Task<IdentityResult> CreateUserAsync(AppUser user, string password)
     {
         try
@@ -210,7 +198,19 @@ public class IdentityService : IIdentityService
         }
     }
 
-    public async Task<IdentityResult> ResetUserPasswordAsync(Expression<Func<AppUser, bool>> contactPredicate, string newPasswordHash)
+    public async Task<string> GeneratePasswordResetToken(AppUser user)
+    {
+        try
+        {
+            return await _userManager.GeneratePasswordResetTokenAsync(user);
+        }
+        catch
+        {
+            throw;
+        }
+    }
+
+    public async Task<IdentityResult> ResetUserPasswordAsync(Expression<Func<AppUser, bool>> contactPredicate, string token, string newPassword)
     {
         try
         {
@@ -222,21 +222,10 @@ public class IdentityService : IIdentityService
                 return IdentityResult.Failed(new IdentityError { Code = "UserNotFound", Description = "User not found" });
             }
 
-            // Gán password mới đã hash
-            user.PasswordHash = newPasswordHash;
             user.UpdateEntity(user.Id);
+            var resetResult = await _userManager.ResetPasswordAsync(user, token, newPassword);
 
-            // Update vào DB
-            var updateResult = await _userManager.UpdateAsync(user);
-            if (!updateResult.Succeeded)
-            {
-                return updateResult; // trả về lỗi nếu có
-            }
-
-            // Invalidate tất cả session/token cũ
-            await _userManager.UpdateSecurityStampAsync(user);
-
-            return IdentityResult.Success;
+            return resetResult;
         }
         catch
         {

@@ -17,13 +17,15 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly IIdentityService _identityService;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
     private readonly INotificationFactory _notificationFactory;
+    private readonly string _passwordEncryptKey;
     public ResetPasswordCommandHandler(ILogger<ResetPasswordCommandHandler> logger, IOtpCacheService otpCacheService,
-     IIdentityService identityService, INotificationFactory notificationFactory)
+     IIdentityService identityService, INotificationFactory notificationFactory, IConfiguration configuration)
     {
         _otpCacheService = otpCacheService;
         _identityService = identityService;
         _logger = logger;
         _notificationFactory = notificationFactory;
+        _passwordEncryptKey = configuration.GetValue<string >("PasswordEncryptKey") ?? throw new Exception("PasswordEncryptKey is not set");
     }
 
     public async Task<Result> Handle(ResetPasswordCommand command, CancellationToken cancellationToken)
@@ -43,13 +45,24 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
             {
                 return Result.Failure("User not found", ErrorCodeEnum.NotFound);
             }
-            var passwordHash = _identityService.HashPassword(command.Request.NewPassword);
+            //encrypt password
+            var passwordEncrypt = PasswordCryptoHelper.Encrypt(command.Request.NewPassword, _passwordEncryptKey);
+            
+            //generate token for reset password
+            var token = await _identityService.GeneratePasswordResetToken(user);
+            
+            // Create password reset data to store in cache
+            var passwordResetData = new
+            {
+                EncryptedPassword = passwordEncrypt,
+                ResetToken = token
+            };
 
             //create cache for otp with rate limiting check
             string otp;
             try
             {
-                otp = _otpCacheService.GenerateAndStoreOtp(command.Request.Contact, OtpTypeEnum.PasswordReset, passwordHash, command.Request.OtpSentChannel);
+                otp = _otpCacheService.GenerateAndStoreOtp(command.Request.Contact, OtpTypeEnum.PasswordReset, passwordResetData, command.Request.OtpSentChannel);
             }
             catch (InvalidOperationException ex)
             {
@@ -65,7 +78,6 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
                 PhoneNumber = command.Request.OtpSentChannel == NotificationChannelEnum.SMS ? command.Request.Contact : null,
                 FullName = user.FirstName + " " + user.LastName
             };
-
             // Build minimal notification; EmailService will render by template
             var notification = new NotificationRequest
             {
@@ -82,9 +94,10 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
             var sendResult = await notificationSender.SendNotificationAsync(notification, recipient);
             if (sendResult.ChannelResults.Any(cr => cr.Success))
             {
-                _logger.LogInformation("OTP sent successfully to {Contact} via {Channel} for registration", 
-                    command.Request.Contact, command.Request.OtpSentChannel.ToString().ToLower());
-                return Result.Success($"Registration initiated. Please verify the OTP sent to your {command.Request.OtpSentChannel.ToString().ToLower()}) to complete the registration process.");
+                _logger.LogInformation("OTP sent successfully to {Contact} via {Channel} for reset password", 
+                    command.Request.Contact, command.Request.OtpSentChannel.ToString().ToLower());                    
+                return Result.Success($"Reset password initiated. Please verify the OTP sent to your {command.Request.OtpSentChannel.ToString().ToLower()} to complete the reset password process.");
+
             }
             else
             {

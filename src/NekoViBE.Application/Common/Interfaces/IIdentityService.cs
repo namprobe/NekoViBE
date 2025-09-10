@@ -19,8 +19,8 @@ public interface IIdentityService
     Task<Result<bool>> IsPhoneNumberDuplicateAsync(AppUser user, string phoneNumber);
     Task<IdentityResult> UpdateUserAsync(AppUser user);
     Task<IdentityResult> RemoveUserRolesAsync(AppUser user, string role);
-    string HashPassword(string password);
-    Task<IdentityResult> ResetUserPasswordAsync(Expression<Func<AppUser, bool>> contactPredicate, string newPasswordHash);
+    Task<IdentityResult> ResetUserPasswordAsync(Expression<Func<AppUser, bool>> contactPredicate, string token, string newPassword);
+    Task<string> GeneratePasswordResetToken(AppUser user);
     Task<IdentityResult> ChangePasswordAsync(AppUser user, string currentPassword, string newPassword);
 
 }
