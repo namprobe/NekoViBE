@@ -19,6 +19,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
     public DbSet<Category> Categories { get; set; }
     public DbSet<AnimeSeries> AnimeSeries { get; set; }
     public DbSet<Product> Products { get; set; }
+    public DbSet<ProductInventory> ProductInventories { get; set; }
     public DbSet<ProductImage> ProductImages { get; set; }
     public DbSet<Tag> Tags { get; set; }
     public DbSet<ProductTag> ProductTags { get; set; }
@@ -207,6 +208,16 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.HasIndex(x => x.PreOrderReleaseDate).HasFilter("PreOrderReleaseDate IS NOT NULL");
             entity.HasIndex(x => x.Price);
             entity.HasIndex(x => x.StockQuantity);
+        });
+
+        // ProductInventory
+        builder.Entity<ProductInventory>(entity =>
+        {
+            entity.HasOne(x => x.Product)
+                .WithMany(x => x.ProductInventories)
+                .HasForeignKey(x => x.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => x.ProductId);
         });
 
         // ProductImage
