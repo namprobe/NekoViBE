@@ -33,6 +33,7 @@ public static class ApplicationDependencyInjection
             // Đăng ký các profile riêng (ví dụ):
             cfg.AddProfile(new AuthMappingProfile());
 
+
             // Và tự động quét tất cả Profile trong assembly này    
             cfg.AddMaps(Assembly.GetExecutingAssembly());
         });

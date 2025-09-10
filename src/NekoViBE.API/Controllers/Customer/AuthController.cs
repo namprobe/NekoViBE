@@ -233,13 +233,15 @@ public class AuthController : ControllerBase
     /// </summary>
     /// <remarks>
     /// This API is used for Verifying OTP for registration or password reset. It will verify the OTP code and register the user or reset the password.
+    /// The system automatically handles security tokens internally for enhanced security.
+    /// 
     /// Sample request:
     /// 
     ///     POST /api/customer/auth/verify-otp
     ///     {
     ///        "contact": "user@example.com",
     ///        "otp": "123456",
-    ///        "otpType": 1
+    ///        "otpType": 1,
     ///        "otpSentChannel": 1
     ///     }
     /// 

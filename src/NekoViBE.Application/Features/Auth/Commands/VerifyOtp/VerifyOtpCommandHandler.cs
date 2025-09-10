@@ -10,6 +10,8 @@ using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Common;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
+using Microsoft.Extensions.Configuration;
+using NekoViBE.Application.Common.Helpers;
 
 namespace NekoViBE.Application.Features.Auth.Commands.VerifyOtp;
 
@@ -20,14 +22,17 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly IIdentityService _identityService;
+    private readonly string _passwordEncryptKey;
 
-    public VerifyOtpCommandHandler(IOtpCacheService otpCacheService, ILogger<VerifyOtpCommandHandler> logger, IUnitOfWork unitOfWork, IIdentityService identityService, IMapper mapper)
+    public VerifyOtpCommandHandler(IOtpCacheService otpCacheService, ILogger<VerifyOtpCommandHandler> logger, 
+    IUnitOfWork unitOfWork, IIdentityService identityService, IMapper mapper, IConfiguration configuration)
     {
         _otpCacheService = otpCacheService;
         _logger = logger;
         _unitOfWork = unitOfWork;
         _identityService = identityService;
         _mapper = mapper;
+        _passwordEncryptKey = configuration.GetValue<string>("PasswordEncryptKey") ?? throw new Exception("PasswordEncryptKey is not set");
     }
 
     public async Task<Result> Handle(VerifyOtpCommand command, CancellationToken cancellationToken)
@@ -76,6 +81,8 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
     private async Task<Result> HandleVerfiyOtpForRegister(VerifyOtpCommand command, CancellationToken cancellationToken, object userData)
     {
         var registerRequest = (RegisterRequest)userData;
+        //decrypt password
+        registerRequest.Password = PasswordCryptoHelper.Decrypt(registerRequest.Password, _passwordEncryptKey);
         var user = _mapper.Map<AppUser>(registerRequest);
         user.Id = Guid.NewGuid();
         var customerProfile = _mapper.Map<CustomerProfile>(registerRequest);
@@ -132,7 +139,14 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
 
     private async Task<Result> HandleVerfiyOtpForResetPassword(VerifyOtpCommand command, CancellationToken cancellationToken, object userData)
     {
-        var passwordHash = (string)userData;
+        // Extract password reset data from cached userData
+        dynamic passwordResetData = userData;
+        var encryptedPassword = (string)passwordResetData.EncryptedPassword;
+        var resetToken = (string)passwordResetData.ResetToken;
+        
+        // Decrypt the password to get the plain text for Identity's ResetPasswordAsync
+        var plainPassword = PasswordCryptoHelper.Decrypt(encryptedPassword, _passwordEncryptKey);
+        
         Expression<Func<AppUser, bool>> expression = command.Request.OtpSentChannel switch
         {
             NotificationChannelEnum.Email => x => x.Email == command.Request.Contact,
@@ -140,7 +154,7 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
             _ => throw new ArgumentException("Invalid notification channel.")
         };
 
-        var updateResult = await _identityService.ResetUserPasswordAsync(expression, passwordHash);
+        var updateResult = await _identityService.ResetUserPasswordAsync(expression, resetToken, plainPassword);
         if (!updateResult.Succeeded)
         {
             var errors = updateResult.Errors.Select(e => e.Description).ToList();

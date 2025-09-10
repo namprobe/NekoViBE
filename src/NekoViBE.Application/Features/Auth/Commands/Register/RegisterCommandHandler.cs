@@ -18,6 +18,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
     private readonly ILogger<RegisterCommandHandler> _logger;
     private readonly IOtpCacheService _otpCacheService;
     private readonly INotificationFactory _notificationFactory;
+    private readonly string _passwordEncryptKey;
+
 
     public RegisterCommandHandler(
         ILogger<RegisterCommandHandler> logger, 
@@ -28,6 +30,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
         _logger = logger;
         _otpCacheService = otpCacheService;
         _notificationFactory = notificationFactory;
+        _passwordEncryptKey = configuration.GetValue<string>("PasswordEncryptKey") ?? throw new Exception("PasswordEncryptKey is not set");
     }
     public async Task<Result> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
@@ -43,6 +46,10 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
                 return Result.Failure("Contact information is required", ErrorCodeEnum.ValidationFailed);
             }
             
+            //encrypt password and clear confirm password
+            command.Request.Password = PasswordCryptoHelper.Encrypt(command.Request.Password, _passwordEncryptKey);
+            command.Request.ConfirmPassword = string.Empty;
+
             // Generate and store OTP with rate limiting check
             string otpCode;
             try
