@@ -6,7 +6,6 @@ public class OtpSettings
     public int ExpirationMinutes { get; set; }
     public int MaxAttempts { get; set; }
     public OtpRateLimitingConfiguration RateLimiting { get; set; } = new();
-    public string EncryptKey { get; set; } = string.Empty;
 }
 
 public class OtpRateLimitingConfiguration

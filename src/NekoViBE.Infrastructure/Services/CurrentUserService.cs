@@ -101,6 +101,51 @@ public class CurrentUserService : ICurrentUserService
         _cachedValidationWithRoles = await _userManager.ValidateUserWithRolesAsync(userGuid);
         return _cachedValidationWithRoles.Value;
     }
+
+    /// <summary>
+    /// Check if current user has specific role (optimized)
+    /// </summary>
+    /// <param name="role">Role to check</param>
+    /// <returns>True if user has the role, false otherwise</returns>
+    public async Task<bool> HasRoleAsync(RoleEnum role)
+    {
+        if (string.IsNullOrEmpty(UserId) || !Guid.TryParse(UserId, out var userGuid))
+        {
+            return false;
+        }
+
+        return await _userManager.HasRoleAsync(userGuid, role);
+    }
+
+    /// <summary>
+    /// Check if current user has any of the specified roles (optimized)
+    /// </summary>
+    /// <param name="roles">Roles to check</param>
+    /// <returns>True if user has any of the roles, false otherwise</returns>
+    public async Task<bool> HasAnyRoleAsync(params RoleEnum[] roles)
+    {
+        if (string.IsNullOrEmpty(UserId) || !Guid.TryParse(UserId, out var userGuid))
+        {
+            return false;
+        }
+
+        return await _userManager.HasAnyRoleAsync(userGuid, roles);
+    }
+
+    /// <summary>
+    /// Check if current user has all of the specified roles (optimized)
+    /// </summary>
+    /// <param name="roles">Roles to check</param>
+    /// <returns>True if user has all of the roles, false otherwise</returns>
+    public async Task<bool> HasAllRolesAsync(params RoleEnum[] roles)
+    {
+        if (string.IsNullOrEmpty(UserId) || !Guid.TryParse(UserId, out var userGuid))
+        {
+            return false;
+        }
+
+        return await _userManager.HasAllRolesAsync(userGuid, roles);
+    }
     
     /// <summary>
     /// Extract roles from JWT claims and convert to RoleEnum (may be outdated)

@@ -41,4 +41,25 @@ public interface ICurrentUserService
     /// </summary>
     /// <returns>Tuple with isValid, userId, and current roles from database</returns>
     Task<(bool isValid, Guid? userId, IList<RoleEnum> roles)> ValidateUserWithRolesAsync();
+
+    /// <summary>
+    /// Check if current user has specific role (optimized)
+    /// </summary>
+    /// <param name="role">Role to check</param>
+    /// <returns>True if user has the role, false otherwise</returns>
+    Task<bool> HasRoleAsync(RoleEnum role);
+
+    /// <summary>
+    /// Check if current user has any of the specified roles (optimized)
+    /// </summary>
+    /// <param name="roles">Roles to check</param>
+    /// <returns>True if user has any of the roles, false otherwise</returns>
+    Task<bool> HasAnyRoleAsync(params RoleEnum[] roles);
+
+    /// <summary>
+    /// Check if current user has all of the specified roles (optimized)
+    /// </summary>
+    /// <param name="roles">Roles to check</param>
+    /// <returns>True if user has all of the roles, false otherwise</returns>
+    Task<bool> HasAllRolesAsync(params RoleEnum[] roles);
 } 
