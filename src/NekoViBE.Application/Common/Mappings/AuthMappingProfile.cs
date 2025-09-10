@@ -1,5 +1,7 @@
 using AutoMapper;
 using NekoViBE.Application.Common.DTOs.Auth;
+using NekoViBE.Application.Common.DTOs.Role;
+using NekoViBE.Application.Features.Auth.Commands.Role;
 using NekoViBE.Application.Features.Auth.Queries.GetProfile;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
@@ -28,5 +30,17 @@ public class AuthMappingProfile : Profile
             .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.StaffProfile != null ? src.StaffProfile.Position.ToString() : null))
             .ForMember(dest => dest.HireDate, opt => opt.MapFrom(src => src.StaffProfile != null ? src.StaffProfile.HireDate : null))
             .ForMember(dest => dest.Salary, opt => opt.MapFrom(src => src.StaffProfile != null ? src.StaffProfile.Salary : null));
+
+
+        //CreateMap<AppRole, RoleResponse>();
+        CreateMap<AppRole, RoleDTO>();
+        CreateMap<AppRole, CreateRoleDto>();
+
+        // If you need mapping from command to entity
+        CreateMap<CreateRoleCommand, AppRole>()
+            .ForMember(dest => dest.NormalizedName, opt => opt.MapFrom(src => src.Name.ToUpper()))
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+            .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
     }
 }
