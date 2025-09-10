@@ -12,6 +12,7 @@ public interface INekoViDbContext
     DbSet<Category> Categories { get; set; }
     DbSet<AnimeSeries> AnimeSeries { get; set; }
     DbSet<Product> Products { get; set; }
+    DbSet<ProductInventory> ProductInventories { get; set; }
     DbSet<ProductImage> ProductImages { get; set; }
     DbSet<Tag> Tags { get; set; }
     DbSet<ProductTag> ProductTags { get; set; }
