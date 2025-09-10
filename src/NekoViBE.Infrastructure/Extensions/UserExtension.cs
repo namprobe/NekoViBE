@@ -74,4 +74,128 @@ public static class UserExtension
 
         return (true, userId, userRoles);
     }
+
+    /// <summary>
+    /// Check if user has specific role (optimized with AnyAsync)
+    /// </summary>
+    /// <param name="userManager">User Manager</param>
+    /// <param name="userId">User ID from JWT claim</param>
+    /// <param name="role">Role to check</param>
+    /// <returns>True if user has the role and is valid, false otherwise</returns>
+    public static async Task<bool> HasRoleAsync(
+        this UserManager<AppUser> userManager,
+        Guid? userId,
+        RoleEnum role)
+    {
+        if (userId == null)
+        {
+            return false;
+        }
+
+        // Check if user is valid and has the specific role in one query
+        var user = await userManager.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u =>
+                u.Id == userId && 
+                u.Status == EntityStatusEnum.Active && 
+                u.RefreshToken != null &&
+                u.RefreshTokenExpiryTime > DateTime.UtcNow &&
+                (!u.LockoutEnd.HasValue || u.LockoutEnd.Value <= DateTime.UtcNow));
+
+        if (user == null)
+        {
+            return false;
+        }
+
+        // Check if user has the specific role
+        return await userManager.IsInRoleAsync(user, role.ToString());
+    }
+
+    /// <summary>
+    /// Check if user has any of the specified roles (optimized)
+    /// </summary>
+    /// <param name="userManager">User Manager</param>
+    /// <param name="userId">User ID from JWT claim</param>
+    /// <param name="roles">Roles to check</param>
+    /// <returns>True if user has any of the roles and is valid, false otherwise</returns>
+    public static async Task<bool> HasAnyRoleAsync(
+        this UserManager<AppUser> userManager,
+        Guid? userId,
+        params RoleEnum[] roles)
+    {
+        if (userId == null || roles == null || !roles.Any())
+        {
+            return false;
+        }
+
+        // Check if user is valid first
+        var user = await userManager.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u =>
+                u.Id == userId && 
+                u.Status == EntityStatusEnum.Active && 
+                u.RefreshToken != null &&
+                u.RefreshTokenExpiryTime > DateTime.UtcNow &&
+                (!u.LockoutEnd.HasValue || u.LockoutEnd.Value <= DateTime.UtcNow));
+
+        if (user == null)
+        {
+            return false;
+        }
+
+        // Check if user has any of the specified roles
+        foreach (var role in roles)
+        {
+            if (await userManager.IsInRoleAsync(user, role.ToString()))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Check if user has all of the specified roles (optimized)
+    /// </summary>
+    /// <param name="userManager">User Manager</param>
+    /// <param name="userId">User ID from JWT claim</param>
+    /// <param name="roles">Roles to check</param>
+    /// <returns>True if user has all of the roles and is valid, false otherwise</returns>
+    public static async Task<bool> HasAllRolesAsync(
+        this UserManager<AppUser> userManager,
+        Guid? userId,
+        params RoleEnum[] roles)
+    {
+        if (userId == null || roles == null || !roles.Any())
+        {
+            return false;
+        }
+
+        // Check if user is valid first
+        var user = await userManager.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u =>
+                u.Id == userId && 
+                u.Status == EntityStatusEnum.Active && 
+                u.RefreshToken != null &&
+                u.RefreshTokenExpiryTime > DateTime.UtcNow &&
+                (!u.LockoutEnd.HasValue || u.LockoutEnd.Value <= DateTime.UtcNow));
+
+        if (user == null)
+        {
+            return false;
+        }
+
+        // Check if user has all of the specified roles
+        foreach (var role in roles)
+        {
+            if (!await userManager.IsInRoleAsync(user, role.ToString()))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

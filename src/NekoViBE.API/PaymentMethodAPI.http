@@ -1,0 +1,125 @@
+### Payment Methods API Testing
+### Base URL: https://localhost:7001/api/cms/payment-methods
+
+### 1. Get All Payment Methods (with pagination and filtering)
+GET {{baseUrl}}/api/cms/payment-methods?page=1&pageSize=10&search=VnPay&isOnlinePayment=true&sortBy=name&isAscending=true
+Authorization: Bearer {{access_token}}
+
+### 2. Get Payment Method by ID
+GET {{baseUrl}}/api/cms/payment-methods/123e4567-e89b-12d3-a456-426614174000
+Authorization: Bearer {{access_token}}
+
+### 3. Create Payment Method
+POST {{baseUrl}}/api/cms/payment-methods
+Authorization: Bearer {{access_token}}
+Content-Type: multipart/form-data
+
+{
+    "name": "VnPay",
+    "description": "Vietnam Payment Gateway",
+    "iconImage": [file],
+    "isOnlinePayment": true,
+    "processingFee": 2.5,
+    "processorName": "VnPay",
+    "configuration": "{\"merchantId\":\"123\",\"secretKey\":\"abc\"}",
+    "status": 1
+}
+
+### 4. Update Payment Method
+PUT {{baseUrl}}/api/cms/payment-methods/123e4567-e89b-12d3-a456-426614174000
+Authorization: Bearer {{access_token}}
+Content-Type: multipart/form-data
+
+{
+    "name": "VnPay Updated",
+    "description": "Updated Vietnam Payment Gateway",
+    "iconImage": [file],
+    "isOnlinePayment": true,
+    "processingFee": 3.0,
+    "processorName": "VnPay",
+    "configuration": "{\"merchantId\":\"456\",\"secretKey\":\"def\"}",
+    "status": 1
+}
+
+### 5. Delete Payment Method
+DELETE {{baseUrl}}/api/cms/payment-methods/123e4567-e89b-12d3-a456-426614174000
+Authorization: Bearer {{access_token}}
+
+### Sample Filter Parameters:
+# Basic pagination
+?page=1&pageSize=10
+
+# Search by name/description/processor
+?search=VnPay
+
+# Filter by payment type
+?isOnlinePayment=true
+?isOnlinePayment=false
+
+# Filter by fee range
+?minProcessingFee=1.0&maxProcessingFee=5.0
+
+# Sorting options
+?sortBy=name&isAscending=true
+?sortBy=processingFee&isAscending=false
+?sortBy=createdat&isAscending=false
+
+# Combined filters
+?page=1&pageSize=20&search=Pay&isOnlinePayment=true&minProcessingFee=1.0&sortBy=name&isAscending=true
+
+### Sample Responses:
+
+# Get Payment Methods Response
+{
+    "currentPage": 1,
+    "pageSize": 10,
+    "totalItems": 25,
+    "totalPages": 3,
+    "hasPrevious": false,
+    "hasNext": true,
+    "items": [
+        {
+            "id": "123e4567-e89b-12d3-a456-426614174000",
+            "name": "VnPay",
+            "iconPath": "/images/vnpay.png",
+            "isOnlinePayment": true,
+            "processingFee": 2.5,
+            "status": "Active",
+            "createdAt": "2024-01-01T00:00:00Z",
+            "updatedAt": "2024-01-15T00:00:00Z"
+        }
+    ],
+    "isSuccess": true,
+    "message": null,
+    "errors": null,
+    "errorCode": null
+}
+
+# Get Payment Method Response
+{
+    "data": {
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "name": "VnPay",
+        "iconPath": "/images/vnpay.png",
+        "isOnlinePayment": true,
+        "processingFee": 2.5,
+        "description": "Vietnam Payment Gateway",
+        "processorName": "VnPay",
+        "configuration": "{\"merchantId\":\"123\",\"secretKey\":\"abc\"}",
+        "status": "Active",
+        "createdAt": "2024-01-01T00:00:00Z",
+        "updatedAt": "2024-01-15T00:00:00Z"
+    },
+    "isSuccess": true,
+    "message": "Payment method retrieved successfully",
+    "errors": null,
+    "errorCode": null
+}
+
+# Create/Update/Delete Response
+{
+    "isSuccess": true,
+    "message": "Payment method created successfully",
+    "errors": null,
+    "errorCode": null
+}
