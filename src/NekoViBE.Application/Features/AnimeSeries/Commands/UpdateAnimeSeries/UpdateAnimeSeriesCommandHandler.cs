@@ -8,11 +8,11 @@ using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 using System.Text.Json;
+using System.IO;
 
 namespace NekoViBE.Application.Features.AnimeSeries.Commands.UpdateAnimeSeries;
 
-public class UpdateAnimeSeriesCommandHandler
-    : IRequestHandler<UpdateAnimeSeriesCommand, Result>
+public class UpdateAnimeSeriesCommandHandler : IRequestHandler<UpdateAnimeSeriesCommand, Result>
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
@@ -49,21 +49,33 @@ public class UpdateAnimeSeriesCommandHandler
                 return Result.Failure("Anime series not found", ErrorCodeEnum.NotFound);
 
             var oldValue = JsonSerializer.Serialize(_mapper.Map<AnimeSeriesRequest>(entity));
-            var oldStatus = entity.Status; // Lưu trạng thái cũ
+            var oldStatus = entity.Status;
             _mapper.Map(command.Request, entity);
-            entity.UpdatedBy = userId; // Gán người cập nhật
+            entity.UpdatedBy = userId;
             entity.UpdatedAt = DateTime.UtcNow;
+
+            // Handle image upload
+            if (command.Request.ImageFile != null)
+            {
+                var fileName = $"{Guid.NewGuid()}_{command.Request.ImageFile.FileName}";
+                var filePath = Path.Combine("wwwroot/images/anime-series", fileName);
+                Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await command.Request.ImageFile.CopyToAsync(stream, cancellationToken);
+                }
+                entity.ImagePath = $"/images/anime-series/{fileName}";
+            }
 
             try
             {
                 await _unitOfWork.BeginTransactionAsync(cancellationToken);
                 repo.Update(entity);
 
-                // Ghi log UserAction cho Update
                 var userAction = new UserAction
                 {
                     UserId = userId.Value,
-                    Action = UserActionEnum.Update, // Sử dụng UserActionEnum.Update
+                    Action = UserActionEnum.Update,
                     EntityId = entity.Id,
                     EntityName = "AnimeSeries",
                     OldValue = oldValue,
@@ -75,13 +87,12 @@ public class UpdateAnimeSeriesCommandHandler
                 };
                 await _unitOfWork.Repository<UserAction>().AddAsync(userAction);
 
-                // Ghi log UserAction cho StatusChange nếu trạng thái thay đổi
                 if (oldStatus != command.Request.Status)
                 {
                     var statusChangeAction = new UserAction
                     {
                         UserId = userId.Value,
-                        Action = UserActionEnum.StatusChange, // Sử dụng UserActionEnum.StatusChange
+                        Action = UserActionEnum.StatusChange,
                         EntityId = entity.Id,
                         EntityName = "AnimeSeries",
                         OldValue = oldStatus.ToString(),

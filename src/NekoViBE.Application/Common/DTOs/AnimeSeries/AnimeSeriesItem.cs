@@ -14,5 +14,8 @@ namespace NekoViBE.Application.Common.DTOs.AnimeSeries
 
         [JsonPropertyName("releaseYear")]
         public int ReleaseYear { get; set; }
+
+        [JsonPropertyName("imagePath")]
+        public string? ImagePath { get; set; }
     }
 }

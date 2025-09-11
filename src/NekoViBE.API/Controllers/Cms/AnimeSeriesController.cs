@@ -34,6 +34,23 @@ public class AnimeSeriesController : ControllerBase
     /// <summary>
     /// Get all anime series with pagination and filtering
     /// </summary>
+    /// <remarks>
+    /// This API retrieves a paginated list of anime series with filtering options.
+    /// It requires Admin or Staff role access.
+    /// 
+    /// Sample request:
+    /// 
+    ///     GET /api/cms/anime-series?page=1&amp;pageSize=10&amp;title=Naruto&amp;releaseYear=2002
+    /// 
+    /// Headers:
+    ///     Authorization: Bearer &lt;access_token&gt;
+    /// </remarks>
+    /// <param name="filter">Anime series filter parameters</param>
+    /// <returns>Paginated list of anime series</returns>
+    /// <response code="200">Anime series retrieved successfully</response>
+    /// <response code="401">Failed to retrieve anime series (not authorized)</response>
+    /// <response code="403">No access (user is not a CMS member)</response>
+    /// <response code="500">Failed to retrieve anime series (internal server error)</response>
     [HttpGet]
     [AuthorizeRoles("Admin", "Staff")]
     [ProducesResponseType(typeof(PaginationResult<AnimeSeriesItem>), StatusCodes.Status200OK)]
@@ -61,6 +78,24 @@ public class AnimeSeriesController : ControllerBase
     /// <summary>
     /// Get anime series by ID
     /// </summary>
+    /// <remarks>
+    /// This API retrieves a specific anime series by its ID.
+    /// It requires Admin or Staff role access.
+    /// 
+    /// Sample request:
+    /// 
+    ///     GET /api/cms/anime-series/123e4567-e89b-12d3-a456-426614174000
+    /// 
+    /// Headers:
+    ///     Authorization: Bearer &lt;access_token&gt;
+    /// </remarks>
+    /// <param name="id">Anime series ID</param>
+    /// <returns>Anime series details</returns>
+    /// <response code="200">Anime series retrieved successfully</response>
+    /// <response code="401">Failed to retrieve anime series (not authorized)</response>
+    /// <response code="403">No access (user is not a CMS member)</response>
+    /// <response code="404">Anime series not found</response>
+    /// <response code="500">Failed to retrieve anime series (internal server error)</response>
     [HttpGet("{id}")]
     [AuthorizeRoles("Admin", "Staff")]
     [ProducesResponseType(typeof(Result<AnimeSeriesResponse>), StatusCodes.Status200OK)]
@@ -89,6 +124,32 @@ public class AnimeSeriesController : ControllerBase
     /// <summary>
     /// Create a new anime series
     /// </summary>
+    /// <remarks>
+    /// This API creates a new anime series. It requires Admin role access.
+    /// 
+    /// Sample request:
+    /// 
+    ///     POST /api/cms/anime-series
+    ///     Content-Type: multipart/form-data
+    ///     
+    ///     {
+    ///        "title": "One Piece",
+    ///        "description": "A pirate adventure",
+    ///        "releaseYear": 1999,
+    ///        "status": 1,
+    ///        "imageFile": [file]
+    ///     }
+    /// 
+    /// Headers:
+    ///     Authorization: Bearer &lt;access_token&gt;
+    /// </remarks>
+    /// <param name="request">Anime series creation request</param>
+    /// <returns>Creation result</returns>
+    /// <response code="200">Anime series created successfully</response>
+    /// <response code="400">Creation failed (validation error)</response>
+    /// <response code="401">Failed to create anime series (not authorized)</response>
+    /// <response code="403">No access (user is not Admin)</response>
+    /// <response code="500">Failed to create anime series (internal server error)</response>
     [HttpPost]
     [AuthorizeRoles("Admin")]
     [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
@@ -117,6 +178,34 @@ public class AnimeSeriesController : ControllerBase
     /// <summary>
     /// Update an existing anime series
     /// </summary>
+    /// <remarks>
+    /// This API updates an existing anime series. It requires Admin role access.
+    /// 
+    /// Sample request:
+    /// 
+    ///     PUT /api/cms/anime-series/123e4567-e89b-12d3-a456-426614174000
+    ///     Content-Type: multipart/form-data
+    ///     
+    ///     {
+    ///        "title": "One Piece Updated",
+    ///        "description": "Updated pirate adventure",
+    ///        "releaseYear": 1999,
+    ///        "status": 1,
+    ///        "imageFile": [file]
+    ///     }
+    /// 
+    /// Headers:
+    ///     Authorization: Bearer &lt;access_token&gt;
+    /// </remarks>
+    /// <param name="id">Anime series ID</param>
+    /// <param name="request">Anime series update request</param>
+    /// <returns>Update result</returns>
+    /// <response code="200">Anime series updated successfully</response>
+    /// <response code="400">Update failed (validation error)</response>
+    /// <response code="401">Failed to update anime series (not authorized)</response>
+    /// <response code="403">No access (user is not Admin)</response>
+    /// <response code="404">Anime series not found</response>
+    /// <response code="500">Failed to update anime series (internal server error)</response>
     [HttpPut("{id}")]
     [AuthorizeRoles("Admin")]
     [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
@@ -146,6 +235,24 @@ public class AnimeSeriesController : ControllerBase
     /// <summary>
     /// Delete an anime series
     /// </summary>
+    /// <remarks>
+    /// This API deletes an anime series. It requires Admin role access.
+    /// 
+    /// Sample request:
+    /// 
+    ///     DELETE /api/cms/anime-series/123e4567-e89b-12d3-a456-426614174000
+    /// 
+    /// Headers:
+    ///     Authorization: Bearer &lt;access_token&gt;
+    /// </remarks>
+    /// <param name="id">Anime series ID</param>
+    /// <returns>Deletion result</returns>
+    /// <response code="200">Anime series deleted successfully</response>
+    /// <response code="401">Failed to delete anime series (not authorized)</response>
+    /// <response code="403">No access (user is not Admin)</response>
+    /// <response code="404">Anime series not found</response>
+    /// <response code="409">Anime series is in use and cannot be deleted</response>
+    /// <response code="500">Failed to delete anime series (internal server error)</response>
     [HttpDelete("{id}")]
     [AuthorizeRoles("Admin")]
     [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]

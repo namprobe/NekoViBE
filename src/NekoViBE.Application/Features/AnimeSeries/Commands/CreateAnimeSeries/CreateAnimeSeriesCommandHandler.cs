@@ -8,11 +8,11 @@ using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 using System.Text.Json;
+using System.IO;
 
 namespace NekoViBE.Application.Features.AnimeSeries.Commands.CreateAnimeSeries;
 
-public class CreateAnimeSeriesCommandHandler
-    : IRequestHandler<CreateAnimeSeriesCommand, Result>
+public class CreateAnimeSeriesCommandHandler : IRequestHandler<CreateAnimeSeriesCommand, Result>
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
@@ -31,9 +31,7 @@ public class CreateAnimeSeriesCommandHandler
         _currentUserService = currentUserService;
     }
 
-    public async Task<Result> Handle(
-        CreateAnimeSeriesCommand command,
-        CancellationToken cancellationToken)
+    public async Task<Result> Handle(CreateAnimeSeriesCommand command, CancellationToken cancellationToken)
     {
         try
         {
@@ -45,9 +43,22 @@ public class CreateAnimeSeriesCommandHandler
             }
 
             var entity = _mapper.Map<Domain.Entities.AnimeSeries>(command.Request);
-            entity.CreatedBy = userId; // Gán người tạo
+            entity.CreatedBy = userId;
             entity.CreatedAt = DateTime.UtcNow;
             entity.Status = EntityStatusEnum.Active;
+
+            // Handle image upload
+            if (command.Request.ImageFile != null)
+            {
+                var fileName = $"{Guid.NewGuid()}_{command.Request.ImageFile.FileName}";
+                var filePath = Path.Combine("wwwroot/images/anime-series", fileName); // Adjust storage path
+                Directory.CreateDirectory(Path.GetDirectoryName(filePath)!); // Ensure directory exists
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await command.Request.ImageFile.CopyToAsync(stream, cancellationToken);
+                }
+                entity.ImagePath = $"/images/anime-series/{fileName}"; // Store relative path
+            }
 
             try
             {
@@ -57,7 +68,7 @@ public class CreateAnimeSeriesCommandHandler
                 var userAction = new UserAction
                 {
                     UserId = userId.Value,
-                    Action = UserActionEnum.Create, // Sử dụng UserActionEnum.Create
+                    Action = UserActionEnum.Create,
                     EntityId = entity.Id,
                     EntityName = "AnimeSeries",
                     NewValue = JsonSerializer.Serialize(command.Request),
