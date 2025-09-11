@@ -22,6 +22,13 @@ namespace NekoViBE.Application.Common.Mappings
 
             CreateMap<AnimeSeries, AnimeSeriesItem>();
             CreateMap<AnimeSeries, AnimeSeriesResponse>();
+
+            // Ánh xạ từ AnimeSeries sang AnimeSeriesRequest
+            CreateMap<AnimeSeries, AnimeSeriesRequest>()
+                .ForMember(dest => dest.Title, opt => opt.MapFrom(src => src.Title))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
+                .ForMember(dest => dest.ReleaseYear, opt => opt.MapFrom(src => src.ReleaseYear ?? 0))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
         }
     }
 }
