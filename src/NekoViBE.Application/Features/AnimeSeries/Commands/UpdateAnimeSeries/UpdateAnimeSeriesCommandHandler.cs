@@ -66,6 +66,12 @@ public class UpdateAnimeSeriesCommandHandler : IRequestHandler<UpdateAnimeSeries
                 }
                 entity.ImagePath = $"/images/anime-series/{fileName}";
             }
+            else
+            {
+                _logger.LogInformation("No ImageFile provided for anime series {Title}, setting ImagePath to null", entity.Title);
+
+                entity.ImagePath = null;
+            }
 
             try
             {
