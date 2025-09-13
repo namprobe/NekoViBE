@@ -36,7 +36,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet]
-    [AuthorizeRoles("Admin", "Staff")]
+    [AuthorizeRoles]
     [ProducesResponseType(typeof(PaginationResult<ProductItem>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(PaginationResult<ProductItem>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(PaginationResult<ProductItem>), StatusCodes.Status403Forbidden)]
@@ -70,7 +70,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    [AuthorizeRoles("Admin", "Staff")]
+    [AuthorizeRoles]
     [ProducesResponseType(typeof(Result<ProductResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Result<ProductResponse>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(Result<ProductResponse>), StatusCodes.Status403Forbidden)]
@@ -90,7 +90,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpPost]
-    [AuthorizeRoles("Admin")]
+    [AuthorizeRoles]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
@@ -126,7 +126,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [AuthorizeRoles("Admin")]
+    [AuthorizeRoles]
     [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
@@ -147,7 +147,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [AuthorizeRoles("Admin")]
+    [AuthorizeRoles]
     [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]

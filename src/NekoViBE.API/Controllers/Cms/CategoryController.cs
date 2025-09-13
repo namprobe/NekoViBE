@@ -29,7 +29,7 @@ namespace NekoViBE.API.Controllers.Cms
         }
 
         [HttpGet]
-        [AuthorizeRoles("Admin", "Staff")]
+        [AuthorizeRoles]
         [ProducesResponseType(typeof(PaginationResult<CategoryItem>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(PaginationResult<CategoryItem>), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(PaginationResult<CategoryItem>), StatusCodes.Status403Forbidden)]
@@ -48,7 +48,7 @@ namespace NekoViBE.API.Controllers.Cms
         }
 
         [HttpGet("{id}")]
-        [AuthorizeRoles("Admin", "Staff")]
+        [AuthorizeRoles]
         [ProducesResponseType(typeof(Result<CategoryResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result<CategoryResponse>), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(Result<CategoryResponse>), StatusCodes.Status403Forbidden)]
@@ -68,7 +68,7 @@ namespace NekoViBE.API.Controllers.Cms
         }
 
         [HttpPost]
-        [AuthorizeRoles("Admin")]
+        [AuthorizeRoles("Admin", "Staff")]
         [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
@@ -88,7 +88,7 @@ namespace NekoViBE.API.Controllers.Cms
         }
 
         [HttpPut("{id}")]
-        [AuthorizeRoles("Admin")]
+        [AuthorizeRoles("Admin", "Staff")]
         [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
@@ -109,7 +109,7 @@ namespace NekoViBE.API.Controllers.Cms
         }
 
         [HttpDelete("{id}")]
-        [AuthorizeRoles("Admin")]
+        [AuthorizeRoles("Admin", "Staff")]
         [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]
