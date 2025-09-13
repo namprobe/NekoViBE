@@ -1,4 +1,4 @@
-using NekoViBE.Domain.Enums;
+﻿using NekoViBE.Domain.Enums;
 
 namespace NekoViBE.Application.Common.Interfaces;
 
@@ -62,4 +62,13 @@ public interface ICurrentUserService
     /// <param name="roles">Roles to check</param>
     /// <returns>True if user has all of the roles, false otherwise</returns>
     Task<bool> HasAllRolesAsync(params RoleEnum[] roles);
-} 
+
+
+
+
+
+
+
+    //////////////////sang thêm để lấy IP Address///////////////////////
+    string? IPAddress { get; }
+}

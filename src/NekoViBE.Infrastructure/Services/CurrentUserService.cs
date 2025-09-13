@@ -170,4 +170,8 @@ public class CurrentUserService : ICurrentUserService
             
         return roles;
     }
+
+
+    /////////////////sang thêm
+    public string? IPAddress => _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
 }

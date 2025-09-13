@@ -10,8 +10,7 @@ using NekoViBE.Application.Common.QueryBuilders;
 
 namespace NekoViBE.Application.Features.AnimeSeries.Queries.GetAnimeSeriesList;
 
-public class GetAnimeSeriesListQueryHandler
-    : IRequestHandler<GetAnimeSeriesListQuery, PaginationResult<AnimeSeriesItem>>
+public class GetAnimeSeriesListQueryHandler : IRequestHandler<GetAnimeSeriesListQuery, PaginationResult<AnimeSeriesItem>>
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
@@ -34,8 +33,7 @@ public class GetAnimeSeriesListQueryHandler
     {
         try
         {
-            // Validate user first
-            var isValid = (await _currentUserService.IsUserValidAsync()).isValid;
+            var (isValid, _) = await _currentUserService.IsUserValidAsync();
             if (!isValid)
             {
                 return PaginationResult<AnimeSeriesItem>.Failure(
@@ -43,12 +41,10 @@ public class GetAnimeSeriesListQueryHandler
                     ErrorCodeEnum.Unauthorized);
             }
 
-            // Build query using extension methods
             var predicate = request.Filter.BuildPredicate();
             var orderBy = request.Filter.BuildOrderBy();
             var isAscending = request.Filter.IsAscending ?? false;
 
-            // Query AnimeSeries from repository
             var (items, totalCount) = await _unitOfWork.Repository<Domain.Entities.AnimeSeries>().GetPagedAsync(
                 pageNumber: request.Filter.Page,
                 pageSize: request.Filter.PageSize,
@@ -57,7 +53,6 @@ public class GetAnimeSeriesListQueryHandler
                 isAscending: isAscending
             );
 
-            // Map to DTOs
             var animeSeriesItems = _mapper.Map<List<AnimeSeriesItem>>(items);
 
             return PaginationResult<AnimeSeriesItem>.Success(

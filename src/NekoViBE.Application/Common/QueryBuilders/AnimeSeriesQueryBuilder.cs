@@ -24,6 +24,7 @@ public static class AnimeSeriesQueryBuilder
 
             searchPredicate = searchPredicate.CombineOr(x => x.Title.Contains(filter.Search));
             searchPredicate = searchPredicate.CombineOr(x => x.Description != null && x.Description.Contains(filter.Search));
+            searchPredicate = searchPredicate.CombineOr(x => x.ImagePath != null && x.ImagePath.Contains(filter.Search));
 
             predicate = predicate.CombineAnd(searchPredicate);
         }
@@ -54,6 +55,7 @@ public static class AnimeSeriesQueryBuilder
             "releaseyear" => x => x.ReleaseYear,
             "createdat" => x => x.CreatedAt!,
             "updatedat" => x => x.UpdatedAt!,
+            "imagepath" => x => x.ImagePath ?? "", // Add sorting by ImagePath
             _ => x => x.CreatedAt!
         };
     }

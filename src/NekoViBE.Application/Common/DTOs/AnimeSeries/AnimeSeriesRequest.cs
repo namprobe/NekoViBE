@@ -1,4 +1,5 @@
-﻿using NekoViBE.Domain.Enums;
+﻿using Microsoft.AspNetCore.Http;
+using NekoViBE.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,6 +19,10 @@ namespace NekoViBE.Application.Common.DTOs.AnimeSeries
 
         [JsonPropertyName("releaseYear")]
         public int ReleaseYear { get; set; }
+
+        [JsonPropertyName("imageFile")]
+        public IFormFile? ImageFile { get; set; }
+
 
         [JsonPropertyName("status")]
         public EntityStatusEnum Status { get; set; }
