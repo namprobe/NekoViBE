@@ -52,7 +52,7 @@ public class AnimeSeriesController : ControllerBase
     /// <response code="403">No access (user is not a CMS member)</response>
     /// <response code="500">Failed to retrieve anime series (internal server error)</response>
     [HttpGet]
-    [AuthorizeRoles("Admin", "Staff")]
+    [AuthorizeRoles]
     [ProducesResponseType(typeof(PaginationResult<AnimeSeriesItem>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(PaginationResult<AnimeSeriesItem>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(PaginationResult<AnimeSeriesItem>), StatusCodes.Status403Forbidden)]
@@ -97,7 +97,7 @@ public class AnimeSeriesController : ControllerBase
     /// <response code="404">Anime series not found</response>
     /// <response code="500">Failed to retrieve anime series (internal server error)</response>
     [HttpGet("{id}")]
-    [AuthorizeRoles("Admin", "Staff")]
+    [AuthorizeRoles]
     [ProducesResponseType(typeof(Result<AnimeSeriesResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Result<AnimeSeriesResponse>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(Result<AnimeSeriesResponse>), StatusCodes.Status403Forbidden)]
@@ -151,7 +151,7 @@ public class AnimeSeriesController : ControllerBase
     /// <response code="403">No access (user is not Admin)</response>
     /// <response code="500">Failed to create anime series (internal server error)</response>
     [HttpPost]
-    [AuthorizeRoles("Admin")]
+    [AuthorizeRoles("Admin", "Staff")]
     [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
@@ -207,7 +207,7 @@ public class AnimeSeriesController : ControllerBase
     /// <response code="404">Anime series not found</response>
     /// <response code="500">Failed to update anime series (internal server error)</response>
     [HttpPut("{id}")]
-    [AuthorizeRoles("Admin")]
+    [AuthorizeRoles("Admin", "Staff")]
     [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
@@ -254,7 +254,7 @@ public class AnimeSeriesController : ControllerBase
     /// <response code="409">Anime series is in use and cannot be deleted</response>
     /// <response code="500">Failed to delete anime series (internal server error)</response>
     [HttpDelete("{id}")]
-    [AuthorizeRoles("Admin")]
+    [AuthorizeRoles("Admin", "Staff")]
     [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]
