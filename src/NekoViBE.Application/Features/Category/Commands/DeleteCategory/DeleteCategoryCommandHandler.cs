@@ -60,6 +60,22 @@ namespace NekoViBE.Application.Features.Category.Commands.DeleteCategory
                     await _unitOfWork.BeginTransactionAsync(cancellationToken);
                     repo.Update(entity);
 
+                    // 🔥 Xử lý: cập nhật các Category con có ParentCategoryId = Id vừa xoá
+                    var childCategories = await _unitOfWork.Repository<Domain.Entities.Category>()
+                        .FindAsync(x => x.ParentCategoryId == entity.Id && !x.IsDeleted);
+
+                    foreach (var child in childCategories)
+                    {
+                        child.ParentCategoryId = null;
+                        child.UpdatedBy = userId;
+                        child.UpdatedAt = DateTime.UtcNow;
+                        _unitOfWork.Repository<Domain.Entities.Category>().Update(child);
+
+                        _logger.LogInformation("Set ParentCategoryId = null for child category {ChildId} after deleting parent {ParentId}",
+                            child.Id, entity.Id);
+                    }
+
+                    // Ghi lại UserAction
                     var userAction = new UserAction
                     {
                         UserId = userId.Value,
@@ -68,7 +84,7 @@ namespace NekoViBE.Application.Features.Category.Commands.DeleteCategory
                         EntityName = "Category",
                         OldValue = JsonSerializer.Serialize(entity),
                         IPAddress = _currentUserService.IPAddress ?? "Unknown",
-                        ActionDetail = $"Deleted category with name: {entity.Name}",
+                        ActionDetail = $"Deleted category with name: {entity.Name}, updated {childCategories.Count()} children ParentCategoryId to null",
                         CreatedAt = DateTime.UtcNow,
                         Status = EntityStatusEnum.Active
                     };
@@ -90,5 +106,6 @@ namespace NekoViBE.Application.Features.Category.Commands.DeleteCategory
                 return Result.Failure("Error deleting category", ErrorCodeEnum.InternalError);
             }
         }
+
     }
 }
