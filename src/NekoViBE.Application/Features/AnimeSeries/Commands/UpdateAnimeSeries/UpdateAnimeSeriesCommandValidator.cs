@@ -24,8 +24,8 @@ public class UpdateAnimeSeriesCommandValidator : AbstractValidator<UpdateAnimeSe
                 .LessThanOrEqualTo(DateTime.UtcNow.Year + 1);
 
             RuleFor(x => x.Request.ImageFile)
-                .Must(file => file == null || file.Length <= 3 * 1024 * 1024) // Max 3MB
-                .WithMessage("Image file size must not exceed 3MB")
+                .Must(file => file == null || file.Length <= 10 * 1024 * 1024) // Max 3MB
+                .WithMessage("Image file size must not exceed 10MB")
                 .Must(file => file == null || IsValidImageExtension(file.FileName))
                 .WithMessage("Invalid image file format. Supported formats: .jpg, .png, .jpeg");
         });

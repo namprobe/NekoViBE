@@ -43,15 +43,21 @@ public class DeleteAnimeSeriesCommandHandler
             if (entity == null)
                 return Result.Failure("Anime series not found", ErrorCodeEnum.NotFound);
 
+            // Soft delete thay vì hard delete
+            entity.IsDeleted = true;
+            entity.DeletedBy = userId;
+            entity.DeletedAt = DateTime.UtcNow;
+            entity.Status = EntityStatusEnum.Inactive;
+
             try
             {
                 await _unitOfWork.BeginTransactionAsync(cancellationToken);
-                repo.Delete(entity);
+                repo.Update(entity);
 
                 var userAction = new UserAction
                 {
                     UserId = userId.Value,
-                    Action = UserActionEnum.Delete, // Sử dụng UserActionEnum.Delete
+                    Action = UserActionEnum.Delete,
                     EntityId = entity.Id,
                     EntityName = "AnimeSeries",
                     OldValue = JsonSerializer.Serialize(new { entity.Title, entity.ReleaseYear, entity.Description }),
@@ -74,7 +80,7 @@ public class DeleteAnimeSeriesCommandHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting anime series");
+            _logger.LogError(ex, "Error deleting anime series with ID: {Id}", command.Id);
             return Result.Failure("Error deleting anime series", ErrorCodeEnum.InternalError);
         }
     }

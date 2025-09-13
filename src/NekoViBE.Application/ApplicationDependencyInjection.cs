@@ -34,6 +34,8 @@ public static class ApplicationDependencyInjection
             cfg.AddProfile(new AuthMappingProfile());
             cfg.AddProfile(new PaymentMethodMappingProfile());
             cfg.AddProfile(new AnimeSeriesMappingProfile());
+            cfg.AddProfile(new CategoryMappingProfile());
+            cfg.AddProfile(new ProductMappingProfile());
             //cfg.AddProfile(new CategoryMappingProfile());
             //cfg.AddProfile(new ProductMappingProfile());
 
