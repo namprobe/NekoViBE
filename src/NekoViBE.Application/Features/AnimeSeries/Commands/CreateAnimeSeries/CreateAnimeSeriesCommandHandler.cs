@@ -18,17 +18,20 @@ public class CreateAnimeSeriesCommandHandler : IRequestHandler<CreateAnimeSeries
     private readonly IMapper _mapper;
     private readonly ILogger<CreateAnimeSeriesCommandHandler> _logger;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IFileService _fileService;
 
     public CreateAnimeSeriesCommandHandler(
         IUnitOfWork unitOfWork,
         IMapper mapper,
         ILogger<CreateAnimeSeriesCommandHandler> logger,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IFileService fileService)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _logger = logger;
         _currentUserService = currentUserService;
+        _fileService = fileService;
     }
 
     public async Task<Result> Handle(CreateAnimeSeriesCommand command, CancellationToken cancellationToken)
@@ -50,14 +53,13 @@ public class CreateAnimeSeriesCommandHandler : IRequestHandler<CreateAnimeSeries
             // Handle image upload
             if (command.Request.ImageFile != null)
             {
-                var fileName = $"{Guid.NewGuid()}_{command.Request.ImageFile.FileName}";
-                var filePath = Path.Combine("wwwroot/images/anime-series", fileName); // Adjust storage path
-                Directory.CreateDirectory(Path.GetDirectoryName(filePath)!); // Ensure directory exists
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await command.Request.ImageFile.CopyToAsync(stream, cancellationToken);
-                }
-                entity.ImagePath = $"/images/anime-series/{fileName}"; // Store relative path
+                var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "images/anime-series", cancellationToken);
+                entity.ImagePath = imagePath;
+                _logger.LogInformation("ImagePath set to {ImagePath} for anime series {Title}", imagePath, entity.Title);
+            }
+            else
+            {
+                _logger.LogWarning("No ImageFile provided for anime series {Title}", command.Request.Title);
             }
 
             try
@@ -88,6 +90,15 @@ public class CreateAnimeSeriesCommandHandler : IRequestHandler<CreateAnimeSeries
             }
 
             return Result.Success("Anime series created successfully");
+        }
+        catch (IOException ex)
+
+        {
+
+            _logger.LogError(ex, "Error uploading file for anime series");
+
+            return Result.Failure("Error uploading file", ErrorCodeEnum.InternalError);
+
         }
         catch (Exception ex)
         {
