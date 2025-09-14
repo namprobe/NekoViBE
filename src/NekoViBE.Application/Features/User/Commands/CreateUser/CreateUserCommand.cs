@@ -13,8 +13,8 @@ namespace NekoViBE.Application.Features.User.Commands.CreateUser
 {
     public record CreateUserCommand : IRequest<Result<UserDTO>>
     {
-        [Required]
-        public string UserName { get; set; } = string.Empty;
+        //[Required]
+        //public string UserName { get; set; } = string.Empty;
 
         [Required]
         [EmailAddress]
