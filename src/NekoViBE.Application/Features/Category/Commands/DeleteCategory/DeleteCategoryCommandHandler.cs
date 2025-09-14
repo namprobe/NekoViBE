@@ -19,15 +19,18 @@ namespace NekoViBE.Application.Features.Category.Commands.DeleteCategory
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<DeleteCategoryCommandHandler> _logger;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IFileService _fileService;
 
         public DeleteCategoryCommandHandler(
             IUnitOfWork unitOfWork,
             ILogger<DeleteCategoryCommandHandler> logger,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService, 
+            IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _currentUserService = currentUserService;
+            _fileService = fileService;
         }
 
         public async Task<Result> Handle(DeleteCategoryCommand command, CancellationToken cancellationToken)
@@ -47,8 +50,17 @@ namespace NekoViBE.Application.Features.Category.Commands.DeleteCategory
                 if (entity == null)
                     return Result.Failure("Category not found", ErrorCodeEnum.NotFound);
 
-                if (entity.SubCategories.Any() || entity.Products.Any())
+                var hasSubCategories = await repo.AnyAsync(x => x.ParentCategoryId == command.Id && !x.IsDeleted);
+
+                var hasProducts = await _unitOfWork.Repository<Domain.Entities.Product>().AnyAsync(x => x.CategoryId == command.Id && !x.IsDeleted);
+                if (hasSubCategories || hasProducts)
                     return Result.Failure("Cannot delete category with subcategories or products", ErrorCodeEnum.ResourceConflict);
+
+                // Delete image if exists
+                if (!string.IsNullOrEmpty(entity.ImagePath))
+                {
+                    await _fileService.DeleteFileAsync(entity.ImagePath, cancellationToken);
+                }
 
                 entity.IsDeleted = true;
                 entity.DeletedBy = userId;
@@ -60,7 +72,7 @@ namespace NekoViBE.Application.Features.Category.Commands.DeleteCategory
                     await _unitOfWork.BeginTransactionAsync(cancellationToken);
                     repo.Update(entity);
 
-                    // 🔥 Xử lý: cập nhật các Category con có ParentCategoryId = Id vừa xoá
+                    // Xử lý: cập nhật các Category con có ParentCategoryId = Id vừa xoá
                     var childCategories = await _unitOfWork.Repository<Domain.Entities.Category>()
                         .FindAsync(x => x.ParentCategoryId == entity.Id && !x.IsDeleted);
 
@@ -99,6 +111,11 @@ namespace NekoViBE.Application.Features.Category.Commands.DeleteCategory
                 }
 
                 return Result.Success("Category deleted successfully");
+            }
+            catch (IOException ex)
+            {
+                _logger.LogError(ex, "Error deleting file for category with ID: {Id}", command.Id);
+                return Result.Failure("Error deleting file", ErrorCodeEnum.InternalError);
             }
             catch (Exception ex)
             {

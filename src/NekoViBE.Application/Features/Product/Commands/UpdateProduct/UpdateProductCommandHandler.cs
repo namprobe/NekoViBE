@@ -8,10 +8,11 @@ using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 using System;
-using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
 {
@@ -21,17 +22,20 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
         private readonly IMapper _mapper;
         private readonly ILogger<UpdateProductCommandHandler> _logger;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IFileService _fileService;
 
         public UpdateProductCommandHandler(
             IUnitOfWork unitOfWork,
             IMapper mapper,
             ILogger<UpdateProductCommandHandler> logger,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
             _currentUserService = currentUserService;
+            _fileService = fileService;
         }
 
         public async Task<Result> Handle(UpdateProductCommand command, CancellationToken cancellationToken)
@@ -51,15 +55,9 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                 if (entity == null)
                     return Result.Failure("Product not found", ErrorCodeEnum.NotFound);
 
-                // Check if CategoryId exists
-                var categoryRepo = _unitOfWork.Repository<Domain.Entities.Category>();
-                if (!await categoryRepo.AnyAsync(x => x.Id == command.Request.CategoryId))
-                    return Result.Failure("Category does not exist", ErrorCodeEnum.NotFound);
-
                 var oldValue = JsonSerializer.Serialize(_mapper.Map<ProductRequest>(entity));
                 var oldStatus = entity.Status;
 
-                // Ensure PreOrderReleaseDate is null if IsPreOrder is false
                 if (!command.Request.IsPreOrder)
                 {
                     command.Request.PreOrderReleaseDate = null;
@@ -70,58 +68,77 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                 entity.UpdatedBy = userId;
                 entity.UpdatedAt = DateTime.UtcNow;
 
-                // Handle image update
-                var oldImage = entity.ProductImages.FirstOrDefault(x => x.IsPrimary);
-                if (command.Request.ImageFile != null)
+                var productImageRepo = _unitOfWork.Repository<ProductImage>();
+                var primaryImage = await productImageRepo.GetFirstOrDefaultAsync(x => x.ProductId == entity.Id && x.IsPrimary && !x.IsDeleted);
+
+                using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    _logger.LogInformation("Received ImageFile: {FileName}, Size: {FileSize}",
-                        command.Request.ImageFile.FileName, command.Request.ImageFile.Length);
-                    var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(command.Request.ImageFile.FileName)}";
-                    var filePath = Path.Combine("wwwroot/images/products", fileName);
-                    Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    if (command.Request.ImageFile != null)
                     {
-                        await command.Request.ImageFile.CopyToAsync(stream, cancellationToken);
-                    }
+                        // Upload new image
+                        var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "images/products", cancellationToken);
 
-                    // Delete old image file if exists
-                    if (oldImage != null && !string.IsNullOrEmpty(oldImage.ImagePath))
-                    {
-                        var oldFilePath = Path.Combine(Directory.GetCurrentDirectory(), oldImage.ImagePath.TrimStart('/'));
-                        if (File.Exists(oldFilePath))
+                        if (primaryImage != null)
                         {
-                            File.Delete(oldFilePath);
-                            _logger.LogInformation("Deleted old image file: {OldFilePath}", oldFilePath);
-                        }
-                    }
+                            // Delete old image file if exists
+                            if (!string.IsNullOrEmpty(primaryImage.ImagePath))
+                            {
+                                _logger.LogInformation("Deleting old primary image at {ImagePath} for product {Name}", primaryImage.ImagePath, entity.Name);
+                                await _fileService.DeleteFileAsync(primaryImage.ImagePath, cancellationToken);
+                            }
 
-                    // Update or add new image
-                    if (oldImage != null)
-                    {
-                        oldImage.ImagePath = $"/images/products/{fileName}";
-                        oldImage.UpdatedBy = userId;
-                        oldImage.UpdatedAt = DateTime.UtcNow;
+                            // Update existing primary image
+                            primaryImage.ImagePath = imagePath;
+                            primaryImage.UpdatedBy = userId;
+                            primaryImage.UpdatedAt = DateTime.UtcNow;
+                            productImageRepo.Update(primaryImage);
+                            _logger.LogInformation("Updated primary image to {ImagePath} for product {Name}", imagePath, entity.Name);
+                        }
+                        else
+                        {
+                            // Create new primary image
+                            var newImage = new ProductImage
+                            {
+                                ProductId = entity.Id,
+                                ImagePath = imagePath,
+                                IsPrimary = true,
+                                DisplayOrder = 1,
+                                CreatedBy = userId,
+                                CreatedAt = DateTime.UtcNow,
+                                Status = EntityStatusEnum.Active
+                            };
+                            await productImageRepo.AddAsync(newImage);
+                            entity.ProductImages.Add(newImage);
+                            _logger.LogInformation("Created new primary image with path {ImagePath} for product {Name}", imagePath, entity.Name);
+                        }
                     }
                     else
                     {
-                        entity.ProductImages.Add(new ProductImage
+                        // If no ImageFile provided, soft delete the primary image
+                        if (primaryImage != null)
                         {
-                            ImagePath = $"/images/products/{fileName}",
-                            IsPrimary = true,
-                            DisplayOrder = 1,
-                            CreatedBy = userId,
-                            CreatedAt = DateTime.UtcNow,
-                            Status = EntityStatusEnum.Active
-                        });
+                            if (!string.IsNullOrEmpty(primaryImage.ImagePath))
+                            {
+                                _logger.LogInformation("Deleting primary image file at {ImagePath} for product {Name}", primaryImage.ImagePath, entity.Name);
+                                await _fileService.DeleteFileAsync(primaryImage.ImagePath, cancellationToken);
+                            }
+                            primaryImage.IsDeleted = true;
+                            primaryImage.DeletedBy = userId;
+                            primaryImage.DeletedAt = DateTime.UtcNow;
+                            primaryImage.Status = EntityStatusEnum.Inactive;
+                            productImageRepo.Update(primaryImage);
+                            _logger.LogInformation("Soft deleted primary image for product {Name}", entity.Name);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("No primary image found to delete for product {Name}", entity.Name);
+                        }
                     }
-                    _logger.LogInformation("ImagePath updated to {ImagePath} for product {Name}", $"/images/products/{fileName}", entity.Name);
-                }
 
-                try
-                {
-                    await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                    // Update product
                     repo.Update(entity);
 
+                    // Ghi lại UserAction
                     var userAction = new UserAction
                     {
                         UserId = userId.Value,
@@ -137,6 +154,7 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                     };
                     await _unitOfWork.Repository<UserAction>().AddAsync(userAction);
 
+                    // Ghi lại UserAction cho thay đổi trạng thái
                     if (oldStatus != command.Request.Status)
                     {
                         var statusChangeAction = new UserAction
@@ -155,20 +173,19 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                         await _unitOfWork.Repository<UserAction>().AddAsync(statusChangeAction);
                     }
 
-                    await _unitOfWork.CommitTransactionAsync(cancellationToken);
-                }
-                catch
-                {
-                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    throw;
+                    // Lưu tất cả thay đổi trong UnitOfWork
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                    // Hoàn tất giao dịch
+                    scope.Complete();
                 }
 
                 return Result.Success("Product updated successfully");
             }
-            catch (IOException ioEx)
+            catch (IOException ex)
             {
-                _logger.LogError(ioEx, "Error saving image file for product");
-                return Result.Failure("Error saving image file", ErrorCodeEnum.InternalError);
+                _logger.LogError(ex, "Error handling file for product");
+                return Result.Failure("Error handling file", ErrorCodeEnum.InternalError);
             }
             catch (Exception ex)
             {

@@ -8,10 +8,8 @@ using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Features.Category.Commands.UpdateCategory
@@ -22,17 +20,20 @@ namespace NekoViBE.Application.Features.Category.Commands.UpdateCategory
         private readonly IMapper _mapper;
         private readonly ILogger<UpdateCategoryCommandHandler> _logger;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IFileService _fileService;
 
         public UpdateCategoryCommandHandler(
             IUnitOfWork unitOfWork,
             IMapper mapper,
             ILogger<UpdateCategoryCommandHandler> logger,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
             _currentUserService = currentUserService;
+            _fileService = fileService;
         }
 
         public async Task<Result> Handle(UpdateCategoryCommand command, CancellationToken cancellationToken)
@@ -52,30 +53,36 @@ namespace NekoViBE.Application.Features.Category.Commands.UpdateCategory
                 if (entity == null)
                     return Result.Failure("Category not found", ErrorCodeEnum.NotFound);
 
+                if (command.Request.ParentCategoryId.HasValue &&
+                    !await repo.AnyAsync(x => x.Id == command.Request.ParentCategoryId.Value))
+                {
+                    _logger.LogWarning("Parent category ID {ParentCategoryId} does not exist", command.Request.ParentCategoryId);
+                    return Result.Failure("Parent category does not exist", ErrorCodeEnum.NotFound);
+                }
+
                 var oldValue = JsonSerializer.Serialize(_mapper.Map<CategoryRequest>(entity));
                 var oldStatus = entity.Status;
+                var oldImagePath = entity.ImagePath;
+
                 _mapper.Map(command.Request, entity);
                 entity.UpdatedBy = userId;
                 entity.UpdatedAt = DateTime.UtcNow;
 
                 if (command.Request.ImageFile != null)
                 {
-                    _logger.LogInformation("Received ImageFile: {FileName}, Size: {FileSize}",
-                        command.Request.ImageFile.FileName, command.Request.ImageFile.Length);
-                    var fileName = $"{Guid.NewGuid()}_{command.Request.ImageFile.FileName}";
-                    var filePath = Path.Combine("wwwroot/images/categories", fileName);
-                    Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    // Delete old image if exists
+                    if (!string.IsNullOrEmpty(oldImagePath))
                     {
-                        await command.Request.ImageFile.CopyToAsync(stream, cancellationToken);
+                        await _fileService.DeleteFileAsync(oldImagePath, cancellationToken);
                     }
-                    entity.ImagePath = $"/images/categories/{fileName}";
-                    _logger.LogInformation("ImagePath updated to {ImagePath} for category {Name}",
-                        entity.ImagePath, entity.Name);
-                }
-                else
+
+                    // Upload new image
+                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "images/categories", cancellationToken);
+                    entity.ImagePath = imagePath;
+                    _logger.LogInformation("ImagePath updated to {ImagePath} for category {Name}", imagePath, entity.Name);
+                } else
                 {
-                    _logger.LogInformation("No ImageFile provided for category {Name}, setting ImagePath to null", entity.Name);
+                    await _fileService.DeleteFileAsync(oldImagePath, cancellationToken);
                     entity.ImagePath = null;
                 }
 
@@ -127,9 +134,14 @@ namespace NekoViBE.Application.Features.Category.Commands.UpdateCategory
 
                 return Result.Success("Category updated successfully");
             }
+            catch (IOException ex)
+            {
+                _logger.LogError(ex, "Error handling file for category");
+                return Result.Failure("Error handling file", ErrorCodeEnum.InternalError);
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating category");
+                _logger.LogError(ex, "Error updating category with ID: {Id}", command.Id);
                 return Result.Failure("Error updating category", ErrorCodeEnum.InternalError);
             }
         }

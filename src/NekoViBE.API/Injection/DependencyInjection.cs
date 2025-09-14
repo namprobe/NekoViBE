@@ -1,5 +1,7 @@
-using NekoViBE.API.Attributes;
+﻿using NekoViBE.API.Attributes;
 using NekoViBE.API.Middlewares;
+using NekoViBE.Application.Common.Interfaces;
+using NekoViBE.Infrastructure.Factories;
 
 namespace NekoViBE.API.Injection;
 
@@ -9,7 +11,18 @@ public static class DependencyInjection
     {
         // Add HttpContextAccessor
         services.AddHttpContextAccessor();
-        
+
+        // Đăng ký FileServiceFactory
+        services.AddSingleton<IFileServiceFactory, FileServiceFactory>();
+
+        // Đăng ký FileService (sử dụng factory để lấy instance cụ thể)
+        services.AddScoped<IFileService>(provider =>
+        {
+            var factory = provider.GetRequiredService<IFileServiceFactory>();
+            var storageType = configuration["FileStorage:Type"] ?? "local";
+            return factory.CreateFileService(storageType);
+        });
+
         // Register role-based access filters
         services.AddScoped<CustomerRoleAccessFilter>();
         services.AddScoped<StaffRoleAccessFilter>();

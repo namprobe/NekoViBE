@@ -5,83 +5,104 @@ using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
+using System;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace NekoViBE.Application.Features.AnimeSeries.Commands.DeleteAnimeSeries;
-
-public class DeleteAnimeSeriesCommandHandler
-    : IRequestHandler<DeleteAnimeSeriesCommand, Result>
+namespace NekoViBE.Application.Features.AnimeSeries.Commands.DeleteAnimeSeries
 {
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly ILogger<DeleteAnimeSeriesCommandHandler> _logger;
-    private readonly ICurrentUserService _currentUserService;
-
-    public DeleteAnimeSeriesCommandHandler(
-        IUnitOfWork unitOfWork,
-        ILogger<DeleteAnimeSeriesCommandHandler> logger,
-        ICurrentUserService currentUserService)
+    public class DeleteAnimeSeriesCommandHandler : IRequestHandler<DeleteAnimeSeriesCommand, Result>
     {
-        _unitOfWork = unitOfWork;
-        _logger = logger;
-        _currentUserService = currentUserService;
-    }
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<DeleteAnimeSeriesCommandHandler> _logger;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly IFileService _fileService;
 
-    public async Task<Result> Handle(DeleteAnimeSeriesCommand command, CancellationToken cancellationToken)
-    {
-        try
+        public DeleteAnimeSeriesCommandHandler(
+            IUnitOfWork unitOfWork,
+            ILogger<DeleteAnimeSeriesCommandHandler> logger,
+            ICurrentUserService currentUserService,
+            IFileService fileService)
         {
-            var (isValid, userId) = await _currentUserService.IsUserValidAsync();
-            if (!isValid || userId == null)
-            {
-                _logger.LogWarning("Invalid or unauthenticated user attempting to delete anime series");
-                return Result.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
-            }
+            _unitOfWork = unitOfWork;
+            _logger = logger;
+            _currentUserService = currentUserService;
+            _fileService = fileService;
+        }
 
-            var repo = _unitOfWork.Repository<Domain.Entities.AnimeSeries>();
-            var entity = await repo.GetFirstOrDefaultAsync(x => x.Id == command.Id);
-
-            if (entity == null)
-                return Result.Failure("Anime series not found", ErrorCodeEnum.NotFound);
-
-            // Soft delete thay vì hard delete
-            entity.IsDeleted = true;
-            entity.DeletedBy = userId;
-            entity.DeletedAt = DateTime.UtcNow;
-            entity.Status = EntityStatusEnum.Inactive;
-
+        public async Task<Result> Handle(DeleteAnimeSeriesCommand command, CancellationToken cancellationToken)
+        {
             try
             {
-                await _unitOfWork.BeginTransactionAsync(cancellationToken);
-                repo.Update(entity);
-
-                var userAction = new UserAction
+                var (isValid, userId) = await _currentUserService.IsUserValidAsync();
+                if (!isValid || userId == null)
                 {
-                    UserId = userId.Value,
-                    Action = UserActionEnum.Delete,
-                    EntityId = entity.Id,
-                    EntityName = "AnimeSeries",
-                    OldValue = JsonSerializer.Serialize(new { entity.Title, entity.ReleaseYear, entity.Description }),
-                    IPAddress = _currentUserService.IPAddress ?? "Unknown",
-                    ActionDetail = $"Deleted anime series with title: {entity.Title}",
-                    CreatedAt = DateTime.UtcNow,
-                    Status = EntityStatusEnum.Active
-                };
-                await _unitOfWork.Repository<UserAction>().AddAsync(userAction);
+                    _logger.LogWarning("Invalid or unauthenticated user attempting to delete anime series");
+                    return Result.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
+                }
 
-                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+                var repo = _unitOfWork.Repository<Domain.Entities.AnimeSeries>();
+                var entity = await repo.GetFirstOrDefaultAsync(x => x.Id == command.Id);
+
+                if (entity == null)
+                    return Result.Failure("Anime series not found", ErrorCodeEnum.NotFound);
+
+                // Check for dependencies
+                var hasProducts = await _unitOfWork.Repository<Domain.Entities.Product>().AnyAsync(x => x.AnimeSeriesId == command.Id);
+                if (hasProducts)
+                    return Result.Failure("Cannot delete anime series with associated products", ErrorCodeEnum.ResourceConflict);
+
+                // Delete image if exists
+                if (!string.IsNullOrEmpty(entity.ImagePath))
+                {
+                    await _fileService.DeleteFileAsync(entity.ImagePath, cancellationToken);
+                }
+
+                entity.IsDeleted = true;
+                entity.DeletedBy = userId;
+                entity.DeletedAt = DateTime.UtcNow;
+                entity.Status = EntityStatusEnum.Inactive;
+
+                try
+                {
+                    await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                    repo.Update(entity);
+
+                    var userAction = new UserAction
+                    {
+                        UserId = userId.Value,
+                        Action = UserActionEnum.Delete,
+                        EntityId = entity.Id,
+                        EntityName = "AnimeSeries",
+                        OldValue = JsonSerializer.Serialize(new { entity.Title, entity.ReleaseYear, entity.Description }),
+                        IPAddress = _currentUserService.IPAddress ?? "Unknown",
+                        ActionDetail = $"Deleted anime series with title: {entity.Title}",
+                        CreatedAt = DateTime.UtcNow,
+                        Status = EntityStatusEnum.Active
+                    };
+                    await _unitOfWork.Repository<UserAction>().AddAsync(userAction);
+
+                    await _unitOfWork.CommitTransactionAsync(cancellationToken);
+                }
+                catch
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    throw;
+                }
+
+                return Result.Success("Anime series deleted successfully");
             }
-            catch
+            catch (IOException ex)
             {
-                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                throw;
+                _logger.LogError(ex, "Error deleting file for anime series with ID: {Id}", command.Id);
+                return Result.Failure("Error deleting file", ErrorCodeEnum.InternalError);
             }
-
-            return Result.Success("Anime series deleted successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting anime series with ID: {Id}", command.Id);
-            return Result.Failure("Error deleting anime series", ErrorCodeEnum.InternalError);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting anime series with ID: {Id}", command.Id);
+                return Result.Failure("Error deleting anime series", ErrorCodeEnum.InternalError);
+            }
         }
     }
 }
