@@ -17,15 +17,18 @@ namespace NekoViBE.Application.Features.Product.Commands.DeleteProduct
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<DeleteProductCommandHandler> _logger;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IFileService _fileService;
 
         public DeleteProductCommandHandler(
             IUnitOfWork unitOfWork,
             ILogger<DeleteProductCommandHandler> logger,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _currentUserService = currentUserService;
+            _fileService = fileService;
         }
 
         public async Task<Result> Handle(DeleteProductCommand command, CancellationToken cancellationToken)
@@ -46,23 +49,18 @@ namespace NekoViBE.Application.Features.Product.Commands.DeleteProduct
                     return Result.Failure("Product not found", ErrorCodeEnum.NotFound);
 
                 // Check for dependencies
-                var hasOrders = await _unitOfWork.Repository<OrderItem>().AnyAsync(x => x.ProductId == command.Id);
-                var hasCartItems = await _unitOfWork.Repository<CartItem>().AnyAsync(x => x.ProductId == command.Id);
-                var hasWishlistItems = await _unitOfWork.Repository<WishlistItem>().AnyAsync(x => x.ProductId == command.Id);
-                if (hasOrders || hasCartItems || hasWishlistItems)
-                    return Result.Failure("Cannot delete product with associated orders, cart items, or wishlist items", ErrorCodeEnum.ResourceConflict);
+                var hasOrders = await _unitOfWork.Repository<OrderItem>().AnyAsync(x => x.ProductId == command.Id && !x.IsDeleted);
+                var hasWishlistItems = await _unitOfWork.Repository<WishlistItem>().AnyAsync(x => x.ProductId == command.Id && !x.IsDeleted);
+               
+                if (hasOrders || hasWishlistItems)
+                    return Result.Failure("Cannot delete product with associated orders, or wishlist items", ErrorCodeEnum.ResourceConflict);
 
                 // Delete associated images
                 foreach (var image in entity.ProductImages)
                 {
                     if (!string.IsNullOrEmpty(image.ImagePath))
                     {
-                        var filePath = Path.Combine(Directory.GetCurrentDirectory(), image.ImagePath.TrimStart('/'));
-                        if (File.Exists(filePath))
-                        {
-                            File.Delete(filePath);
-                            _logger.LogInformation("Deleted image file: {FilePath}", filePath);
-                        }
+                        await _fileService.DeleteFileAsync(image.ImagePath, cancellationToken);
                     }
                 }
 
@@ -99,6 +97,11 @@ namespace NekoViBE.Application.Features.Product.Commands.DeleteProduct
                 }
 
                 return Result.Success("Product deleted successfully");
+            }
+            catch (IOException ex)
+            {
+                _logger.LogError(ex, "Error deleting file for product with ID: {Id}", command.Id);
+                return Result.Failure("Error deleting file", ErrorCodeEnum.InternalError);
             }
             catch (Exception ex)
             {

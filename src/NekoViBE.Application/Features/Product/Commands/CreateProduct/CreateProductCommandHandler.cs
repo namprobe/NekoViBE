@@ -8,10 +8,10 @@ using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 using System;
-using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace NekoViBE.Application.Features.Product.Commands.CreateProduct
 {
@@ -21,17 +21,20 @@ namespace NekoViBE.Application.Features.Product.Commands.CreateProduct
         private readonly IMapper _mapper;
         private readonly ILogger<CreateProductCommandHandler> _logger;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IFileService _fileService;
 
         public CreateProductCommandHandler(
             IUnitOfWork unitOfWork,
             IMapper mapper,
             ILogger<CreateProductCommandHandler> logger,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
             _currentUserService = currentUserService;
+            _fileService = fileService;
         }
 
         public async Task<Result> Handle(CreateProductCommand command, CancellationToken cancellationToken)
@@ -57,38 +60,36 @@ namespace NekoViBE.Application.Features.Product.Commands.CreateProduct
                 entity.CreatedAt = DateTime.UtcNow;
                 entity.Status = EntityStatusEnum.Active;
 
-                if (command.Request.ImageFile != null)
+                using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    _logger.LogInformation("Received ImageFile: {FileName}, Size: {FileSize}",
-                        command.Request.ImageFile.FileName, command.Request.ImageFile.Length);
-                    var fileName = $"{Guid.NewGuid()}_{command.Request.ImageFile.FileName}";
-                    var filePath = Path.Combine("wwwroot/images/products", fileName);
-                    Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await command.Request.ImageFile.CopyToAsync(stream, cancellationToken);
-                    }
-                    entity.ProductImages.Add(new ProductImage
-                    {
-                        ImagePath = $"/images/products/{fileName}",
-                        IsPrimary = true,
-                        DisplayOrder = 1,
-                        CreatedBy = userId,
-                        CreatedAt = DateTime.UtcNow,
-                        Status = EntityStatusEnum.Active
-                    });
-                    _logger.LogInformation("ImagePath set to {ImagePath} for product {Name}", $"/images/products/{fileName}", entity.Name);
-                }
-                else
-                {
-                    _logger.LogWarning("No ImageFile provided for product {Name}", command.Request.Name);
-                }
+                    var productImageRepo = _unitOfWork.Repository<ProductImage>();
 
-                try
-                {
-                    await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                    if (command.Request.ImageFile != null)
+                    {
+                        var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "images/products", cancellationToken);
+                        var newImage = new ProductImage
+                        {
+                            ProductId = entity.Id,
+                            ImagePath = imagePath,
+                            IsPrimary = true,
+                            DisplayOrder = 1,
+                            CreatedBy = userId,
+                            CreatedAt = DateTime.UtcNow,
+                            Status = EntityStatusEnum.Active
+                        };
+                        entity.ProductImages.Add(newImage);
+                        await productImageRepo.AddAsync(newImage);
+                        _logger.LogInformation("Created new primary image with path {ImagePath} for product {Name}", imagePath, entity.Name);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("No ImageFile provided for product {Name}", command.Request.Name);
+                    }
+
+                    // Thêm sản phẩm
                     await _unitOfWork.Repository<Domain.Entities.Product>().AddAsync(entity);
 
+                    // Ghi lại UserAction
                     var userAction = new UserAction
                     {
                         UserId = userId.Value,
@@ -103,15 +104,19 @@ namespace NekoViBE.Application.Features.Product.Commands.CreateProduct
                     };
                     await _unitOfWork.Repository<UserAction>().AddAsync(userAction);
 
-                    await _unitOfWork.CommitTransactionAsync(cancellationToken);
-                }
-                catch
-                {
-                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    throw;
+                    // Lưu tất cả thay đổi
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                    // Hoàn tất giao dịch
+                    scope.Complete();
                 }
 
                 return Result.Success("Product created successfully");
+            }
+            catch (IOException ex)
+            {
+                _logger.LogError(ex, "Error uploading file for product");
+                return Result.Failure("Error uploading file", ErrorCodeEnum.InternalError);
             }
             catch (Exception ex)
             {

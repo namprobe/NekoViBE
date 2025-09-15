@@ -7,10 +7,8 @@ using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Features.Category.Commands.CreateCategory
@@ -21,17 +19,20 @@ namespace NekoViBE.Application.Features.Category.Commands.CreateCategory
         private readonly IMapper _mapper;
         private readonly ILogger<CreateCategoryCommandHandler> _logger;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IFileService _fileService;
 
         public CreateCategoryCommandHandler(
             IUnitOfWork unitOfWork,
             IMapper mapper,
             ILogger<CreateCategoryCommandHandler> logger,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
             _currentUserService = currentUserService;
+            _fileService = fileService;
         }
 
         public async Task<Result> Handle(CreateCategoryCommand command, CancellationToken cancellationToken)
@@ -45,6 +46,14 @@ namespace NekoViBE.Application.Features.Category.Commands.CreateCategory
                     return Result.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
                 }
 
+                var categoryRepo = _unitOfWork.Repository<Domain.Entities.Category>();
+                if (command.Request.ParentCategoryId.HasValue &&
+                    !await categoryRepo.AnyAsync(x => x.Id == command.Request.ParentCategoryId.Value))
+                {
+                    _logger.LogWarning("Parent category ID {ParentCategoryId} does not exist", command.Request.ParentCategoryId);
+                    return Result.Failure("Parent category does not exist", ErrorCodeEnum.NotFound);
+                }
+
                 var entity = _mapper.Map<Domain.Entities.Category>(command.Request);
                 entity.CreatedBy = userId;
                 entity.CreatedAt = DateTime.UtcNow;
@@ -52,18 +61,9 @@ namespace NekoViBE.Application.Features.Category.Commands.CreateCategory
 
                 if (command.Request.ImageFile != null)
                 {
-                    _logger.LogInformation("Received ImageFile: {FileName}, Size: {FileSize}",
-                        command.Request.ImageFile.FileName, command.Request.ImageFile.Length);
-                    var fileName = $"{Guid.NewGuid()}_{command.Request.ImageFile.FileName}";
-                    var filePath = Path.Combine("wwwroot/images/categories", fileName);
-                    Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await command.Request.ImageFile.CopyToAsync(stream, cancellationToken);
-                    }
-                    entity.ImagePath = $"/images/categories/{fileName}";
-                    _logger.LogInformation("ImagePath set to {ImagePath} for category {Name}",
-                        entity.ImagePath, entity.Name);
+                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "images/categories", cancellationToken);
+                    entity.ImagePath = imagePath;
+                    _logger.LogInformation("ImagePath set to {ImagePath} for category {Name}", imagePath, entity.Name);
                 }
                 else
                 {
@@ -73,7 +73,7 @@ namespace NekoViBE.Application.Features.Category.Commands.CreateCategory
                 try
                 {
                     await _unitOfWork.BeginTransactionAsync(cancellationToken);
-                    await _unitOfWork.Repository<Domain.Entities.Category>().AddAsync(entity);
+                    await categoryRepo.AddAsync(entity);
 
                     var userAction = new UserAction
                     {
@@ -98,6 +98,11 @@ namespace NekoViBE.Application.Features.Category.Commands.CreateCategory
                 }
 
                 return Result.Success("Category created successfully");
+            }
+            catch (IOException ex)
+            {
+                _logger.LogError(ex, "Error uploading file for category");
+                return Result.Failure("Error uploading file", ErrorCodeEnum.InternalError);
             }
             catch (Exception ex)
             {
