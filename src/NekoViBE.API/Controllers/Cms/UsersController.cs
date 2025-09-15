@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NekoViBE.Application.Common.Extensions;
 using NekoViBE.Application.Features.User.Commands.CreateUser;
+using NekoViBE.Application.Features.User.Commands.DeleteUser;
 using NekoViBE.Application.Features.User.Queries.GetUser;
 
 
@@ -31,7 +32,7 @@ namespace NekoViBE.API.Controllers.Cms
 
         [HttpPost]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> CreateUser([FromBody] CreateUserCommand command)
+        public async Task<IActionResult> CreateUser([FromForm] CreateUserCommand command)
         {
             if (!ModelState.IsValid)
             {
@@ -46,6 +47,15 @@ namespace NekoViBE.API.Controllers.Cms
             }
 
             return Ok(result);
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteUser(Guid id)
+        {
+            var command = new DeleteUserCommand(id);
+            var result = await _mediator.Send(command);
+            return StatusCode(result.GetHttpStatusCode(), result);
         }
 
         //[HttpGet("{id}")]

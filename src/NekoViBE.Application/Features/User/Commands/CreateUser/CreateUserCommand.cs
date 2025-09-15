@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.AspNetCore.Http;
 using NekoViBE.Application.Common.DTOs.User;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Enums;
@@ -35,7 +36,7 @@ namespace NekoViBE.Application.Features.User.Commands.CreateUser
         [Required]
         public List<Guid> RoleIds { get; set; } = new(); // Changed from role names to role IDs
 
-        public string? AvatarPath { get; set; }
+        public IFormFile? AvatarPath { get; set; }
 
         public EntityStatusEnum Status { get; set; } = EntityStatusEnum.Active;
     }

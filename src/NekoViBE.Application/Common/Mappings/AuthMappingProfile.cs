@@ -25,6 +25,8 @@ public class AuthMappingProfile : Profile
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => EntityStatusEnum.Active));
         CreateMap<CreateUserCommand, CustomerProfile>()
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => EntityStatusEnum.Active));
+        CreateMap<CreateUserCommand, StaffProfile>()
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => EntityStatusEnum.Active));
 
         CreateMap<AppUser, ProfileResponse>()
             .ForMember(dest => dest.Gender, opt => opt.MapFrom(src => src.CustomerProfile != null ? src.CustomerProfile.Gender.ToString() :
