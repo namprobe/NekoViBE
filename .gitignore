@@ -430,3 +430,4 @@ $RECYCLE.BIN/
 /wwwroot/uploads/*
 **/wwwroot/uploads/**
 !**/wwwroot/uploads/.gitkeep
+wwwroot/images/
