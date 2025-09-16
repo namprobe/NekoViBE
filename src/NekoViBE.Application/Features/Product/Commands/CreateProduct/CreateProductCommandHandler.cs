@@ -66,7 +66,7 @@ namespace NekoViBE.Application.Features.Product.Commands.CreateProduct
 
                     if (command.Request.ImageFile != null)
                     {
-                        var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "images/products", cancellationToken);
+                        var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads/products", cancellationToken);
                         var newImage = new ProductImage
                         {
                             ProductId = entity.Id,

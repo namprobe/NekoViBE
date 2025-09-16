@@ -3,6 +3,7 @@ using NekoViBE.Application.Common.DTOs.Auth;
 using NekoViBE.Application.Common.DTOs.Role;
 using NekoViBE.Application.Features.Auth.Commands.Role;
 using NekoViBE.Application.Features.Auth.Queries.GetProfile;
+using NekoViBE.Application.Features.User.Commands.CreateUser;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 
@@ -21,6 +22,10 @@ public class AuthMappingProfile : Profile
             .ForMember(dest => dest.ConcurrencyStamp, opt => opt.Ignore())
             .ForMember(dest => dest.Id, opt => opt.Ignore());
         CreateMap<RegisterRequest, CustomerProfile>()
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => EntityStatusEnum.Active));
+        CreateMap<CreateUserCommand, CustomerProfile>()
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => EntityStatusEnum.Active));
+        CreateMap<CreateUserCommand, StaffProfile>()
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => EntityStatusEnum.Active));
 
         CreateMap<AppUser, ProfileResponse>()

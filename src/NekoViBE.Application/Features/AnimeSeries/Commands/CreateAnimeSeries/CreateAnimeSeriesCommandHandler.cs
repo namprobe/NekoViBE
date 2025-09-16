@@ -53,7 +53,7 @@ public class CreateAnimeSeriesCommandHandler : IRequestHandler<CreateAnimeSeries
             // Handle image upload
             if (command.Request.ImageFile != null)
             {
-                var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "images/anime-series", cancellationToken);
+                var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads/anime-series", cancellationToken);
                 entity.ImagePath = imagePath;
                 _logger.LogInformation("ImagePath set to {ImagePath} for anime series {Title}", imagePath, entity.Title);
             }

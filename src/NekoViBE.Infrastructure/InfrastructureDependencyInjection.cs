@@ -143,8 +143,9 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<INotificationFactory, NotificationFactory>();
         services.AddScoped<IFirebaseService, FirebaseService>();
         // External services
-        
-        
+        services.AddScoped<IFileService, FileService>();
+
+
         return services;
     }
 }
