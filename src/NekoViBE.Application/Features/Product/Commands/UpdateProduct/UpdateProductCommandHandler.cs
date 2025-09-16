@@ -76,7 +76,7 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                     if (command.Request.ImageFile != null)
                     {
                         // Upload new image
-                        var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "images/products", cancellationToken);
+                        var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads/products", cancellationToken);
 
                         if (primaryImage != null)
                         {

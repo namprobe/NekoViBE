@@ -116,7 +116,7 @@ namespace NekoViBE.Application.Features.User.Commands.CreateUser
             // Handle avatar upload
             if (userData.AvatarPath != null)
             {
-                var imagePath = await _fileService.UploadFileAsync(userData.AvatarPath, "images/users", cancellationToken);
+                var imagePath = await _fileService.UploadFileAsync(userData.AvatarPath, "uploads/users", cancellationToken);
                 user.AvatarPath = imagePath;
                 _logger.LogInformation("ImagePath set to {ImagePath} for user {Name}", imagePath, user.Email);
             }
