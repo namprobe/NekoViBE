@@ -36,8 +36,7 @@ public static class ApplicationDependencyInjection
             cfg.AddProfile(new AnimeSeriesMappingProfile());
             cfg.AddProfile(new CategoryMappingProfile());
             cfg.AddProfile(new ProductMappingProfile());
-            //cfg.AddProfile(new CategoryMappingProfile());
-            //cfg.AddProfile(new ProductMappingProfile());
+            cfg.AddProfile(new ProductInventoryMappingProfile());
 
 
             // Và tự động quét tất cả Profile trong assembly này    
