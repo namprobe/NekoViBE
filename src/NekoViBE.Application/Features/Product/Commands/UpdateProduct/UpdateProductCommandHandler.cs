@@ -68,7 +68,7 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                 entity.UpdatedBy = userId;
                 entity.UpdatedAt = DateTime.UtcNow;
 
-                var productImageRepo = _unitOfWork.Repository<ProductImage>();
+                var productImageRepo = _unitOfWork.Repository<Domain.Entities.ProductImage>();
                 var primaryImage = await productImageRepo.GetFirstOrDefaultAsync(x => x.ProductId == entity.Id && x.IsPrimary && !x.IsDeleted);
 
                 using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
@@ -97,7 +97,7 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                         else
                         {
                             // Create new primary image
-                            var newImage = new ProductImage
+                            var newImage = new Domain.Entities.ProductImage
                             {
                                 ProductId = entity.Id,
                                 ImagePath = imagePath,
