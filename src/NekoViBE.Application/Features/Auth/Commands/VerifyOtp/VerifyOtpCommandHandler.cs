@@ -22,10 +22,11 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly IIdentityService _identityService;
+    private readonly INotificationFactory _notificationFactory;
     private readonly string _passwordEncryptKey;
 
-    public VerifyOtpCommandHandler(IOtpCacheService otpCacheService, ILogger<VerifyOtpCommandHandler> logger, 
-    IUnitOfWork unitOfWork, IIdentityService identityService, IMapper mapper, IConfiguration configuration)
+    public VerifyOtpCommandHandler(IOtpCacheService otpCacheService, ILogger<VerifyOtpCommandHandler> logger,
+    IUnitOfWork unitOfWork, IIdentityService identityService, IMapper mapper, IConfiguration configuration, INotificationFactory notificationFactory)
     {
         _otpCacheService = otpCacheService;
         _logger = logger;
@@ -33,6 +34,7 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
         _identityService = identityService;
         _mapper = mapper;
         _passwordEncryptKey = configuration.GetValue<string>("PasswordEncryptKey") ?? throw new Exception("PasswordEncryptKey is not set");
+        _notificationFactory = notificationFactory;
     }
 
     public async Task<Result> Handle(VerifyOtpCommand command, CancellationToken cancellationToken)
@@ -133,7 +135,29 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
         });
 
 
-        //todo : send welcome email via background task (future)
+        //todo: send welcome email
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var notificationService = _notificationFactory.GetSender(NotificationChannelEnum.Email);
+                var notification = new NotificationRequest
+                {
+                    To = registerRequest.Email,
+                    Template = NotificationTemplateEnums.Welcome,
+                };
+                var recipient = new RecipientInfo
+                {
+                    Email = registerRequest.Email,
+                    FullName = $"{registerRequest.FirstName} {registerRequest.LastName}".Trim()
+                };
+                await notificationService.SendNotificationAsync(notification, recipient);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send welcome email to {Email}", user.Email);
+            }
+        });
         return Result.Success("User registered successfully.");
     }
 
@@ -143,10 +167,10 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
         dynamic passwordResetData = userData;
         var encryptedPassword = (string)passwordResetData.EncryptedPassword;
         var resetToken = (string)passwordResetData.ResetToken;
-        
+
         // Decrypt the password to get the plain text for Identity's ResetPasswordAsync
         var plainPassword = PasswordCryptoHelper.Decrypt(encryptedPassword, _passwordEncryptKey);
-        
+
         Expression<Func<AppUser, bool>> expression = command.Request.OtpSentChannel switch
         {
             NotificationChannelEnum.Email => x => x.Email == command.Request.Contact,
