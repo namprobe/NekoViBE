@@ -28,7 +28,7 @@ namespace NekoViBE.API.Controllers.Cms
         }
 
         [HttpGet]
-        [AuthorizeRoles("Admin", "Staff")]
+        [AuthorizeRoles]
         [ProducesResponseType(typeof(PaginationResult<EventProductItem>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(PaginationResult<EventProductItem>), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(PaginationResult<EventProductItem>), StatusCodes.Status403Forbidden)]
@@ -47,7 +47,7 @@ namespace NekoViBE.API.Controllers.Cms
         }
 
         [HttpGet("{id}")]
-        [AuthorizeRoles("Admin", "Staff")]
+        [AuthorizeRoles]
         [ProducesResponseType(typeof(Result<EventProductResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result<EventProductResponse>), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(Result<EventProductResponse>), StatusCodes.Status403Forbidden)]
