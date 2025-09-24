@@ -17,11 +17,15 @@ public class AuthMappingProfile : Profile
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => EntityStatusEnum.Active))
             .ForMember(dest => dest.JoiningAt, opt => opt.MapFrom(src => DateTime.UtcNow))
             .ForMember(dest => dest.EmailConfirmed, opt => opt.MapFrom(src => true))
-            .ForMember(dest => dest.SecurityStamp, opt => opt.Ignore())
-            .ForMember(dest => dest.ConcurrencyStamp, opt => opt.Ignore())
-            .ForMember(dest => dest.Id, opt => opt.Ignore());
+            .ForMember(dest => dest.AvatarPath, opt => opt.Ignore())
+            .IgnoreIdentityFields()
+            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore());
         CreateMap<RegisterRequest, CustomerProfile>()
-            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => EntityStatusEnum.Active));
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => EntityStatusEnum.Active))
+            .IgnoreAllBaseEntityFields();
 
         CreateMap<AppUser, ProfileResponse>()
             .ForMember(dest => dest.Gender, opt => opt.MapFrom(src => src.CustomerProfile != null ? src.CustomerProfile.Gender.ToString() :
@@ -31,6 +35,14 @@ public class AuthMappingProfile : Profile
             .ForMember(dest => dest.HireDate, opt => opt.MapFrom(src => src.StaffProfile != null ? src.StaffProfile.HireDate : null))
             .ForMember(dest => dest.Salary, opt => opt.MapFrom(src => src.StaffProfile != null ? src.StaffProfile.Salary : null));
 
+        CreateMap<UpdateProfileRequest, AppUser>()
+            .IgnoreIdentityFields()
+            .ForMember(dest => dest.AvatarPath, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.Status, opt => opt.Ignore());
 
         //CreateMap<AppRole, RoleResponse>();
         CreateMap<AppRole, RoleDTO>();
@@ -42,5 +54,10 @@ public class AuthMappingProfile : Profile
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
             .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
             .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+
+        CreateMap<UpdateProfileRequest, CustomerProfile>()
+            .IgnoreAllBaseEntityFields()
+            .ForMember(dest => dest.UserId, opt => opt.Ignore())
+            .ForMember(dest => dest.Status, opt => opt.Ignore());
     }
 }

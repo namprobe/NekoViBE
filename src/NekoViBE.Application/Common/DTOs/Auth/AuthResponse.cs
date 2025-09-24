@@ -1,6 +1,6 @@
 namespace NekoViBE.Application.Common.DTOs.Auth;
 
-public class AuthResponse
+public class    AuthResponse
 {
     public string AccessToken { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
