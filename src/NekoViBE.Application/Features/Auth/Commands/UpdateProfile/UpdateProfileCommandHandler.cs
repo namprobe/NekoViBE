@@ -40,8 +40,10 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
             var profile = user.CustomerProfile;
             _mapper.Map(request.UpdateProfileRequest, user);
             _mapper.Map(request.UpdateProfileRequest, profile);
+            _logger.LogInformation("request bio and profile bio after mapping: {Bio} - {ProfileBio}", request.UpdateProfileRequest.Bio, profile?.Bio);
             user.UpdateEntity(userId.Value);
             profile?.UpdateEntity(userId.Value);
+            string? oldAvatarPath = user.AvatarPath;
             try
             {
                 await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -55,6 +57,20 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
                 if (profile != null)
                     _unitOfWork.Repository<CustomerProfile>().Update(profile);
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+                // Delete old avatar file if a new one was uploaded fire-and-forget
+                if (oldAvatarPath != null && request.UpdateProfileRequest.Avatar != null)
+                    _ = Task.Run((
+                        async () =>
+                        {
+                        try {
+                            var fileService = _fileServiceFactory.CreateFileService("local");
+                            await fileService.DeleteFileAsync(oldAvatarPath, cancellationToken);
+                        } catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error deleting old avatar file at {OldAvatarPath}", oldAvatarPath);
+                        }
+                    }));
                 return Result.Success("Profile updated successfully.");
             }
             catch
