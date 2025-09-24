@@ -49,5 +49,6 @@ public enum ErrorCodeEnum
     EmailSendFailed = 8001,
     EmailNotConfirmed = 8002,
     EmailAlreadyConfirmed = 8003,
-    InvalidEmailToken = 8004
+    InvalidEmailToken = 8004,
+    Conflict = 8005
 }
