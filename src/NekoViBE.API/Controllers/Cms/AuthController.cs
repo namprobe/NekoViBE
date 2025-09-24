@@ -9,6 +9,7 @@ using NekoViBE.Application.Features.Auth.Commands.Login;
 using NekoViBE.Application.Features.Auth.Commands.Logout;
 using Microsoft.AspNetCore.Authorization;
 using NekoViBE.Application.Features.Auth.Queries.GetProfile;
+using NekoViBE.Application.Features.Auth.Commands.RefreshToken;
 
 namespace NekoViBE.API.Controllers.Cms;
 
@@ -148,6 +149,48 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> GetProfile()
     {
         var query = new GetProfileQuery();
+        var result = await _mediator.Send(query);
+        if (!result.IsSuccess)
+        {
+            return StatusCode(result.GetHttpStatusCode(), result);
+        }
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Refresh token of the logged-in user in cms system
+    /// </summary>
+    /// <remarks>
+    /// This API refesh access token of the currently cms authenticated user.
+    /// It requires a valid access token in the request header.
+    /// 
+    /// Sample request:
+    /// 
+    ///     GET /api/cms/auth/refresh-token
+    /// 
+    /// Headers:
+    ///     Authorization: Bearer &lt;access_token&gt;
+    /// </remarks>
+    /// <returns>refresh token for admin or staff</returns>
+    /// <response code="200">Refresh token successfully</response>
+    /// <response code="401">Failed to refresh token (not authorized)</response>
+    /// <response code="403">No access (user is not a CMS member)</response>
+    /// <response code="500">Failed to refresh token (internal server error)</response>
+    [HttpPost("refresh-token")]
+    [AuthorizeRoles("Admin", "Staff")]
+    [ProducesResponseType(typeof(Result<ProfileResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<ProfileResponse>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Result<ProfileResponse>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(Result<ProfileResponse>), StatusCodes.Status500InternalServerError)]
+    [SwaggerOperation(
+        Summary = "Refresh token for the logged-in user in cms system",
+        Description = "This API refesh access token of the currently authenticated cms user",
+        OperationId = "RefreshToken",
+        Tags = new[] { "CMS", "CMS_Auth" }
+    )]
+    public async Task<IActionResult> RefreshToken()
+    {
+        var query = new RefreshTokenCommand();
         var result = await _mediator.Send(query);
         if (!result.IsSuccess)
         {

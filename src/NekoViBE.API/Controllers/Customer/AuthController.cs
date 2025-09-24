@@ -13,6 +13,9 @@ using NekoViBE.Application.Features.Auth.Queries.GetProfile;
 using NekoViBE.Application.Features.Auth.Commands.VerifyOtp;
 using NekoViBE.Application.Features.Auth.Commands.ResetPassword;
 using NekoViBE.Application.Features.Auth.Commands.ChangePassword;
+using NekoViBE.Application.Features.Auth.Commands.RefreshToken;
+using NekoViBE.Application.Features.Product.Commands.UpdateProduct;
+using NekoViBE.Application.Features.Auth.Commands.UpdateProfile;
 
 
 namespace NekoViBE.API.Controllers.Customer;
@@ -155,14 +158,14 @@ public class AuthController : ControllerBase
         Tags = new[] { "Customer", "Customer_Auth" }
     )]
     public async Task<IActionResult> Register(
-        [FromForm(Name = "email")] string email,
-        [FromForm(Name = "password")] string password,
-        [FromForm(Name = "confirmPassword")] string confirmPassword,
-        [FromForm(Name = "firstName")] string firstName,
-        [FromForm(Name = "lastName")] string lastName,
-        [FromForm(Name = "phoneNumber")] string phoneNumber,
-        [FromForm(Name = "gender")] GenderEnum? gender = null,
-        [FromForm(Name = "dateOfBirth")] DateTime? dateOfBirth = null)
+        [FromForm] string email,
+        [FromForm] string password,
+        [FromForm] string confirmPassword,
+        [FromForm] string firstName,
+        [FromForm] string lastName,
+        [FromForm] string phoneNumber,
+        [FromForm] GenderEnum? gender = null,
+        [FromForm] DateTime? dateOfBirth = null)
     {
         var request = new RegisterRequest
         {
@@ -268,7 +271,7 @@ public class AuthController : ControllerBase
         }
         return Ok(result);
     }
-    
+
     /// <summary>
     /// Get profile of the logged-in user in customer website
     /// </summary>
@@ -351,6 +354,120 @@ public class AuthController : ControllerBase
     {
         var command = new ChangePasswordCommand(request);
         var result = await _mediator.Send(command);
+        if (!result.IsSuccess)
+        {
+            return StatusCode(result.GetHttpStatusCode(), result);
+        }
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Refresh token of the logged-in customer
+    /// </summary>
+    /// <remarks>
+    /// This API refresh access token of the currently authenticated customer.
+    /// It requires a valid access token in the request header.
+    /// 
+    /// Sample request:
+    /// 
+    ///     POST /api/customer/auth/refresh-token
+    /// 
+    /// Headers:
+    ///     Authorization: Bearer &lt;access_token&gt;
+    /// </remarks>
+    /// <returns>New access token and refresh token</returns>
+    /// <response code="200">Token refreshed successfully</response>
+    /// <response code="401">Failed to refresh token (not authorized)</response>
+    /// <response code="403">No access (user is not a customer)</response>
+    /// <response code="500">Failed to refresh token (internal server error)</response>
+    [HttpPost("refresh-token")]
+    [AuthorizeRoles("Customer")]
+    [ProducesResponseType(typeof(Result<AuthResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
+    [SwaggerOperation(
+        Summary = "Refresh token of the logged-in customer",
+        Description = "This API refresh access token of the currently authenticated customer",
+        OperationId = "RefreshToken",
+        Tags = new[] { "Customer", "Customer_Auth" }
+    )]
+    public async Task<IActionResult> RefreshToken()
+    {
+        var query = new RefreshTokenCommand();
+        var result = await _mediator.Send(query);
+        if (!result.IsSuccess)
+        {
+            return StatusCode(result.GetHttpStatusCode(), result);
+        }
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Update profile of the logged-in customer
+    /// </summary>
+    /// <remarks>
+    /// This API updates the profile information of the currently authenticated customer.
+    /// It requires a valid access token in the request header.
+    /// 
+    /// Sample request:
+    /// 
+    ///   POST /api/customer/auth/update-profile
+    ///   Content-Type: multipart/form-data
+    ///   Form fields (camelCase naming):
+    /// - firstName (required): First name (max 50 characters)
+    /// - lastName (required): Last name (max 50 characters)
+    /// - phoneNumber (required): Phone number (10-11 digits)
+    /// - gender (required): Gender (male, female, other)
+    /// - dateOfBirth (required): Date of birth (YYYY-MM-DD format)
+    /// - bio (optional): Bio (max 500 characters)
+    /// - avatar (optional): Avatar image file (jpg, jpeg, png) max 5MB
+    /// Note: Use camelCase for form field names to maintain consistency with React client naming conventions.
+    /// 
+    /// Headers:
+    ///     Authorization: Bearer &lt;access_token&gt;
+    /// </remarks>
+    /// <returns>Updated profile information</returns>
+    /// <response code="200">Profile updated successfully</response>
+    /// <response code="400">Update profile failed (validation error)</response>
+    /// <response code="401">Update profile failed (not authorized)</response>
+    /// <response code="403">No access (user is not a customer)</response>
+    /// <response code="500">Update profile failed (internal server error)</response>
+    [HttpPut("update-profile")]
+    [AuthorizeRoles("Customer")]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
+    [SwaggerOperation(
+        Summary = "Update profile of the logged-in customer",
+        Description = "This API updates the profile information of the currently authenticated customer",
+        OperationId = "UpdateProfile",
+        Tags = new[] { "Customer", "Customer_Auth" }
+    )]
+    public async Task<IActionResult> UpdateProfile(
+        [FromForm] string firstName,
+        [FromForm] string lastName,
+        [FromForm] string phoneNumber,
+        [FromForm] GenderEnum gender,
+        [FromForm] DateTime dateOfBirth,
+        [FromForm] string bio,
+        IFormFile? avatar = null
+    )
+    {
+
+        var query = new UpdateProfileCommand(new UpdateProfileRequest
+        {
+            FirstName = firstName,
+            LastName = lastName,
+            PhoneNumber = phoneNumber,
+            Gender = gender,
+            DateOfBirth = dateOfBirth,
+            Bio = bio,
+            Avatar = avatar
+        });
+        var result = await _mediator.Send(query);
         if (!result.IsSuccess)
         {
             return StatusCode(result.GetHttpStatusCode(), result);

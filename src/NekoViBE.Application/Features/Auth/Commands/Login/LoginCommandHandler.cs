@@ -41,7 +41,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResp
             user.UpdateEntity(user.Id);
             await _identityService.UpdateUserAsync(user);
             //generate jwt token
-            var (token, roles, expiresInMinutes, expiresAt) = _jwtService.GenerateJwtTokenWithExpiration(user);
+            var (token, roles, expiresAt) = _jwtService.GenerateJwtTokenWithExpiration(user);
             var authResponse = new AuthResponse
             {
                 AccessToken = token,
