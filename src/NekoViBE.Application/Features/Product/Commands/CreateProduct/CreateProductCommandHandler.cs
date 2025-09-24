@@ -62,12 +62,12 @@ namespace NekoViBE.Application.Features.Product.Commands.CreateProduct
 
                 using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    var productImageRepo = _unitOfWork.Repository<ProductImage>();
+                    var productImageRepo = _unitOfWork.Repository<Domain.Entities.ProductImage>();
 
                     if (command.Request.ImageFile != null)
                     {
-                        var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "images/products", cancellationToken);
-                        var newImage = new ProductImage
+                        var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads/products", cancellationToken);
+                        var newImage = new Domain.Entities.ProductImage
                         {
                             ProductId = entity.Id,
                             ImagePath = imagePath,
