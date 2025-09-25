@@ -2,6 +2,7 @@
 using NekoViBE.API.Middlewares;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Infrastructure.Factories;
+using NekoViBE.Infrastructure.Services;
 
 namespace NekoViBE.API.Injection;
 
@@ -14,6 +15,9 @@ public static class DependencyInjection
 
         // Đăng ký FileServiceFactory
         services.AddSingleton<IFileServiceFactory, FileServiceFactory>();
+        services.AddScoped<IOrderService, OrderService>();
+
+
 
         // Đăng ký FileService (sử dụng factory để lấy instance cụ thể)
         services.AddScoped<IFileService>(provider =>
