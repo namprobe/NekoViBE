@@ -215,4 +215,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
             _context.Entry(entity).State = EntityState.Modified;
         }
     }
+
+    public async Task<T> GetByIdAsync(object id) => await _dbSet.FindAsync(id);
+
 }

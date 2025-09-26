@@ -9,10 +9,6 @@ using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Features.User.Queries.GetUser
 {
-    public record GetUsersQuery : IRequest<Result<UsersResponse>>;
+    public record GetUserListQuery(UserFilter Filter) : IRequest<PaginationResult<UserItem>>;
 
-    public class UsersResponse
-    {
-        public List<UserDTO> Users { get; set; } = new();
-    }
 }

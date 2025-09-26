@@ -1,5 +1,6 @@
-using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
 using NekoViBE.Domain.Common;
+using System.Linq.Expressions;
 
 namespace NekoViBE.Application.Common.Interfaces;
 
@@ -14,6 +15,8 @@ public interface IGenericRepository<T> where T : class, IEntityLike
     Task<bool> AnyAsync(Expression<Func<T, bool>> predicate);
     Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null);
     Task<T> GetFirstOrDefaultAsync(Expression<Func<T, bool>> predicate, params Expression<Func<T, object>>[] includes);
+    Task<T> GetByIdAsync(object id);
+
     Task<IEnumerable<T>> GetAllAsync(params Expression<Func<T, object>>[] includes);
     Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>>? predicate = null, params Expression<Func<T, object>>[] includes);
     Task<(IEnumerable<T> Items, int TotalCount)> GetPagedAsync(int pageNumber, int pageSize, Expression<Func<T, bool>>? predicate = null, Expression<Func<T, object>>? orderBy = null, bool isAscending = true, params Expression<Func<T, object>>[] includes);
