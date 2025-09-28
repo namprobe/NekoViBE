@@ -12,5 +12,6 @@ namespace NekoViBE.Application.Common.Interfaces
     public interface IOrderService
     {
         Task<ServiceResult<Order>> CreateOrderAsync(CreateOrderRequest request, Guid? userId, CancellationToken cancellationToken);
+        Task<ServiceResult<bool>> CancelOrderAsync(Guid orderId, Guid? userId, CancellationToken cancellationToken);
     }
 }
