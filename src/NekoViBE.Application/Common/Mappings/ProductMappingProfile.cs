@@ -1,11 +1,7 @@
 ﻿using AutoMapper;
 using NekoViBE.Application.Common.DTOs.Product;
+using NekoViBE.Application.Common.DTOs.Category;
 using NekoViBE.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Common.Mappings
 {
@@ -30,7 +26,8 @@ namespace NekoViBE.Application.Common.Mappings
                 .ForMember(dest => dest.EventProducts, opt => opt.Ignore())
                 .ForMember(dest => dest.ProductInventories, opt => opt.Ignore());
 
-            CreateMap<Product, ProductItem>();
+            CreateMap<Product, ProductItem>()
+                .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Category)); // Ánh xạ trực tiếp
 
             CreateMap<Product, ProductResponse>();
 

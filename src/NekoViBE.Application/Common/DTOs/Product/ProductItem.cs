@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NekoViBE.Application.Common.DTOs.Category;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,6 +15,9 @@ namespace NekoViBE.Application.Common.DTOs.Product
 
         [JsonPropertyName("categoryId")]
         public Guid CategoryId { get; set; }
+
+        [JsonPropertyName("category")]
+        public CategoryItem? Category { get; set; } // Thêm thuộc tính Category
 
         [JsonPropertyName("animeSeriesId")]
         public Guid? AnimeSeriesId { get; set; }
