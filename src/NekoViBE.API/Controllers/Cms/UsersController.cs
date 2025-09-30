@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NekoViBE.API.Attributes;
 using NekoViBE.Application.Common.DTOs.Category;
+using NekoViBE.Application.Common.DTOs.User;
+using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Extensions;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.User.Commands.CreateUser;
@@ -24,29 +26,12 @@ namespace NekoViBE.API.Controllers.Cms
     public class UsersController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly ILogger<UsersController> _logger;
 
-        public UsersController(IMediator mediator)
+        public UsersController(IMediator mediator, ILogger<UsersController> logger)
         {
             _mediator = mediator;
-        }
-
-        [HttpGet]
-        [AuthorizeRoles]
-        [ProducesResponseType(typeof(PaginationResult<AppUser>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(PaginationResult<AppUser>), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(PaginationResult<AppUser>), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(PaginationResult<AppUser>), StatusCodes.Status500InternalServerError)]
-        [SwaggerOperation(
-           Summary = "Get all users with pagination and filtering",
-           Description = "This API retrieves a paginated list of users with filtering options",
-           OperationId = "GetUserList",
-           Tags = new[] { "CMS", "CMS_User" }
-       )]
-        public async Task<IActionResult> GetAllUsers()
-        {
-            var query = new GetUsersQuery();
-            var result = await _mediator.Send(query);
-            return StatusCode(result.GetHttpStatusCode(), result);
+            _logger = logger;
         }
 
         [HttpPost]
@@ -90,6 +75,42 @@ namespace NekoViBE.API.Controllers.Cms
                 return StatusCode(result.GetHttpStatusCode(), result);
             }
 
+            return Ok(result);
+        }
+
+
+        [HttpGet]
+        [AuthorizeRoles]
+        [ProducesResponseType(typeof(PaginationResult<UserItem>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PaginationResult<UserItem>), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(PaginationResult<UserItem>), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(PaginationResult<UserItem>), StatusCodes.Status500InternalServerError)]
+        [SwaggerOperation(
+        Summary = "Get all users with pagination and filtering",
+        Description = "This API retrieves a paginated list of users with filtering options",
+        OperationId = "GetUserList",
+        Tags = new[] { "CMS", "CMS_User" }
+        )]
+        public async Task<IActionResult> GetUserList([FromQuery] UserFilter filter, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid model state for GetUserList: {Errors}",
+                    string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                return BadRequest(Result.Failure("Invalid request parameters", ErrorCodeEnum.InvalidInput));
+            }
+
+            _logger.LogInformation("Retrieving user list with filter: {@Filter}", filter);
+            var query = new GetUserListQuery(filter);
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                _logger.LogWarning("Failed to retrieve user list: {Error}", result.Errors);
+                return StatusCode(result.GetHttpStatusCode(), result);
+            }
+
+            _logger.LogInformation("User list retrieved successfully, TotalItems: {TotalItems}", result.TotalItems);
             return Ok(result);
         }
 

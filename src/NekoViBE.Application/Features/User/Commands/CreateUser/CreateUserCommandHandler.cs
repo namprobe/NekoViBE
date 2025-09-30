@@ -1,24 +1,18 @@
 ﻿using AutoMapper;
-using Azure.Core;
-using MediatR;
+ using MediatR;
  
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using NekoViBE.Application.Common.DTOs.Auth;
-using NekoViBE.Application.Common.DTOs.Role;
+  using Microsoft.Extensions.Logging;
+ using NekoViBE.Application.Common.DTOs.Role;
 using NekoViBE.Application.Common.DTOs.User;
 using NekoViBE.Application.Common.Enums;
-using NekoViBE.Application.Common.Helpers;
-using NekoViBE.Application.Common.Interfaces;
+ using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Common;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 using System.Transactions;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
-
+ 
 
 
 namespace NekoViBE.Application.Features.User.Commands.CreateUser
