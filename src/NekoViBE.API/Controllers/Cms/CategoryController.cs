@@ -1,16 +1,17 @@
 ﻿using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using NekoViBE.Application.Common.DTOs.Category;
-using NekoViBE.Application.Common.Models;
-using Swashbuckle.AspNetCore.Annotations;
 using NekoViBE.API.Attributes;
+using NekoViBE.Application.Common.DTOs.Category;
+using NekoViBE.Application.Common.Extensions;
+using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.Category.Commands.CreateCategory;
-using NekoViBE.Application.Features.Category.Commands.UpdateCategory;
 using NekoViBE.Application.Features.Category.Commands.DeleteCategory;
+using NekoViBE.Application.Features.Category.Commands.UpdateCategory;
 using NekoViBE.Application.Features.Category.Queries.GetCategory;
 using NekoViBE.Application.Features.Category.Queries.GetCategoryList;
-using Microsoft.AspNetCore.Authorization;
-using NekoViBE.Application.Common.Extensions;
+using NekoViBE.Application.Features.Category.Queries.GetSelectList;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace NekoViBE.API.Controllers.Cms
 {
@@ -128,5 +129,16 @@ namespace NekoViBE.API.Controllers.Cms
             var result = await _mediator.Send(command);
             return StatusCode(result.GetHttpStatusCode(), result);
         }
+
+        [HttpGet("select-list")]
+        [AuthorizeRoles]
+        [ProducesResponseType(typeof(List<CategorySelectItem>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetCategorySelectList([FromQuery] string? search)
+        {
+            var query = new GetCategorySelectListQuery { Search = search };
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
     }
 }
