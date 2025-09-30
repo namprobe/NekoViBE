@@ -49,7 +49,7 @@ namespace NekoViBE.Application.Features.Product.Commands.DeleteProduct
                     return Result.Failure("Product not found", ErrorCodeEnum.NotFound);
 
                 // Check for dependencies
-                var hasOrders = await _unitOfWork.Repository<OrderItem>().AnyAsync(x => x.ProductId == command.Id && !x.IsDeleted);
+                var hasOrders = await _unitOfWork.Repository<Domain.Entities.OrderItem>().AnyAsync(x => x.ProductId == command.Id && !x.IsDeleted);
                 var hasWishlistItems = await _unitOfWork.Repository<WishlistItem>().AnyAsync(x => x.ProductId == command.Id && !x.IsDeleted);
                
                 if (hasOrders || hasWishlistItems)
