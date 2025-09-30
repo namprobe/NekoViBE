@@ -239,6 +239,9 @@ public class IdentityService : IIdentityService
         try
         {
             var result = await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+            user.RefreshToken = null;
+            user.RefreshTokenExpiryTime = null;
+            await _userManager.UpdateAsync(user);
             return result;
         }
         catch

@@ -14,8 +14,16 @@ public static class ServiceConfiguration
     /// </summary>
     public static WebApplicationBuilder ConfigureServices(this WebApplicationBuilder builder)
     {
-        // Core ASP.NET services
-        builder.Services.AddControllers();
+        // Core ASP.NET services với camelCase đơn giản
+        builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            // Chỉ cần config JSON serialization thành camelCase - đơn giản!
+            options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+            options.JsonSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+            options.JsonSerializerOptions.WriteIndented = true;
+        });
+
         builder.Services.AddEndpointsApiExplorer();
         
         // Custom Swagger configuration with tagging and styling
