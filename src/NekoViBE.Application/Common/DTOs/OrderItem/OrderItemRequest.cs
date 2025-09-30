@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NekoViBE.Application.Common.DTOs.Order
+namespace NekoViBE.Application.Common.DTOs.OrderItem
 {
     public class OrderItemRequest
     {

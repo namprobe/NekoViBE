@@ -6,6 +6,7 @@ using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.Order.Commands.CreateOrder;
+using NekoViBE.Application.Features.Order.OrderBusinessLogic;
 
 
 namespace NekoViBE.Application.Features.Orders.Commands;
@@ -16,14 +17,14 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Res
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly ICurrentUserService _currentUserService;
-    private readonly IOrderService _orderService;
+    private readonly ICreateOrderService _orderService;
 
     public CreateOrderCommandHandler(
         ILogger<CreateOrderCommandHandler> logger,
         IUnitOfWork unitOfWork,
         IMapper mapper,
         ICurrentUserService currentUserService,
-        IOrderService orderService)
+        ICreateOrderService orderService)
     {
         _logger = logger;
         _unitOfWork = unitOfWork;

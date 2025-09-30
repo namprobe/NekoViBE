@@ -1,17 +1,17 @@
 ﻿using NekoViBE.Application.Common.DTOs.Order;
 using NekoViBE.Application.Common.Helpers.CreateOrder;
-using NekoViBE.Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NekoViBE.Application.Common.Interfaces
+namespace NekoViBE.Application.Features.Order.OrderBusinessLogic
 {
-    public interface IOrderService
+    public interface ICreateOrderService
     {
-        Task<ServiceResult<Order>> CreateOrderAsync(CreateOrderRequest request, Guid? userId, CancellationToken cancellationToken);
+
+        Task<ServiceResult<Domain.Entities.Order>> CreateOrderAsync(CreateOrderRequest request, Guid? userId, CancellationToken cancellationToken);
         Task<ServiceResult<bool>> CancelOrderAsync(Guid orderId, Guid? userId, CancellationToken cancellationToken);
     }
 }

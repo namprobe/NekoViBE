@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NekoViBE.Application.Common.DTOs.OrderItem;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;

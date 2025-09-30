@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NekoViBE.API.Attributes;
 using NekoViBE.Application.Common.DTOs.Coupon;
+using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Extensions;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.Coupon.Commands.CreateCoupon;
@@ -23,31 +24,69 @@ namespace NekoViBE.API.Controllers.Cms
     public class CouponsController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly ILogger<CouponsController> _logger;
 
-        public CouponsController(IMediator mediator)
+        public CouponsController(IMediator mediator, ILogger<CouponsController> logger)
         {
             _mediator = mediator;
+            _logger = logger;
         }
 
+
         [HttpGet]
-        [AuthorizeRoles("Admin", "Staff")]
-        [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(PaginationResult<CouponItem>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PaginationResult<CouponItem>), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(PaginationResult<CouponItem>), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(PaginationResult<CouponItem>), StatusCodes.Status500InternalServerError)]
         [SwaggerOperation(
-                    Summary = "Get all coupons",
-                    Description = "This API returns all coupons. It requires Admin role access",
-                    OperationId = "GetAllCoupons",
-                    Tags = new[] { "CMS", "CMS_Coupon" }
-                )]
-        public async Task<IActionResult> GetAllCoupons()
+        Summary = "Get all coupons with pagination and filtering",
+        Description = "This API retrieves a paginated list of coupons with filtering options",
+        OperationId = "GetCouponList",
+        Tags = new[] { "CMS", "CMS_Coupon" }
+    )]
+        public async Task<IActionResult> GetCouponList([FromQuery] CouponFilter filter, CancellationToken cancellationToken)
         {
-            var query = new GetCouponsQuery();
-            var result = await _mediator.Send(query);
-            return StatusCode(result.GetHttpStatusCode(), result);
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid model state for GetCouponList: {Errors}",
+                    string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                return BadRequest(Result.Failure("Invalid request parameters", ErrorCodeEnum.InvalidInput));
+            }
+
+            _logger.LogInformation("Retrieving coupon list with filter: {@Filter}", filter);
+            var query = new GetCouponListQuery(filter);
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                _logger.LogWarning("Failed to retrieve coupon list: {Error}", result.Errors);
+                return StatusCode(result.GetHttpStatusCode(), result);
+            }
+
+            _logger.LogInformation("Coupon list retrieved successfully, TotalItems: {TotalItems}", result.TotalItems);
+            return Ok(result);
         }
+
+
+        //[HttpGet]
+        //[AuthorizeRoles("Admin", "Staff")]
+        //[ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
+        //[ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+        //[ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
+        //[ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]
+        //[ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
+        //[SwaggerOperation(
+        //            Summary = "Get all coupons",
+        //            Description = "This API returns all coupons. It requires Admin role access",
+        //            OperationId = "GetAllCoupons",
+        //            Tags = new[] { "CMS", "CMS_Coupon" }
+        //        )]
+        //public async Task<IActionResult> GetAllCoupons()
+        //{
+        //    var query = new GetCouponsQuery();
+        //    var result = await _mediator.Send(query);
+        //    return StatusCode(result.GetHttpStatusCode(), result);
+        //}
 
         [HttpGet("{id}")]
         [AuthorizeRoles("Admin", "Staff")]

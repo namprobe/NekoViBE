@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NekoViBE.Application.Common.DTOs.Order
+namespace NekoViBE.Application.Common.DTOs.OrderItem
 {
     public class OrderItemDto
     {
@@ -13,6 +13,6 @@ namespace NekoViBE.Application.Common.DTOs.Order
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal DiscountAmount { get; set; }
-        public decimal LineTotal => (UnitPrice * Quantity) - DiscountAmount;
+        public decimal LineTotal => UnitPrice * Quantity - DiscountAmount;
     }
 }

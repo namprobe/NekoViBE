@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using NekoViBE.Application.Common.DTOs.Coupon;
 using NekoViBE.Domain.Entities;
+using NekoViBE.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,6 +17,9 @@ namespace NekoViBE.Application.Common.Mappings
             CreateMap<Coupon, CouponDto>();
             CreateMap<CreateCouponRequest, Coupon>();
             CreateMap<UpdateCouponRequest, Coupon>();
+            CreateMap<Coupon, CouponItem>()
+                .ForMember(dest => dest.IsActive,
+                    opt => opt.MapFrom(src => src.Status == EntityStatusEnum.Active));
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using NekoViBE.Application.Common.DTOs.Order;
+using NekoViBE.Application.Common.DTOs.OrderItem;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Helpers.Coupon;
 using NekoViBE.Application.Common.Helpers.CreateOrder;
@@ -8,21 +9,21 @@ using NekoViBE.Domain.Common;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 
-namespace NekoViBE.Infrastructure.Services
+namespace NekoViBE.Application.Features.Order.OrderBusinessLogic
 {
 
-    public class OrderService : IOrderService
+    public class CreateOrderService : ICreateOrderService
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly ILogger<OrderService> _logger;
+        private readonly ILogger<CreateOrderService> _logger;
 
-        public OrderService(IUnitOfWork unitOfWork, ILogger<OrderService> logger)
+        public CreateOrderService(IUnitOfWork unitOfWork, ILogger<CreateOrderService> logger)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
         }
 
-        public async Task<ServiceResult<Order>> CreateOrderAsync(CreateOrderRequest request, Guid? userId, CancellationToken cancellationToken)
+        public async Task<ServiceResult<Domain.Entities.Order>> CreateOrderAsync(CreateOrderRequest request, Guid? userId, CancellationToken cancellationToken)
         {
             try
             {
@@ -30,18 +31,18 @@ namespace NekoViBE.Infrastructure.Services
                 var validationResult = await ValidateOrderItemsAsync(request.OrderItems, cancellationToken);
                 if (!validationResult.IsValid)
                 {
-                    return ServiceResult<Order>.Failure(validationResult.ErrorMessage, validationResult.ErrorCode);
+                    return ServiceResult<Domain.Entities.Order>.Failure(validationResult.ErrorMessage, validationResult.ErrorCode);
                 }
 
                 // 2. Calculate order amounts
                 var calculationResult = await CalculateOrderAmountsAsync(request.OrderItems, request.CouponCode, userId, cancellationToken);
                 if (!calculationResult.IsSuccess)
                 {
-                    return ServiceResult<Order>.Failure(calculationResult.Message, calculationResult.ErrorCode);
+                    return ServiceResult<Domain.Entities.Order>.Failure(calculationResult.Message, calculationResult.ErrorCode);
                 }
 
                 // 3. Create order
-                var order = new Order
+                var order = new Domain.Entities.Order
                 {
                     OrderNumber = GenerateOrderNumber(),
                     UserId = userId,
@@ -72,18 +73,18 @@ namespace NekoViBE.Infrastructure.Services
                 }
 
                 // 6. Save order
-                await _unitOfWork.Repository<Order>().AddAsync(order);
+                await _unitOfWork.Repository<Domain.Entities.Order>().AddAsync(order);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 // 7. Update product stock
                 await UpdateProductStockAsync(request.OrderItems, cancellationToken);
 
-                return ServiceResult<Order>.Success(order, "Order created successfully");
+                return ServiceResult<Domain.Entities.Order>.Success(order, "Order created successfully");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in order service");
-                return ServiceResult<Order>.Failure("Error creating order", ErrorCodeEnum.InternalError);
+                return ServiceResult<Domain.Entities.Order>.Failure("Error creating order", ErrorCodeEnum.InternalError);
             }
         }
 
@@ -91,7 +92,7 @@ namespace NekoViBE.Infrastructure.Services
         {
             foreach (var item in orderItems)
             {
-                var product = await _unitOfWork.Repository<Product>().GetByIdAsync(item.ProductId);
+                var product = await _unitOfWork.Repository<Domain.Entities.Product>().GetByIdAsync(item.ProductId);
                 if (product == null)
                 {
                     return ValidationResult.Failure($"Product {item.ProductId} not found", ErrorCodeEnum.NotFound);
@@ -127,7 +128,7 @@ namespace NekoViBE.Infrastructure.Services
             // Calculate item totals
             foreach (var item in orderItems)
             {
-                var product = await _unitOfWork.Repository<Product>().GetByIdAsync(item.ProductId);
+                var product = await _unitOfWork.Repository<Domain.Entities.Product>().GetByIdAsync(item.ProductId);
                 if (product == null) continue;
 
                 //var unitPrice = product.DiscountPrice ?? product.Price;
@@ -158,7 +159,7 @@ namespace NekoViBE.Infrastructure.Services
             // Calculate shipping (simplified - fixed $10)
             decimal shippingAmount = 10.00m;
 
-            decimal finalAmount = (totalAmount - discountAmount) + taxAmount + shippingAmount;
+            decimal finalAmount = totalAmount - discountAmount + taxAmount + shippingAmount;
 
             var calculation = new OrderCalculation
             {
@@ -173,14 +174,14 @@ namespace NekoViBE.Infrastructure.Services
             return ServiceResult<OrderCalculation>.Success(calculation);
         }
 
-        private async Task<List<OrderItem>> CreateOrderItemsAsync(
+        private async Task<List<Domain.Entities.OrderItem>> CreateOrderItemsAsync(
             List<OrderItemRequest> orderItems, Dictionary<Guid, decimal> itemPrices, CancellationToken cancellationToken)
         {
-            var orderItemsList = new List<OrderItem>();
+            var orderItemsList = new List<Domain.Entities.OrderItem>();
 
             foreach (var item in orderItems)
             {
-                var orderItem = new OrderItem
+                var orderItem = new Domain.Entities.OrderItem
                 {
                     ProductId = item.ProductId,
                     Quantity = item.Quantity,
@@ -199,7 +200,7 @@ namespace NekoViBE.Infrastructure.Services
         {
             foreach (var item in orderItems)
             {
-                var product = await _unitOfWork.Repository<Product>().GetByIdAsync(item.ProductId);
+                var product = await _unitOfWork.Repository<Domain.Entities.Product>().GetByIdAsync(item.ProductId);
                 if (product == null) continue;
 
                 // Store original quantity for logging
@@ -218,7 +219,7 @@ namespace NekoViBE.Infrastructure.Services
 
                 // Update product
                 product.UpdatedAt = DateTime.UtcNow;
-                _unitOfWork.Repository<Product>().Update(product);
+                _unitOfWork.Repository<Domain.Entities.Product>().Update(product);
 
                 _logger.LogInformation("Product {ProductId} stock updated: {Original} -> {New} (-{Reduction})",
                     product.Id, originalQuantity, product.StockQuantity, item.Quantity);
@@ -230,23 +231,23 @@ namespace NekoViBE.Infrastructure.Services
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        private async Task CreateInventoryRecordAsync(Product product, int quantitySold, CancellationToken cancellationToken)
+        private async Task CreateInventoryRecordAsync(Domain.Entities.Product product, int quantitySold, CancellationToken cancellationToken)
         {
-            var inventoryRecord = new ProductInventory
+            var inventoryRecord = new Domain.Entities.ProductInventory
             {
                 ProductId = product.Id,
                 Quantity = -quantitySold, // Negative for sales
              };
             inventoryRecord.InitializeEntity();
 
-            await _unitOfWork.Repository<ProductInventory>().AddAsync(inventoryRecord);
+            await _unitOfWork.Repository<Domain.Entities.ProductInventory>().AddAsync(inventoryRecord);
         }
 
         private async Task<ServiceResult<CouponDiscountResult>> ValidateAndCalculateCouponDiscountAsync(
             string couponCode, decimal orderAmount, Guid? userId, CancellationToken cancellationToken)
         {
             // Get coupon by code
-            var coupons = await _unitOfWork.Repository<Coupon>()
+            var coupons = await _unitOfWork.Repository<Domain.Entities.Coupon>()
                 .FindAsync(c => c.Code == couponCode && c.Status == EntityStatusEnum.Active);
 
             var coupon = coupons.FirstOrDefault();
@@ -302,7 +303,7 @@ namespace NekoViBE.Infrastructure.Services
             return ServiceResult<CouponDiscountResult>.Success(result, "Coupon applied successfully");
         }
 
-        private decimal CalculateDiscountAmount(Coupon coupon, decimal orderAmount)
+        private decimal CalculateDiscountAmount(Domain.Entities.Coupon coupon, decimal orderAmount)
         {
             return coupon.DiscountType switch
             {
@@ -313,9 +314,9 @@ namespace NekoViBE.Infrastructure.Services
             };
         }
 
-        private async Task ApplyCouponToOrderAsync(Order order, string couponCode, Guid? userId, CancellationToken cancellationToken)
+        private async Task ApplyCouponToOrderAsync(Domain.Entities.Order order, string couponCode, Guid? userId, CancellationToken cancellationToken)
         {
-            var coupons = await _unitOfWork.Repository<Coupon>()
+            var coupons = await _unitOfWork.Repository<Domain.Entities.Coupon>()
                 .FindAsync(c => c.Code == couponCode);
 
             var coupon = coupons.FirstOrDefault();
@@ -336,7 +337,7 @@ namespace NekoViBE.Infrastructure.Services
             // Update coupon usage count
             coupon.CurrentUsage++;
             coupon.UpdatedAt = DateTime.UtcNow;
-            _unitOfWork.Repository<Coupon>().Update(coupon);
+            _unitOfWork.Repository<Domain.Entities.Coupon>().Update(coupon);
 
             // Link coupon to order
             order.UserCoupons.Add(userCoupon);
@@ -351,7 +352,7 @@ namespace NekoViBE.Infrastructure.Services
         {
             try
             {
-                var order = await _unitOfWork.Repository<Order>().GetByIdAsync(orderId);
+                var order = await _unitOfWork.Repository<Domain.Entities.Order>().GetByIdAsync(orderId);
                 if (order == null)
                 {
                     return ServiceResult<bool>.Failure("Order not found", ErrorCodeEnum.NotFound);
@@ -375,7 +376,7 @@ namespace NekoViBE.Infrastructure.Services
                 // Update order status
                 order.OrderStatus = OrderStatusEnum.Cancelled;
                 order.UpdatedAt = DateTime.UtcNow;
-                _unitOfWork.Repository<Order>().Update(order);
+                _unitOfWork.Repository<Domain.Entities.Order>().Update(order);
 
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -388,20 +389,20 @@ namespace NekoViBE.Infrastructure.Services
             }
         }
 
-        private async Task RestoreProductStockAsync(Order order, CancellationToken cancellationToken)
+        private async Task RestoreProductStockAsync(Domain.Entities.Order order, CancellationToken cancellationToken)
         {
             foreach (var orderItem in order.OrderItems)
             {
-                var product = await _unitOfWork.Repository<Product>().GetByIdAsync(orderItem.ProductId);
+                var product = await _unitOfWork.Repository<Domain.Entities.Product>().GetByIdAsync(orderItem.ProductId);
                 if (product == null) continue;
 
                 // Restore stock
                 product.StockQuantity += orderItem.Quantity;
                 product.UpdatedAt = DateTime.UtcNow;
-                _unitOfWork.Repository<Product>().Update(product);
+                _unitOfWork.Repository<Domain.Entities.Product>().Update(product);
 
                 // Create inventory record for restoration
-                var inventoryRecord = new ProductInventory
+                var inventoryRecord = new Domain.Entities.ProductInventory
                 {
                     ProductId = product.Id,
                     Quantity = orderItem.Quantity, // Positive for restoration
@@ -409,7 +410,7 @@ namespace NekoViBE.Infrastructure.Services
                 };
                 inventoryRecord.InitializeEntity();
 
-                await _unitOfWork.Repository<ProductInventory>().AddAsync(inventoryRecord);
+                await _unitOfWork.Repository<Domain.Entities.ProductInventory>().AddAsync(inventoryRecord);
             }
         }
     }
