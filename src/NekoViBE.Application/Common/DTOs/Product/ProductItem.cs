@@ -21,6 +21,8 @@ namespace NekoViBE.Application.Common.DTOs.Product
 
         [JsonPropertyName("animeSeriesId")]
         public Guid? AnimeSeriesId { get; set; }
+        [JsonPropertyName("stockQuantity")]
+        public int StockQuantity { get; set; }
 
         [JsonPropertyName("price")]
         public decimal Price { get; set; }

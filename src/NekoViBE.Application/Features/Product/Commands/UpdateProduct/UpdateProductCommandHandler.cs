@@ -61,7 +61,6 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                 if (!command.Request.IsPreOrder)
                 {
                     command.Request.PreOrderReleaseDate = null;
-                    _logger.LogInformation("IsPreOrder is false, setting PreOrderReleaseDate to null for product {Name}", command.Request.Name);
                 }
 
                 _mapper.Map(command.Request, entity);
@@ -69,76 +68,78 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                 entity.UpdatedAt = DateTime.UtcNow;
 
                 var productImageRepo = _unitOfWork.Repository<Domain.Entities.ProductImage>();
-                var primaryImage = await productImageRepo.GetFirstOrDefaultAsync(x => x.ProductId == entity.Id && x.IsPrimary && !x.IsDeleted);
+                var productTagRepo = _unitOfWork.Repository<Domain.Entities.ProductTag>();
 
                 using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    if (command.Request.ImageFile != null)
+                    // ----------- Update Images -----------
+                    if (command.Request.ImageFiles != null && command.Request.ImageFiles.Any())
                     {
-                        // Upload new image
-                        var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads/products", cancellationToken);
-
-                        if (primaryImage != null)
+                        var existingImages = await productImageRepo.FindAsync(x => x.ProductId == entity.Id && !x.IsDeleted);
+                        foreach (var img in existingImages)
                         {
-                            // Delete old image file if exists
-                            if (!string.IsNullOrEmpty(primaryImage.ImagePath))
+                            if (!string.IsNullOrEmpty(img.ImagePath))
                             {
-                                _logger.LogInformation("Deleting old primary image at {ImagePath} for product {Name}", primaryImage.ImagePath, entity.Name);
-                                await _fileService.DeleteFileAsync(primaryImage.ImagePath, cancellationToken);
+                                await _fileService.DeleteFileAsync(img.ImagePath, cancellationToken);
                             }
-
-                            // Update existing primary image
-                            primaryImage.ImagePath = imagePath;
-                            primaryImage.UpdatedBy = userId;
-                            primaryImage.UpdatedAt = DateTime.UtcNow;
-                            productImageRepo.Update(primaryImage);
-                            _logger.LogInformation("Updated primary image to {ImagePath} for product {Name}", imagePath, entity.Name);
+                            img.IsDeleted = true;
+                            img.DeletedBy = userId;
+                            img.DeletedAt = DateTime.UtcNow;
+                            img.Status = EntityStatusEnum.Inactive;
+                            productImageRepo.Update(img);
                         }
-                        else
+
+                        for (int i = 0; i < command.Request.ImageFiles.Count; i++)
                         {
-                            // Create new primary image
+                            var file = command.Request.ImageFiles[i];
+                            var imagePath = await _fileService.UploadFileAsync(file, "uploads/products", cancellationToken);
+
                             var newImage = new Domain.Entities.ProductImage
                             {
                                 ProductId = entity.Id,
                                 ImagePath = imagePath,
-                                IsPrimary = true,
-                                DisplayOrder = 1,
+                                IsPrimary = (i == 0),
+                                DisplayOrder = i + 1,
                                 CreatedBy = userId,
                                 CreatedAt = DateTime.UtcNow,
                                 Status = EntityStatusEnum.Active
                             };
+
                             await productImageRepo.AddAsync(newImage);
-                            entity.ProductImages.Add(newImage);
-                            _logger.LogInformation("Created new primary image with path {ImagePath} for product {Name}", imagePath, entity.Name);
-                        }
-                    }
-                    else
-                    {
-                        // If no ImageFile provided, soft delete the primary image
-                        if (primaryImage != null)
-                        {
-                            if (!string.IsNullOrEmpty(primaryImage.ImagePath))
-                            {
-                                _logger.LogInformation("Deleting primary image file at {ImagePath} for product {Name}", primaryImage.ImagePath, entity.Name);
-                                await _fileService.DeleteFileAsync(primaryImage.ImagePath, cancellationToken);
-                            }
-                            primaryImage.IsDeleted = true;
-                            primaryImage.DeletedBy = userId;
-                            primaryImage.DeletedAt = DateTime.UtcNow;
-                            primaryImage.Status = EntityStatusEnum.Inactive;
-                            productImageRepo.Update(primaryImage);
-                            _logger.LogInformation("Soft deleted primary image for product {Name}", entity.Name);
-                        }
-                        else
-                        {
-                            _logger.LogInformation("No primary image found to delete for product {Name}", entity.Name);
                         }
                     }
 
-                    // Update product
+                    // ----------- Update Tags -----------
+                    if (command.Request.TagIds != null)
+                    {
+                        var existingTags = await productTagRepo.FindAsync(x => x.ProductId == entity.Id && !x.IsDeleted);
+                        foreach (var tag in existingTags)
+                        {
+                            tag.IsDeleted = true;
+                            tag.DeletedBy = userId;
+                            tag.DeletedAt = DateTime.UtcNow;
+                            tag.Status = EntityStatusEnum.Inactive;
+                            productTagRepo.Update(tag);
+                        }
+
+                        foreach (var tagId in command.Request.TagIds)
+                        {
+                            var newTag = new Domain.Entities.ProductTag
+                            {
+                                ProductId = entity.Id,
+                                TagId = tagId,
+                                CreatedBy = userId,
+                                CreatedAt = DateTime.UtcNow,
+                                Status = EntityStatusEnum.Active
+                            };
+                            await productTagRepo.AddAsync(newTag);
+                        }
+                    }
+
+                    // ----------- Update Product -----------
                     repo.Update(entity);
 
-                    // Ghi lại UserAction
+                    // ----------- Log UserAction -----------
                     var userAction = new UserAction
                     {
                         UserId = userId.Value,
@@ -154,7 +155,6 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                     };
                     await _unitOfWork.Repository<UserAction>().AddAsync(userAction);
 
-                    // Ghi lại UserAction cho thay đổi trạng thái
                     if (oldStatus != command.Request.Status)
                     {
                         var statusChangeAction = new UserAction
@@ -173,10 +173,7 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                         await _unitOfWork.Repository<UserAction>().AddAsync(statusChangeAction);
                     }
 
-                    // Lưu tất cả thay đổi trong UnitOfWork
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-                    // Hoàn tất giao dịch
                     scope.Complete();
                 }
 

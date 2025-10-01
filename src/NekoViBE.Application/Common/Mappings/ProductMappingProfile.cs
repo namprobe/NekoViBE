@@ -32,7 +32,7 @@ namespace NekoViBE.Application.Common.Mappings
             CreateMap<Product, ProductResponse>();
 
             CreateMap<Product, ProductRequest>()
-                .ForMember(dest => dest.ImageFile, opt => opt.Ignore());
+                .ForMember(dest => dest.ImageFiles, opt => opt.Ignore());
         }
     }
 }

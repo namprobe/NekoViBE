@@ -12,8 +12,6 @@ namespace NekoViBE.Application.Common.DTOs.Product
         [JsonPropertyName("description")]
         public string? Description { get; set; }
 
-        
-
         [JsonPropertyName("discountPrice")]
         public decimal? DiscountPrice { get; set; }
 

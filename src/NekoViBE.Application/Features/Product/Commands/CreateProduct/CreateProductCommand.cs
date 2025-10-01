@@ -10,4 +10,5 @@ using System.Threading.Tasks;
 namespace NekoViBE.Application.Features.Product.Commands.CreateProduct
 {
     public record CreateProductCommand(ProductRequest Request) : IRequest<Result>;
+
 }
