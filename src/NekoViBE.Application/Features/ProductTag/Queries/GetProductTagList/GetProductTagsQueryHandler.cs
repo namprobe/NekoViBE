@@ -52,7 +52,8 @@ namespace NekoViBE.Application.Features.ProductTag.Queries.GetProductTagList
                     pageSize: request.Filter.PageSize,
                     predicate: predicate,
                     orderBy: orderBy,
-                    isAscending: isAscending
+                    isAscending: isAscending,
+                    pt => pt.Tag  // Include Tag navigation property
                 );
 
                 var productTagItems = _mapper.Map<List<ProductTagItem>>(items);

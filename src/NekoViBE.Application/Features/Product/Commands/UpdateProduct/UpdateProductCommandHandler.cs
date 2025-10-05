@@ -42,6 +42,8 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
         {
             try
             {
+                _logger.LogInformation("Starting product update for ID: {Id}, Request: {Request}", command.Id, JsonSerializer.Serialize(command.Request));
+
                 var (isValid, userId) = await _currentUserService.IsUserValidAsync();
                 if (!isValid || userId == null)
                 {
@@ -51,9 +53,13 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
 
                 var repo = _unitOfWork.Repository<Domain.Entities.Product>();
                 var entity = await repo.GetFirstOrDefaultAsync(x => x.Id == command.Id);
-
                 if (entity == null)
+                {
+                    _logger.LogWarning("Product not found for ID: {Id}", command.Id);
                     return Result.Failure("Product not found", ErrorCodeEnum.NotFound);
+                }
+
+                _logger.LogInformation("Product found: {Product}", JsonSerializer.Serialize(entity));
 
                 var oldValue = JsonSerializer.Serialize(_mapper.Map<ProductRequest>(entity));
                 var oldStatus = entity.Status;
@@ -67,17 +73,21 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                 entity.UpdatedBy = userId;
                 entity.UpdatedAt = DateTime.UtcNow;
 
+                _logger.LogInformation("Product mapped: {Product}", JsonSerializer.Serialize(entity));
+
                 var productImageRepo = _unitOfWork.Repository<Domain.Entities.ProductImage>();
                 var productTagRepo = _unitOfWork.Repository<Domain.Entities.ProductTag>();
 
                 using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    // ----------- Update Images -----------
+                    // Update Images
                     if (command.Request.ImageFiles != null && command.Request.ImageFiles.Any())
                     {
+                        _logger.LogInformation("Processing {Count} image files", command.Request.ImageFiles.Count);
                         var existingImages = await productImageRepo.FindAsync(x => x.ProductId == entity.Id && !x.IsDeleted);
                         foreach (var img in existingImages)
                         {
+                            _logger.LogInformation("Deleting image: {ImagePath}", img.ImagePath);
                             if (!string.IsNullOrEmpty(img.ImagePath))
                             {
                                 await _fileService.DeleteFileAsync(img.ImagePath, cancellationToken);
@@ -87,13 +97,14 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                             img.DeletedAt = DateTime.UtcNow;
                             img.Status = EntityStatusEnum.Inactive;
                             productImageRepo.Update(img);
+                            await _unitOfWork.SaveChangesAsync(cancellationToken);
                         }
 
                         for (int i = 0; i < command.Request.ImageFiles.Count; i++)
                         {
                             var file = command.Request.ImageFiles[i];
-                            var imagePath = await _fileService.UploadFileAsync(file, "uploads/products", cancellationToken);
-
+                            _logger.LogInformation("Uploading image: {FileName}", file.FileName);
+                            var imagePath = await _fileService.UploadFileAsync(file, "uploads", cancellationToken);
                             var newImage = new Domain.Entities.ProductImage
                             {
                                 ProductId = entity.Id,
@@ -104,22 +115,18 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                                 CreatedAt = DateTime.UtcNow,
                                 Status = EntityStatusEnum.Active
                             };
-
                             await productImageRepo.AddAsync(newImage);
                         }
                     }
 
-                    // ----------- Update Tags -----------
-                    if (command.Request.TagIds != null)
-                    {
-                        var existingTags = await productTagRepo.FindAsync(x => x.ProductId == entity.Id && !x.IsDeleted);
+                    // Update Tags
+                    
+                        _logger.LogInformation("Processing {Count} tag IDs", command.Request.TagIds.Count);
+                        var existingTags = await productTagRepo.FindAsync(x => x.ProductId == entity.Id);
                         foreach (var tag in existingTags)
                         {
-                            tag.IsDeleted = true;
-                            tag.DeletedBy = userId;
-                            tag.DeletedAt = DateTime.UtcNow;
-                            tag.Status = EntityStatusEnum.Inactive;
-                            productTagRepo.Update(tag);
+                            productTagRepo.Delete(tag);
+                            await _unitOfWork.SaveChangesAsync(cancellationToken);
                         }
 
                         foreach (var tagId in command.Request.TagIds)
@@ -134,12 +141,13 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                             };
                             await productTagRepo.AddAsync(newTag);
                         }
-                    }
+                    
 
-                    // ----------- Update Product -----------
+                    // Update Product
+                    _logger.LogInformation("Updating product in repository");
                     repo.Update(entity);
 
-                    // ----------- Log UserAction -----------
+                    // Log UserAction
                     var userAction = new UserAction
                     {
                         UserId = userId.Value,
@@ -173,20 +181,22 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                         await _unitOfWork.Repository<UserAction>().AddAsync(statusChangeAction);
                     }
 
+                    _logger.LogInformation("Saving changes to database");
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
                     scope.Complete();
                 }
 
+                _logger.LogInformation("Product updated successfully for ID: {Id}", command.Id);
                 return Result.Success("Product updated successfully");
             }
             catch (IOException ex)
             {
-                _logger.LogError(ex, "Error handling file for product");
+                _logger.LogError(ex, "File handling error while updating product with ID: {Id}", command.Id);
                 return Result.Failure("Error handling file", ErrorCodeEnum.InternalError);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating product with ID: {Id}", command.Id);
+                _logger.LogError(ex, "Unexpected error while updating product with ID: {Id}", command.Id);
                 return Result.Failure("Error updating product", ErrorCodeEnum.InternalError);
             }
         }

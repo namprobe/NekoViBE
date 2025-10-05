@@ -43,6 +43,7 @@ public static class ServiceConfiguration
     /// </summary>
     public static WebApplication ConfigurePipeline(this WebApplication app)
     {
+        app.UseRouting();
         if (app.Environment.IsDevelopment())
         {
             // Use custom Swagger configuration with styling and tagging

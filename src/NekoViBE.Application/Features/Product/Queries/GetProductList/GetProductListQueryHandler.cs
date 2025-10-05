@@ -52,7 +52,10 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProductList
                     predicate: predicate,
                     orderBy: orderBy,
                     isAscending: isAscending,
-                    includes: new Expression<Func<Domain.Entities.Product, object>>[] { x => x.ProductImages, x => x.Category});
+                    includes: new Expression<Func<Domain.Entities.Product, object>>[] { 
+                        x => x.ProductImages, 
+                        x => x.Category
+                    });
 
                 var productItems = _mapper.Map<List<ProductItem>>(items);
                 var productsWithoutPrimaryImage = items.Where(x => !x.ProductImages.Any(img => img.IsPrimary)).Select(x => x.Name).ToList();

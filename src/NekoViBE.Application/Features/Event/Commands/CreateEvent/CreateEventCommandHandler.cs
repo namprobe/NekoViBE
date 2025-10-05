@@ -62,7 +62,7 @@ namespace NekoViBE.Application.Features.Event.Commands.CreateEvent
 
                 if (command.Request.ImageFile != null)
                 {
-                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads/events", cancellationToken);
+                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads", cancellationToken);
                     entity.ImagePath = imagePath;
                     _logger.LogInformation("ImagePath set to {ImagePath} for event {Name}", imagePath, entity.Name);
                 }

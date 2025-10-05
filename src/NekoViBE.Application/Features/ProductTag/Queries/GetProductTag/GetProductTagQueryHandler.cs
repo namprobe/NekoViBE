@@ -37,7 +37,14 @@ namespace NekoViBE.Application.Features.ProductTag.Queries.GetProductTag
                 {
                     return Result<ProductTagResponse>.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
                 }
-                var productTag = await _unitOfWork.Repository<Domain.Entities.ProductTag>().GetFirstOrDefaultAsync(x => x.Id == request.Id);
+
+                // include Tag navigation property
+                var productTag = await _unitOfWork.Repository<Domain.Entities.ProductTag>()
+                    .GetFirstOrDefaultAsync(
+                        predicate: x => x.Id == request.Id && !x.IsDeleted,
+                        pt => pt.Tag  // Include Tag navigation property
+                    );
+
                 if (productTag == null)
                 {
                     return Result<ProductTagResponse>.Failure("ProductTag not found", ErrorCodeEnum.NotFound);

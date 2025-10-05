@@ -19,8 +19,12 @@ namespace NekoViBE.Application.Common.Mappings
                 .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.Id, opt => opt.Ignore());
-            CreateMap<ProductTag, ProductTagResponse>();
-            CreateMap<ProductTag, ProductTagItem>();
+
+            CreateMap<ProductTag, ProductTagItem>()
+                .ForMember(dest => dest.Tag, opt => opt.MapFrom(src => src.Tag));
+
+            CreateMap<ProductTag, ProductTagResponse>()
+                .ForMember(dest => dest.Tag, opt => opt.MapFrom(src => src.Tag));
         }
     }
 }

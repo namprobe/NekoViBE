@@ -1,4 +1,5 @@
-﻿using NekoViBE.Application.Common.DTOs.Category;
+﻿using NekoViBE.Application.Common.DTOs.AnimeSeries;
+using NekoViBE.Application.Common.DTOs.Category;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +22,10 @@ namespace NekoViBE.Application.Common.DTOs.Product
 
         [JsonPropertyName("animeSeriesId")]
         public Guid? AnimeSeriesId { get; set; }
+
+        [JsonPropertyName("animeSeries")]
+        public AnimeSeriesItem? AnimeSeries { get; set; } // Thêm thuộc tính AnimeSeries
+
         [JsonPropertyName("stockQuantity")]
         public int StockQuantity { get; set; }
 

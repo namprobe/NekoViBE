@@ -75,12 +75,11 @@ namespace NekoViBE.Application.Common.Validators
                 .WithMessage("Pre-order release date must be null when IsPreOrder is false");
 
             validator.RuleFor(x => requestFunc(x).ImageFiles)
-    .NotEmpty().WithMessage("At least one product image is required")
-    .Must(files => files.All(f => f.Length <= 10 * 1024 * 1024))
-        .WithMessage("Each image must not exceed 10MB")
-    .Must(files => files.All(f => new[] { ".jpg", ".jpeg", ".png" }
-        .Contains(Path.GetExtension(f.FileName).ToLower())))
-        .WithMessage("Only .jpg, .jpeg, .png formats are allowed");
+            .Must(files => files == null || files.All(f => f.Length <= 10 * 1024 * 1024))
+            .WithMessage("Each image must not exceed 10MB")
+            .Must(files => files == null || files.All(f => new[] { ".jpg", ".jpeg", ".png" }
+                .Contains(Path.GetExtension(f.FileName).ToLower())))
+            .WithMessage("Only .jpg, .jpeg, .png formats are allowed");
 
         }
 

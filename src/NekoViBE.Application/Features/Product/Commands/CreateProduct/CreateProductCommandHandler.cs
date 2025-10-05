@@ -69,7 +69,7 @@ namespace NekoViBE.Application.Features.Product.Commands.CreateProduct
                     var file = request.ImageFiles[i];
                     if (file == null || file.Length == 0) continue;
 
-                    var filePath = await _fileService.UploadFileAsync(file, "products", cancellationToken);
+                    var filePath = await _fileService.UploadFileAsync(file, "uploads", cancellationToken);
 
 
                     var productImage = new Domain.Entities.ProductImage

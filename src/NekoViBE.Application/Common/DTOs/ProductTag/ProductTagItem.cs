@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NekoViBE.Application.Common.DTOs.Tag;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,5 +15,7 @@ namespace NekoViBE.Application.Common.DTOs.ProductTag
 
         [JsonPropertyName("tagId")]
         public Guid TagId { get; set; }
+        [JsonPropertyName("tag")]
+        public TagItem Tag { get; set; } = null!;
     }
 }
