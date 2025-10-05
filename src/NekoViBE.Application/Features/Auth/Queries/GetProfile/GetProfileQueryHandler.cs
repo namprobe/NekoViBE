@@ -41,8 +41,10 @@ public class GetProfileQueryHandler : IRequestHandler<GetProfileQuery, Result<Pr
 
             var user = await _unitOfWork.Repository<AppUser>().GetFirstOrDefaultAsync(
                 u => u.Id == userId, include);
-            
-            return Result<ProfileResponse>.Success(_mapper.Map<ProfileResponse>(user), "Profile retrieved successfully");
+            var response = _mapper.Map<ProfileResponse>(user);
+            response.Bio = user?.CustomerProfile?.Bio?? user?.StaffProfile?.Bio;
+
+            return Result<ProfileResponse>.Success(response, "Profile retrieved successfully");
         }
         catch (Exception ex)
         {

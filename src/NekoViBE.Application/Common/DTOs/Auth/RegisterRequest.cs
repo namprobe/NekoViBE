@@ -15,9 +15,6 @@ public class RegisterRequest
     [JsonPropertyName("confirmPassword")]
     public string ConfirmPassword { get; set; } = string.Empty;
 
-    // [JsonPropertyName("grantType")]
-    // public GrantTypeEnum GrantType { get; set; } = GrantTypeEnum.Password;
-
     [JsonPropertyName("firstName")]
     public string FirstName { get; set; } = string.Empty;
     [JsonPropertyName("lastName")]

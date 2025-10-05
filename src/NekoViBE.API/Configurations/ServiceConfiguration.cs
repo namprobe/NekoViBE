@@ -14,8 +14,16 @@ public static class ServiceConfiguration
     /// </summary>
     public static WebApplicationBuilder ConfigureServices(this WebApplicationBuilder builder)
     {
-        // Core ASP.NET services
-        builder.Services.AddControllers();
+        // Core ASP.NET services với camelCase đơn giản
+        builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            // Chỉ cần config JSON serialization thành camelCase - đơn giản!
+            options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+            options.JsonSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+            options.JsonSerializerOptions.WriteIndented = true;
+        });
+
         builder.Services.AddEndpointsApiExplorer();
         
         // Custom Swagger configuration with tagging and styling
@@ -43,12 +51,12 @@ public static class ServiceConfiguration
     /// </summary>
     public static WebApplication ConfigurePipeline(this WebApplication app)
     {
-        app.UseRouting();
-        if (app.Environment.IsDevelopment())
-        {
-            // Use custom Swagger configuration with styling and tagging
-            app.UseSwaggerConfiguration(app.Environment);
-        }
+        app.UseSwaggerConfiguration(app.Environment);
+        //if (app.Environment.IsDevelopment())
+        //{
+        //    // Use custom Swagger configuration with styling and tagging
+
+        //}
 
         app.UseHttpsRedirection();
         

@@ -11,9 +11,9 @@ using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Common.Mappings
 {
-    public class UserProfile : Profile
+    public class UserMappingProfile : Profile
     {
-        public UserProfile()
+        public UserMappingProfile()
         {
             CreateMap<AppUser, UserDTO>();
             CreateMap<AppRole, RoleInfoDTO>();
@@ -28,6 +28,9 @@ namespace NekoViBE.Application.Common.Mappings
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
                 .ForAllMembers(opts => opts.Ignore());
 
+            CreateMap<AppUser, UserItem>()
+                .ForMember(dest => dest.UserType, opt => opt.Ignore()) // Handled in handler
+                .ForMember(dest => dest.Roles, opt => opt.Ignore()); // Handled in handler
         }
     }
 }
