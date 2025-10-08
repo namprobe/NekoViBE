@@ -14,7 +14,7 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
             RuleFor(x => x.Request)
                 .NotNull().WithMessage("Product request is required");
 
-            this.SetupProductRules(x => x.Request);
+            this.SetupProductRulesUpdate(x => x.Request);
         }
     }
 }

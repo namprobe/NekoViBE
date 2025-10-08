@@ -77,7 +77,7 @@ namespace NekoViBE.Application.Features.Category.Commands.UpdateCategory
                     }
 
                     // Upload new image
-                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads/categories", cancellationToken);
+                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads", cancellationToken);
                     entity.ImagePath = imagePath;
                     _logger.LogInformation("ImagePath updated to {ImagePath} for category {Name}", imagePath, entity.Name);
                 } else

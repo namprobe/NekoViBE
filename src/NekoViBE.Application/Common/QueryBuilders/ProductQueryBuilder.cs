@@ -16,6 +16,7 @@ namespace NekoViBE.Application.Common.QueryBuilders
         {
             var predicate = PredicateBuilder.True<Product>();
 
+
             if (filter.Status.HasValue)
             {
                 predicate = predicate.CombineAnd(x => x.Status == filter.Status.Value);

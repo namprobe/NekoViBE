@@ -61,7 +61,7 @@ namespace NekoViBE.Application.Features.Category.Commands.CreateCategory
 
                 if (command.Request.ImageFile != null)
                 {
-                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads/categories", cancellationToken);
+                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads", cancellationToken);
                     entity.ImagePath = imagePath;
                     _logger.LogInformation("ImagePath set to {ImagePath} for category {Name}", imagePath, entity.Name);
                 }

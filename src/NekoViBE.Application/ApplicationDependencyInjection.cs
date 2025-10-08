@@ -40,6 +40,8 @@ public static class ApplicationDependencyInjection
             cfg.AddProfile(new ProductImageMappingProfile());
             cfg.AddProfile(new EventMappingProfile());
             cfg.AddProfile(new EventProductMappingProfile());
+            cfg.AddProfile(new TagMappingProfile());
+            cfg.AddProfile(new ProductTagMappingProfile());
 
 
             // Và tự động quét tất cả Profile trong assembly này    

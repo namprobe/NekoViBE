@@ -70,7 +70,7 @@ namespace NekoViBE.Application.Features.AnimeSeries.Commands.UpdateAnimeSeries
                     }
 
                     // Upload new image
-                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads/anime-series", cancellationToken);
+                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads", cancellationToken);
                     entity.ImagePath = imagePath;
                     _logger.LogInformation("ImagePath updated to {ImagePath} for anime series {Title}", imagePath, entity.Title);
                 }

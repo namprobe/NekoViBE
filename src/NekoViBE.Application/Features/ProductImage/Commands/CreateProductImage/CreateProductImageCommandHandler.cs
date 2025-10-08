@@ -73,7 +73,7 @@ namespace NekoViBE.Application.Features.ProductImage.Commands.CreateProductImage
                 }
 
                 // Handle file upload
-                var imagePath = await _fileService.UploadFileAsync(command.Request.Image, "images/products", cancellationToken);
+                var imagePath = await _fileService.UploadFileAsync(command.Request.Image, "uploads", cancellationToken);
                 if (string.IsNullOrEmpty(imagePath))
                 {
                     _logger.LogWarning("Failed to save image for product ID {ProductId}", command.Request.ProductId);
