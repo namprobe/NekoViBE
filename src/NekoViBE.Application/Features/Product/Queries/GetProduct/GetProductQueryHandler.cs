@@ -55,6 +55,14 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProduct
                         .GetFirstOrDefaultAsync(t => t.Id == pt.TagId);
                 }
 
+                foreach (var pt in entity.EventProducts)
+                {
+                    pt.Event = await _unitOfWork.Repository<Domain.Entities.Event>()
+                        .GetFirstOrDefaultAsync(t => t.Id == pt.EventId);
+
+                    pt.Event.ImagePath = _fileService.GetFileUrl(pt.Event.ImagePath);
+                }
+
                 // Load Users for each ProductReview
                 foreach (var pr in entity.ProductReviews)
                 {

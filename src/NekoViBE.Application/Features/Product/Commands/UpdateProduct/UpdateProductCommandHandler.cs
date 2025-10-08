@@ -61,7 +61,7 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
 
                 _logger.LogInformation("Product found: {Product}", JsonSerializer.Serialize(entity));
 
-                var oldValue = JsonSerializer.Serialize(_mapper.Map<ProductRequest>(entity));
+                var oldValue = JsonSerializer.Serialize(_mapper.Map<UpdateProductDto>(entity));
                 var oldStatus = entity.Status;
 
                 if (!command.Request.IsPreOrder)
@@ -80,26 +80,44 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
 
                 using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    // Update Images
+                    // Xử lý hình ảnh
+                    var existingImages = await productImageRepo.FindAsync(x => x.ProductId == entity.Id && !x.IsDeleted);
+                    var imagesToKeep = existingImages.ToList();
+                    var imagesToDelete = existingImages.ToList();
+
+                    if (command.Request.ExistingImageIds != null && command.Request.ExistingImageIds.Any())
+                    {
+                        // Chỉ giữ những ảnh có ID trong existingImageIds
+                        imagesToKeep = existingImages.Where(img => command.Request.ExistingImageIds.Contains(img.Id)).ToList();
+                        imagesToDelete = existingImages.Except(imagesToKeep).ToList();
+                    }
+                    else if (command.Request.ExistingImageIds != null && !command.Request.ExistingImageIds.Any())
+                    {
+                        // Nếu existingImageIds rỗng, xóa tất cả ảnh cũ
+                        imagesToKeep = new List<Domain.Entities.ProductImage>();
+                        imagesToDelete = existingImages.ToList();
+                    }
+
+                    // Xóa các ảnh không cần giữ
+                    foreach (var img in imagesToDelete)
+                    {
+                        _logger.LogInformation("Deleting image: {ImagePath}", img.ImagePath);
+                        if (!string.IsNullOrEmpty(img.ImagePath))
+                        {
+                            await _fileService.DeleteFileAsync(img.ImagePath, cancellationToken);
+                        }
+                        img.IsDeleted = true;
+                        img.DeletedBy = userId;
+                        img.DeletedAt = DateTime.UtcNow;
+                        img.Status = EntityStatusEnum.Inactive;
+                        productImageRepo.Update(img);
+                        await _unitOfWork.SaveChangesAsync(cancellationToken);
+                    }
+
+                    // Thêm ảnh mới nếu có
                     if (command.Request.ImageFiles != null && command.Request.ImageFiles.Any())
                     {
                         _logger.LogInformation("Processing {Count} image files", command.Request.ImageFiles.Count);
-                        var existingImages = await productImageRepo.FindAsync(x => x.ProductId == entity.Id && !x.IsDeleted);
-                        foreach (var img in existingImages)
-                        {
-                            _logger.LogInformation("Deleting image: {ImagePath}", img.ImagePath);
-                            if (!string.IsNullOrEmpty(img.ImagePath))
-                            {
-                                await _fileService.DeleteFileAsync(img.ImagePath, cancellationToken);
-                            }
-                            img.IsDeleted = true;
-                            img.DeletedBy = userId;
-                            img.DeletedAt = DateTime.UtcNow;
-                            img.Status = EntityStatusEnum.Inactive;
-                            productImageRepo.Update(img);
-                            await _unitOfWork.SaveChangesAsync(cancellationToken);
-                        }
-
                         for (int i = 0; i < command.Request.ImageFiles.Count; i++)
                         {
                             var file = command.Request.ImageFiles[i];
@@ -109,8 +127,8 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                             {
                                 ProductId = entity.Id,
                                 ImagePath = imagePath,
-                                IsPrimary = (i == 0),
-                                DisplayOrder = i + 1,
+                                IsPrimary = (i == 0 && !imagesToKeep.Any(img => img.IsPrimary)), // Đặt ảnh đầu tiên là primary nếu không có ảnh cũ nào là primary
+                                DisplayOrder = imagesToKeep.Count + i + 1,
                                 CreatedBy = userId,
                                 CreatedAt = DateTime.UtcNow,
                                 Status = EntityStatusEnum.Active
@@ -121,14 +139,14 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
 
                     // Update Tags
                     
-                        _logger.LogInformation("Processing {Count} tag IDs", command.Request.TagIds.Count);
                         var existingTags = await productTagRepo.FindAsync(x => x.ProductId == entity.Id);
                         foreach (var tag in existingTags)
                         {
                             productTagRepo.Delete(tag);
                             await _unitOfWork.SaveChangesAsync(cancellationToken);
                         }
-
+                    if (command.Request.TagIds != null)
+                    {
                         foreach (var tagId in command.Request.TagIds)
                         {
                             var newTag = new Domain.Entities.ProductTag
@@ -141,7 +159,7 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                             };
                             await productTagRepo.AddAsync(newTag);
                         }
-                    
+                    }
 
                     // Update Product
                     _logger.LogInformation("Updating product in repository");

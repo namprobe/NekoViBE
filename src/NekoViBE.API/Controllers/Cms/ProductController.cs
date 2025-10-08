@@ -130,7 +130,7 @@ public class ProductController : ControllerBase
             OperationId = "UpdateProduct",
             Tags = new[] { "CMS", "CMS_Product" }
         )]
-    public async Task<IActionResult> UpdateProduct(Guid id, [FromForm] ProductRequest request)
+    public async Task<IActionResult> UpdateProduct(Guid id, [FromForm] UpdateProductDto request)
     {
         var command = new UpdateProductCommand(id, request);
         var result = await _mediator.Send(command);

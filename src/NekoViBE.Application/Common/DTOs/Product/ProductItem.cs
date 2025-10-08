@@ -31,5 +31,9 @@ namespace NekoViBE.Application.Common.DTOs.Product
 
         [JsonPropertyName("price")]
         public decimal Price { get; set; }
+
+        [JsonPropertyName("primaryImage")]
+        public string? PrimaryImage { get; set; }
+
     }
 }
