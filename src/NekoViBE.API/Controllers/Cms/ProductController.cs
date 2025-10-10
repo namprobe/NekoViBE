@@ -107,22 +107,13 @@ public class ProductController : ControllerBase
     {
         if (!ModelState.IsValid)
         {
-            _logger.LogWarning("Invalid model state for CreateProduct: {Errors}", string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
             return BadRequest(Result.Failure("Invalid request parameters", ErrorCodeEnum.InvalidInput));
         }
 
-        _logger.LogInformation("Creating new product with name: {Name}", request.Name);
         var command = new CreateProductCommand(request);
         var result = await _mediator.Send(command, cancellationToken);
 
-        if (!result.IsSuccess)
-        {
-            _logger.LogWarning("Failed to create product: {Errors}", string.Join(", ", result.Errors));
-            return StatusCode(result.GetHttpStatusCode(), result);
-        }
-
-        _logger.LogInformation("Product created successfully with name: {Name}", request.Name);
-        return Ok(result);
+        return StatusCode(result.GetHttpStatusCode(), result);
     }
 
     [HttpPut("{id}")]
@@ -139,7 +130,7 @@ public class ProductController : ControllerBase
             OperationId = "UpdateProduct",
             Tags = new[] { "CMS", "CMS_Product" }
         )]
-    public async Task<IActionResult> UpdateProduct(Guid id, [FromForm] ProductRequest request)
+    public async Task<IActionResult> UpdateProduct(Guid id, [FromForm] UpdateProductDto request)
     {
         var command = new UpdateProductCommand(id, request);
         var result = await _mediator.Send(command);

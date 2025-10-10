@@ -11,5 +11,6 @@ namespace NekoViBE.Application.Common.Interfaces
     {
         Task<string> UploadFileAsync(IFormFile file, string destinationPath, CancellationToken cancellationToken);
         Task DeleteFileAsync(string filePath, CancellationToken cancellationToken);
+        string GetFileUrl(string relativeFilePath);
     }
 }

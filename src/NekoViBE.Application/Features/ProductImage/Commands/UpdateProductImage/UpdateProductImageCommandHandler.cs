@@ -94,7 +94,7 @@ namespace NekoViBE.Application.Features.ProductImage.Commands.UpdateProductImage
                         await _fileService.DeleteFileAsync(entity.ImagePath, cancellationToken);
                     }
                     // Upload new image
-                    newImagePath = await _fileService.UploadFileAsync(command.Request.Image, "images/products", cancellationToken);
+                    newImagePath = await _fileService.UploadFileAsync(command.Request.Image, "uploads", cancellationToken);
                     if (string.IsNullOrEmpty(newImagePath))
                     {
                         _logger.LogWarning("Failed to save new image for product image ID {Id}", command.Id);

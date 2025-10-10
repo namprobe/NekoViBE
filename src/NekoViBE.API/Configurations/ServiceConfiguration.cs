@@ -51,11 +51,12 @@ public static class ServiceConfiguration
     /// </summary>
     public static WebApplication ConfigurePipeline(this WebApplication app)
     {
-        if (app.Environment.IsDevelopment())
-        {
-            // Use custom Swagger configuration with styling and tagging
-            app.UseSwaggerConfiguration(app.Environment);
-        }
+        app.UseSwaggerConfiguration(app.Environment);
+        //if (app.Environment.IsDevelopment())
+        //{
+        //    // Use custom Swagger configuration with styling and tagging
+
+        //}
 
         app.UseHttpsRedirection();
         

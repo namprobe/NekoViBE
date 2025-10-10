@@ -10,7 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Features.Product.Queries.GetProductList
@@ -21,51 +21,68 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProductList
         private readonly IMapper _mapper;
         private readonly ILogger<GetProductListQueryHandler> _logger;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IFileService _fileService;
 
         public GetProductListQueryHandler(
             IUnitOfWork unitOfWork,
             IMapper mapper,
             ILogger<GetProductListQueryHandler> logger,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
             _currentUserService = currentUserService;
+            _fileService = fileService;
         }
 
         public async Task<PaginationResult<ProductItem>> Handle(GetProductListQuery request, CancellationToken cancellationToken)
         {
-                var (isValid, _) = await _currentUserService.IsUserValidAsync();
-                if (!isValid)
+            var (isValid, _) = await _currentUserService.IsUserValidAsync();
+            if (!isValid)
+            {
+                return PaginationResult<ProductItem>.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
+            }
+
+            var predicate = request.Filter.BuildPredicate();
+            var orderBy = request.Filter.BuildOrderBy();
+            var isAscending = request.Filter.IsAscending ?? false;
+
+            var (items, totalCount) = await _unitOfWork.Repository<Domain.Entities.Product>().GetPagedAsync(
+                pageNumber: request.Filter.Page,
+                pageSize: request.Filter.PageSize,
+                predicate: predicate,
+                orderBy: orderBy,
+                isAscending: isAscending,
+                includes: new Expression<Func<Domain.Entities.Product, object>>[]
                 {
-                    return PaginationResult<ProductItem>.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
-                }
+                    x => x.ProductImages,
+                    x => x.Category
+                });
 
-                var predicate = request.Filter.BuildPredicate();
-                var orderBy = request.Filter.BuildOrderBy();
-                var isAscending = request.Filter.IsAscending ?? false;
+            var productItems = _mapper.Map<List<ProductItem>>(items);
 
-                var (items, totalCount) = await _unitOfWork.Repository<Domain.Entities.Product>().GetPagedAsync(
-                    pageNumber: request.Filter.Page,
-                    pageSize: request.Filter.PageSize,
-                    predicate: predicate,
-                    orderBy: orderBy,
-                    isAscending: isAscending,
-                    includes: new Expression<Func<Domain.Entities.Product, object>>[] { x => x.ProductImages });
+            // ✅ Gán URL đầy đủ cho ảnh chính (hoặc fallback nếu không có)
+            foreach (var (product, entity) in productItems.Zip(items))
+            {
+                var primaryImage = entity.ProductImages.FirstOrDefault(img => img.IsPrimary);
+                    product.PrimaryImage = _fileService.GetFileUrl(primaryImage.ImagePath);
+                
+            }
 
-                var productItems = _mapper.Map<List<ProductItem>>(items);
-                var productsWithoutPrimaryImage = items.Where(x => !x.ProductImages.Any(img => img.IsPrimary)).Select(x => x.Name).ToList();
-                if (productsWithoutPrimaryImage.Any())
-                    _logger.LogWarning("Some products in the list have no primary image: {Names}",
-                        string.Join(", ", productsWithoutPrimaryImage));
+            // Log nếu có sản phẩm chưa có ảnh chính
+            var productsWithoutPrimaryImage = items
+                .Where(x => !x.ProductImages.Any(img => img.IsPrimary))
+                .Select(x => x.Name)
+                .ToList();
 
-                return PaginationResult<ProductItem>.Success(
-                    productItems,
-                    request.Filter.Page,
-                    request.Filter.PageSize,
-                    totalCount);
-            
+
+            return PaginationResult<ProductItem>.Success(
+                productItems,
+                request.Filter.Page,
+                request.Filter.PageSize,
+                totalCount);
         }
     }
 }

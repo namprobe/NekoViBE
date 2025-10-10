@@ -39,9 +39,14 @@ namespace NekoViBE.Application.Common.DTOs.Product
         public DateTime? PreOrderReleaseDate { get; set; }
 
         [JsonPropertyName("status")]
-        public EntityStatusEnum Status { get; set; }
+        public EntityStatusEnum Status { get; set; } = EntityStatusEnum.Active;
 
-        [JsonPropertyName("imageFile")]
-        public IFormFile? ImageFile { get; set; }
+        // Upload nhiều ảnh
+        [JsonPropertyName("imageFiles")]
+        public List<IFormFile>? ImageFiles { get; set; }
+
+        // Danh sách Tag
+        [JsonPropertyName("tagIds")]
+        public List<Guid>? TagIds { get; set; }
     }
 }
