@@ -2,10 +2,12 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using NekoViBE.Application.Common.DTOs.Category;
+using NekoViBE.Application.Common.DTOs.Product;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Common.QueryBuilders;
+using NekoViBE.Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,17 +22,20 @@ namespace NekoViBE.Application.Features.Category.Queries.GetCategoryList
         private readonly IMapper _mapper;
         private readonly ILogger<GetCategoryListQueryHandler> _logger;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IFileService _fileService;
 
         public GetCategoryListQueryHandler(
             IUnitOfWork unitOfWork,
             IMapper mapper,
             ILogger<GetCategoryListQueryHandler> logger,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
             _currentUserService = currentUserService;
+            _fileService = fileService;
         }
 
         public async Task<PaginationResult<CategoryItem>> Handle(GetCategoryListQuery request, CancellationToken cancellationToken)
@@ -56,6 +61,13 @@ namespace NekoViBE.Application.Features.Category.Queries.GetCategoryList
                 );
 
                 var categoryItems = _mapper.Map<List<CategoryItem>>(items);
+
+                // Update ImagePath to full URL
+                foreach (var (category, entity) in categoryItems.Zip(items))
+                {
+                    category.ImagePath = _fileService.GetFileUrl(entity.ImagePath);
+                }
+
                 if (categoryItems.Any(item => string.IsNullOrEmpty(item.ImagePath)))
                     _logger.LogWarning("Some categories in the list have no ImagePath: {Names}",
                         string.Join(", ", items.Where(x => string.IsNullOrEmpty(x.ImagePath)).Select(x => x.Name)));
