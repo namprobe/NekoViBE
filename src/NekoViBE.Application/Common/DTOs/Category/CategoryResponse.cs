@@ -9,7 +9,6 @@ namespace NekoViBE.Application.Common.DTOs.Category
 {
     public class CategoryResponse : CategoryItem
     {
-        [JsonPropertyName("description")]
-        public string? Description { get; set; }
+        
     }
 }
