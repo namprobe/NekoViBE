@@ -63,7 +63,7 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProductList
 
             var productItems = _mapper.Map<List<ProductItem>>(items);
 
-            // ✅ Gán URL đầy đủ cho ảnh chính (hoặc fallback nếu không có)
+            // Gán URL đầy đủ cho ảnh chính (hoặc fallback nếu không có)
             foreach (var (product, entity) in productItems.Zip(items))
             {
                 var primaryImage = entity.ProductImages.FirstOrDefault(img => img.IsPrimary);

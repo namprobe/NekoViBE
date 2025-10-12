@@ -18,12 +18,14 @@ namespace NekoViBE.Application.Features.Category.Queries.GetCategory
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly ILogger<GetCategoryQueryHandler> _logger;
+        private readonly IFileService _fileService;
 
-        public GetCategoryQueryHandler(IUnitOfWork unitOfWork, IMapper mapper, ILogger<GetCategoryQueryHandler> logger)
+        public GetCategoryQueryHandler(IUnitOfWork unitOfWork, IMapper mapper, ILogger<GetCategoryQueryHandler> logger, IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
+            _fileService = fileService;
         }
 
         public async Task<Result<CategoryResponse>> Handle(GetCategoryQuery query, CancellationToken cancellationToken)
@@ -35,10 +37,7 @@ namespace NekoViBE.Application.Features.Category.Queries.GetCategory
                 if (entity == null)
                     return Result<CategoryResponse>.Failure("Category not found", ErrorCodeEnum.NotFound);
 
-                if (string.IsNullOrEmpty(entity.ImagePath))
-                    _logger.LogWarning("Category with ID {Id} has no ImagePath", query.Id);
-                else
-                    _logger.LogInformation("Category with ID {Id} has ImagePath: {ImagePath}", query.Id, entity.ImagePath);
+                entity.ImagePath = _fileService.GetFileUrl(entity.ImagePath);
 
                 var response = _mapper.Map<CategoryResponse>(entity);
                 return Result<CategoryResponse>.Success(response);
