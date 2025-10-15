@@ -14,8 +14,7 @@ namespace NekoViBE.Application.Common.Validators
         public static IRuleBuilderOptions<T, string> ValidEventName<T>(this IRuleBuilder<T, string> ruleBuilder)
         {
             return ruleBuilder
-                .NotEmpty().WithMessage("Event name is required")
-                .Length(2, 150).WithMessage("Event name must be between 2 and 150 characters");
+                .NotEmpty().WithMessage("Event name is required");
         }
 
         public static void SetupEventRules<T>(this AbstractValidator<T> validator, Expression<Func<T, EventRequest>> requestSelector)
@@ -28,10 +27,6 @@ namespace NekoViBE.Application.Common.Validators
             validator.RuleFor(x => requestFunc(x).Status)
                 .ValidAnimeSeriesStatus(); // Reuse existing status validator
 
-            validator.RuleFor(x => requestFunc(x).Description)
-                .MaximumLength(1000).WithMessage("Description cannot exceed 1000 characters")
-                .When(x => !string.IsNullOrWhiteSpace(requestFunc(x).Description));
-
             validator.RuleFor(x => requestFunc(x).StartDate)
                 .NotEmpty().WithMessage("Start date is required")
                 .GreaterThanOrEqualTo(DateTime.UtcNow.Date).WithMessage("Start date must not be earlier than the current date")
@@ -41,9 +36,7 @@ namespace NekoViBE.Application.Common.Validators
                 .NotEmpty().WithMessage("End date is required")
                 .GreaterThanOrEqualTo(x => requestFunc(x).StartDate).WithMessage("End date must be after or equal to start date");
 
-            validator.RuleFor(x => requestFunc(x).Location)
-                .MaximumLength(200).WithMessage("Location cannot exceed 200 characters")
-                .When(x => !string.IsNullOrWhiteSpace(requestFunc(x).Location));
+            validator.RuleFor(x => requestFunc(x).Location).NotEmpty().WithMessage("Event's location is required");
 
             validator.RuleFor(x => requestFunc(x).ImageFile)
                 .Must(file => file == null || file.Length <= 10 * 1024 * 1024).WithMessage("Image file size must not exceed 10MB")

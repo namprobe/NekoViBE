@@ -22,7 +22,8 @@ namespace NekoViBE.Application.Common.Mappings
                 .ForMember(dest => dest.ImagePath, opt => opt.Ignore());
 
             CreateMap<Event, EventItem>();
-            CreateMap<Event, EventResponse>();
+            CreateMap<Event, EventResponse>()
+                .ForMember(dest => dest.Products, opt => opt.MapFrom(src => src.EventProducts.Select(ep => ep.Product).ToList())); ;
 
             CreateMap<Event, EventRequest>()
                 .ForMember(dest => dest.ImageFile, opt => opt.Ignore());

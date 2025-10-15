@@ -31,5 +31,8 @@ namespace NekoViBE.Application.Common.DTOs.Event
 
         [JsonPropertyName("status")]
         public EntityStatusEnum Status { get; set; }
+
+        [JsonPropertyName("removeImage")]
+        public bool RemoveImage { get; set; } = false;
     }
 }

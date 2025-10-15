@@ -20,5 +20,8 @@ namespace NekoViBE.Application.Common.DTOs.Event
 
         [JsonPropertyName("imagePath")]
         public string? ImagePath { get; set; }
+
+        [JsonPropertyName("location")]
+        public string? Location { get; set; }
     }
 }

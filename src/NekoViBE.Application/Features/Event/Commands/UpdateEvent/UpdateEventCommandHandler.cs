@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Google.Apis.Util;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using NekoViBE.Application.Common.DTOs.Event;
@@ -68,16 +69,31 @@ namespace NekoViBE.Application.Features.Event.Commands.UpdateEvent
                 entity.UpdatedBy = userId;
                 entity.UpdatedAt = DateTime.UtcNow;
 
-                if (command.Request.ImageFile != null)
+                if (command.Request.RemoveImage)
                 {
-                    if (!string.IsNullOrEmpty(oldImagePath))
+                    // Nếu người dùng muốn xóa ảnh
+                    if (!string.IsNullOrEmpty(entity.ImagePath))
                     {
-                        await _fileService.DeleteFileAsync(oldImagePath, cancellationToken);
+                        await _fileService.DeleteFileAsync(entity.ImagePath, cancellationToken);
+                        entity.ImagePath = null;
                     }
-                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads", cancellationToken);
-                    entity.ImagePath = imagePath;
-                    _logger.LogInformation("ImagePath updated to {ImagePath} for event {Name}", imagePath, entity.Name);
                 }
+                else if (command.Request.ImageFile != null)
+                {
+                    // Nếu upload ảnh mới
+                    if (!string.IsNullOrEmpty(entity.ImagePath))
+                    {
+                        await _fileService.DeleteFileAsync(entity.ImagePath, cancellationToken);
+                    }
+
+                    var imagePath = await _fileService.UploadFileAsync(
+                        command.Request.ImageFile,
+                        "uploads",
+                        cancellationToken
+                    );
+                    entity.ImagePath = imagePath;
+                }
+
 
                 try
                 {
