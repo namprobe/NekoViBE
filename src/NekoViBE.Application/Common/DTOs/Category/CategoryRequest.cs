@@ -25,5 +25,9 @@ namespace NekoViBE.Application.Common.DTOs.Category
 
         [JsonPropertyName("imageFile")]
         public IFormFile? ImageFile { get; set; }
+
+        [JsonPropertyName("removeImage")]
+        public bool RemoveImage { get; set; } = false;
+
     }
 }
