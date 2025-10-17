@@ -38,7 +38,7 @@ public class AuthController : ControllerBase
     /// 
     ///     POST /api/cms/auth/login
     ///     {
-    ///        "email": "admin@example.com",
+    ///        "email": "admin@nekovi.com",
     ///        "password": "Admin@123",
     ///        "grantType": 0
     ///     }

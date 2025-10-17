@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using NekoViBE.API.Attributes;
 using NekoViBE.Application.Common.DTOs.Badge;
 using NekoViBE.Application.Common.DTOs.UserBadge;
+using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Extensions;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.Badge.Command.CreateBadge;
@@ -21,37 +22,57 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace NekoViBE.API.Controllers.Cms
 {
     [ApiController]
-    [Route("api/cms/badge")]
+    [Route("api/cms/badges")]
     [ApiExplorerSettings(GroupName = "v1")]
     [Configurations.Tags("CMS", "CMS_Badge")]
     [SwaggerTag("This API is used for Badge management in CMS")]
     public class BadgesController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly ILogger<BadgesController> _logger;
 
-        public BadgesController(IMediator mediator)
+
+        public BadgesController(IMediator mediator, ILogger<BadgesController> logger)
         {
             _mediator = mediator;
+            _logger = logger;
         }
 
         [HttpGet]
         [AuthorizeRoles("Admin", "Staff")]
-        [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(PaginationResult<BadgeItem>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PaginationResult<BadgeItem>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(PaginationResult<BadgeItem>), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(PaginationResult<BadgeItem>), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(PaginationResult<BadgeItem>), StatusCodes.Status500InternalServerError)]
         [SwaggerOperation(
-                Summary = "Get all badges",
-                Description = "This API retrieve all badges. It requires Admin role access",
-                OperationId = "GetAllBadges",
-                Tags = new[] { "CMS", "CMS_Badge" }
-            )]
-        public async Task<IActionResult> GetAllBadges()
+    Summary = "Get all badges with pagination and filtering",
+    Description = "This API retrieves a paginated list of badges with filtering options. It requires Admin or Staff role access",
+    OperationId = "GetAllBadges",
+    Tags = new[] { "CMS", "CMS_Badge" }
+)]
+        public async Task<IActionResult> GetAllBadges([FromQuery] BadgeFilter filter, CancellationToken cancellationToken)
         {
-            var query = new GetBadgesQuery();
-            var result = await _mediator.Send(query);
-            return StatusCode(result.GetHttpStatusCode(), result);
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid model state for GetAllBadges: {Errors}",
+                    string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                return BadRequest(Result.Failure("Invalid request parameters", ErrorCodeEnum.InvalidInput));
+            }
+
+            _logger.LogInformation("Retrieving badge list with filter: {@Filter}", filter);
+
+            var query = new GetBadgesQuery(filter);
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                _logger.LogWarning("Failed to retrieve badge list: {Error}", result.ErrorCode);
+                return StatusCode(result.GetHttpStatusCode(), result);
+            }
+
+            _logger.LogInformation("Badge list retrieved successfully, TotalItems: {TotalItems}", result.TotalItems);
+            return Ok(result);
         }
 
 
@@ -102,7 +123,7 @@ namespace NekoViBE.API.Controllers.Cms
 
 
 
-        [HttpPut]
+        [HttpPut("{id}")]
         [AuthorizeRoles("Admin", "Staff")]
         [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
