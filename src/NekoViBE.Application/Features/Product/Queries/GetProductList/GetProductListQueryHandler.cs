@@ -39,15 +39,11 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProductList
 
         public async Task<PaginationResult<ProductItem>> Handle(GetProductListQuery request, CancellationToken cancellationToken)
         {
-            var (isValid, _) = await _currentUserService.IsUserValidAsync();
-            if (!isValid)
-            {
-                return PaginationResult<ProductItem>.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
-            }
 
             var predicate = request.Filter.BuildPredicate();
             var orderBy = request.Filter.BuildOrderBy();
-            var isAscending = request.Filter.IsAscending ?? false;
+            var isAscending = request.Filter.SortType?.EndsWith("asc") ?? false;
+
 
             var (items, totalCount) = await _unitOfWork.Repository<Domain.Entities.Product>().GetPagedAsync(
                 pageNumber: request.Filter.Page,

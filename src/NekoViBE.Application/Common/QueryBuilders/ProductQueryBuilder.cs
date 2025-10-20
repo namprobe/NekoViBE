@@ -51,23 +51,36 @@ namespace NekoViBE.Application.Common.QueryBuilders
                 predicate = predicate.CombineAnd(x => filter.HasImage.Value ? x.ProductImages.Any() : !x.ProductImages.Any());
             }
 
+            if (!string.IsNullOrWhiteSpace(filter.PriceRange))
+            {
+                predicate = filter.PriceRange.ToLowerInvariant() switch
+                {
+                    "under-500k" => predicate.CombineAnd(x => x.Price < 500000),
+                    "500k-1m" => predicate.CombineAnd(x => x.Price >= 500000 && x.Price < 1000000),
+                    "1m-2m" => predicate.CombineAnd(x => x.Price >= 1000000 && x.Price < 2000000),
+                    "over-2m" => predicate.CombineAnd(x => x.Price >= 2000000),
+                    _ => predicate
+                };
+            }
+
+
             return predicate;
         }
 
         public static Expression<Func<Product, object>> BuildOrderBy(this ProductFilter filter)
         {
-            if (string.IsNullOrWhiteSpace(filter.SortBy))
-                return x => x.CreatedAt!;
+            if (string.IsNullOrWhiteSpace(filter.SortType))
+                return x => x.CreatedAt!; // mặc định: mới nhất
 
-            return filter.SortBy.ToLowerInvariant() switch
+            return filter.SortType.ToLowerInvariant() switch
             {
-                "name" => x => x.Name,
-                "price" => x => x.Price,
-                "stockquantity" => x => x.StockQuantity,
-                "createdat" => x => x.CreatedAt!,
-                "updatedat" => x => x.UpdatedAt!,
+                "price-asc" => x => x.Price,
+                "price-desc" => x => x.Price,
+                "name-asc" => x => x.Name,
+                "name-desc" => x => x.Name,
                 _ => x => x.CreatedAt!
             };
         }
+
     }
 }
