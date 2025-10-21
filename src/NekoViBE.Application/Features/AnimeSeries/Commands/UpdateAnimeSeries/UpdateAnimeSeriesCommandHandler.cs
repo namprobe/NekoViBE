@@ -43,7 +43,6 @@ namespace NekoViBE.Application.Features.AnimeSeries.Commands.UpdateAnimeSeries
                 var (isValid, userId) = await _currentUserService.IsUserValidAsync();
                 if (!isValid || userId == null)
                 {
-                    _logger.LogWarning("Invalid or unauthenticated user attempting to update anime series");
                     return Result.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
                 }
 
@@ -72,12 +71,10 @@ namespace NekoViBE.Application.Features.AnimeSeries.Commands.UpdateAnimeSeries
                     // Upload new image
                     var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads", cancellationToken);
                     entity.ImagePath = imagePath;
-                    _logger.LogInformation("ImagePath updated to {ImagePath} for anime series {Title}", imagePath, entity.Title);
                 }
                 else
                 {
                     // If no new image provided, keep the old image or set to null if explicitly cleared
-                    _logger.LogInformation("No ImageFile provided for anime series {Title}", entity.Title);
                     entity.ImagePath = null;
                 }
 

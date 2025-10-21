@@ -10,7 +10,8 @@ namespace NekoViBE.API.Controllers.Customer
     [ApiController]
     [Route("api/customer/categories")]
     [ApiExplorerSettings(GroupName = "v1")]
-    [SwaggerTag("This API is used for customer-facing product retrieval")]
+    [Configurations.Tags("Customer", "Customer_Categories")]
+    [SwaggerTag("This API is used for Category management in customer")]
     public class CategoryController : ControllerBase
     {
         private readonly IMediator _mediator;

@@ -15,31 +15,23 @@ public class GetAnimeSeriesListQueryHandler : IRequestHandler<GetAnimeSeriesList
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly ILogger<GetAnimeSeriesListQueryHandler> _logger;
-    private readonly ICurrentUserService _currentUserService;
+    private readonly IFileService _fileService;
 
     public GetAnimeSeriesListQueryHandler(
         IUnitOfWork unitOfWork,
         IMapper mapper,
-        ILogger<GetAnimeSeriesListQueryHandler> logger,
-        ICurrentUserService currentUserService)
+        ILogger<GetAnimeSeriesListQueryHandler> logger, IFileService fileService)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _logger = logger;
-        _currentUserService = currentUserService;
+        _fileService = fileService;
     }
 
     public async Task<PaginationResult<AnimeSeriesItem>> Handle(GetAnimeSeriesListQuery request, CancellationToken cancellationToken)
     {
         try
         {
-            var (isValid, _) = await _currentUserService.IsUserValidAsync();
-            if (!isValid)
-            {
-                return PaginationResult<AnimeSeriesItem>.Failure(
-                    "User is not valid",
-                    ErrorCodeEnum.Unauthorized);
-            }
 
             var predicate = request.Filter.BuildPredicate();
             var orderBy = request.Filter.BuildOrderBy();
@@ -52,6 +44,12 @@ public class GetAnimeSeriesListQueryHandler : IRequestHandler<GetAnimeSeriesList
                 orderBy: orderBy,
                 isAscending: isAscending
             );
+
+            // Update image paths
+            foreach (var item in items)
+            {
+                item.ImagePath = _fileService.GetFileUrl(item.ImagePath);
+            }
 
             var animeSeriesItems = _mapper.Map<List<AnimeSeriesItem>>(items);
 

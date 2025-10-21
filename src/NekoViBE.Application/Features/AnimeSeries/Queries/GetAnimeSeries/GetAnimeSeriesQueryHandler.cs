@@ -13,12 +13,14 @@ public class GetAnimeSeriesQueryHandler : IRequestHandler<GetAnimeSeriesQuery, R
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly ILogger<GetAnimeSeriesQueryHandler> _logger;
+    private readonly IFileService _fileService;
 
-    public GetAnimeSeriesQueryHandler(IUnitOfWork unitOfWork, IMapper mapper, ILogger<GetAnimeSeriesQueryHandler> logger)
+    public GetAnimeSeriesQueryHandler(IUnitOfWork unitOfWork, IMapper mapper, ILogger<GetAnimeSeriesQueryHandler> logger, IFileService fileService)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _logger = logger;
+        _fileService = fileService;
     }
 
     public async Task<Result<AnimeSeriesResponse>> Handle(GetAnimeSeriesQuery query, CancellationToken cancellationToken)
@@ -30,8 +32,7 @@ public class GetAnimeSeriesQueryHandler : IRequestHandler<GetAnimeSeriesQuery, R
             if (entity == null)
                 return Result<AnimeSeriesResponse>.Failure("Anime series not found", ErrorCodeEnum.NotFound);
 
-            if (string.IsNullOrEmpty(entity.ImagePath))
-                _logger.LogWarning("Anime series with ID {Id} has no ImagePath", query.Id);
+            entity.ImagePath = _fileService.GetFileUrl(entity.ImagePath);
 
             var response = _mapper.Map<AnimeSeriesResponse>(entity);
             return Result<AnimeSeriesResponse>.Success(response);
