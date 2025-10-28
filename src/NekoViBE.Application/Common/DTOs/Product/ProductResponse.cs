@@ -37,7 +37,7 @@ namespace NekoViBE.Application.Common.DTOs.Product
         public List<ProductTagItem>? ProductTags { get; set; } = new List<ProductTagItem>();
 
         [JsonPropertyName("reviews")]
-        public List<ProductReviewResponse>? Reviews { get; set; } = new List<ProductReviewResponse>();
+        public List<ProductReviewItem>? Reviews { get; set; } = new List<ProductReviewItem>();
 
         [JsonPropertyName("events")]
         public List<EventItem>? Events { get; set; } = new List<EventItem>();

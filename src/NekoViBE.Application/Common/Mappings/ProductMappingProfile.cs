@@ -62,7 +62,7 @@ namespace NekoViBE.Application.Common.Mappings
 
             // Mapping cho các entity con
             CreateMap<ProductImage, ProductImageResponse>();
-            CreateMap<ProductReview, ProductReviewResponse>()
+            CreateMap<ProductReview, ProductReviewItem>()
                 .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User.UserName)); // Giả sử User có UserName
             CreateMap<Tag, TagItem>();
             CreateMap<Event, EventItem>();
