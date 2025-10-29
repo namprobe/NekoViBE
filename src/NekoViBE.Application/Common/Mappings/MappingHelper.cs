@@ -60,11 +60,8 @@ public static class MappingHelper
         this IMappingExpression<TSource, Domain.Entities.AppUser> mappingExpression)
     {
         return mappingExpression
-            .ForMember(dest => dest.UserName, opt => opt.Ignore())
             .ForMember(dest => dest.NormalizedUserName, opt => opt.Ignore())
-            .ForMember(dest => dest.Email, opt => opt.Ignore())
             .ForMember(dest => dest.NormalizedEmail, opt => opt.Ignore())
-            .ForMember(dest => dest.EmailConfirmed, opt => opt.Ignore())
             .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
             .ForMember(dest => dest.SecurityStamp, opt => opt.Ignore())
             .ForMember(dest => dest.ConcurrencyStamp, opt => opt.Ignore())
