@@ -77,7 +77,7 @@ namespace NekoViBE.API.Controllers.Customer
             OperationId = "CreateProductReview",
             Tags = new[] { "Customer", "Customer_ProductReviews" }
         )]
-        public async Task<IActionResult> CreateProductReview([FromBody] ProductReviewRequest request)
+        public async Task<IActionResult> CreateProductReview([FromForm] ProductReviewRequest request)
         {
             var command = new CreateProductReviewCommand(request);
             var result = await _mediator.Send(command);
@@ -98,7 +98,7 @@ namespace NekoViBE.API.Controllers.Customer
             OperationId = "UpdateProductReview",
             Tags = new[] { "Customer", "Customer_ProductReviews" }
         )]
-        public async Task<IActionResult> UpdateProductReview(Guid id, [FromBody] ProductReviewRequest request)
+        public async Task<IActionResult> UpdateProductReview(Guid id, [FromForm] ProductReviewRequest request)
         {
             var command = new UpdateProductReviewCommand(id, request);
             var result = await _mediator.Send(command);
