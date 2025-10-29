@@ -70,20 +70,26 @@ namespace NekoViBE.Application.Features.Category.Commands.UpdateCategory
 
                 if (command.Request.ImageFile != null)
                 {
-                    // Delete old image if exists
+                    // Nếu upload ảnh mới → xóa ảnh cũ và cập nhật ảnh mới
                     if (!string.IsNullOrEmpty(oldImagePath))
-                    {
                         await _fileService.DeleteFileAsync(oldImagePath, cancellationToken);
-                    }
 
-                    // Upload new image
                     var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads", cancellationToken);
                     entity.ImagePath = imagePath;
                     _logger.LogInformation("ImagePath updated to {ImagePath} for category {Name}", imagePath, entity.Name);
-                } else
+                }
+                else if (command.Request.RemoveImage)
                 {
-                    await _fileService.DeleteFileAsync(oldImagePath, cancellationToken);
+                    // Nếu người dùng chọn xóa ảnh
+                    if (!string.IsNullOrEmpty(oldImagePath))
+                        await _fileService.DeleteFileAsync(oldImagePath, cancellationToken);
+
                     entity.ImagePath = null;
+                }
+                else
+                {
+                    // Không thay đổi ảnh
+                    entity.ImagePath = oldImagePath;
                 }
 
                 try

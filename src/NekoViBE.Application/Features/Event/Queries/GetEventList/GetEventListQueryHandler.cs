@@ -20,17 +20,20 @@ namespace NekoViBE.Application.Features.Event.Queries.GetEventList
         private readonly IMapper _mapper;
         private readonly ILogger<GetEventListQueryHandler> _logger;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IFileService _fileService;
 
         public GetEventListQueryHandler(
             IUnitOfWork unitOfWork,
             IMapper mapper,
             ILogger<GetEventListQueryHandler> logger,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
             _currentUserService = currentUserService;
+            _fileService = fileService;
         }
 
         public async Task<PaginationResult<EventItem>> Handle(GetEventListQuery request, CancellationToken cancellationToken)
@@ -55,7 +58,18 @@ namespace NekoViBE.Application.Features.Event.Queries.GetEventList
                     isAscending: isAscending
                 );
 
+                // Map sang EventItem
                 var eventItems = _mapper.Map<List<EventItem>>(items);
+
+                // Chuyển ImagePath thành URL đầy đủ
+                foreach (var eventItem in eventItems)
+                {
+                    if (!string.IsNullOrEmpty(eventItem.ImagePath))
+                    {
+                        eventItem.ImagePath = _fileService.GetFileUrl(eventItem.ImagePath);
+                    }
+                }
+
                 return PaginationResult<EventItem>.Success(eventItems, request.Filter.Page, request.Filter.PageSize, totalCount);
             }
             catch (Exception ex)

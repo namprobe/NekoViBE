@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NekoViBE.Application.Common.DTOs.Product;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,7 +13,7 @@ namespace NekoViBE.Application.Common.DTOs.Event
         [JsonPropertyName("description")]
         public string? Description { get; set; }
 
-        [JsonPropertyName("location")]
-        public string? Location { get; set; }
+        [JsonPropertyName("products")]
+        public List<ProductItem>? Products { get; set; } = new List<ProductItem>();
     }
 }

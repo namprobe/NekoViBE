@@ -1,4 +1,5 @@
-﻿using System.Linq.Expressions;
+﻿using System;
+using System.Linq.Expressions;
 using NekoViBE.Application.Common.DTOs.AnimeSeries;
 using NekoViBE.Application.Common.Extensions;
 using NekoViBE.Domain.Entities;
@@ -51,12 +52,12 @@ public static class AnimeSeriesQueryBuilder
 
         return filter.SortBy.ToLowerInvariant() switch
         {
-            "title" => x => x.Title,
-            "releaseyear" => x => x.ReleaseYear,
+            "title" => x => x.Title, // Sắp xếp theo Title (A-Z hoặc Z-A dựa trên IsAscending)
+            "releaseyear" => x => x.ReleaseYear, // Sắp xếp theo ReleaseYear (tăng dần hoặc giảm dần dựa trên IsAscending)
             "createdat" => x => x.CreatedAt!,
             "updatedat" => x => x.UpdatedAt!,
-            "imagepath" => x => x.ImagePath ?? "", // Add sorting by ImagePath
-            _ => x => x.CreatedAt!
+            "imagepath" => x => x.ImagePath ?? "",
+            _ => x => x.CreatedAt! // Mặc định
         };
     }
 }

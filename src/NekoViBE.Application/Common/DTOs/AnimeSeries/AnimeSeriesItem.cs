@@ -17,5 +17,8 @@ namespace NekoViBE.Application.Common.DTOs.AnimeSeries
 
         [JsonPropertyName("imagePath")]
         public string? ImagePath { get; set; }
+
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
     }
 }

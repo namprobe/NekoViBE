@@ -1,82 +1,70 @@
 ﻿using AutoMapper;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using NekoViBE.Application.Common.DTOs.AnimeSeries;
+using NekoViBE.Application.Common.DTOs.ProductReview;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
-using System;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace NekoViBE.Application.Features.AnimeSeries.Commands.UpdateAnimeSeries
+namespace NekoViBE.Application.Features.ProductReview.Commands.UpdateProductReview
 {
-    public class UpdateAnimeSeriesCommandHandler : IRequestHandler<UpdateAnimeSeriesCommand, Result>
+    public class UpdateProductReviewCommandHandler : IRequestHandler<UpdateProductReviewCommand, Result>
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly ILogger<UpdateAnimeSeriesCommandHandler> _logger;
+        private readonly ILogger<UpdateProductReviewCommandHandler> _logger;
         private readonly ICurrentUserService _currentUserService;
-        private readonly IFileService _fileService;
 
-        public UpdateAnimeSeriesCommandHandler(
+        public UpdateProductReviewCommandHandler(
             IUnitOfWork unitOfWork,
             IMapper mapper,
-            ILogger<UpdateAnimeSeriesCommandHandler> logger,
-            ICurrentUserService currentUserService,
-            IFileService fileService)
+            ILogger<UpdateProductReviewCommandHandler> logger,
+            ICurrentUserService currentUserService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
             _currentUserService = currentUserService;
-            _fileService = fileService;
         }
 
-        public async Task<Result> Handle(UpdateAnimeSeriesCommand command, CancellationToken cancellationToken)
+        public async Task<Result> Handle(UpdateProductReviewCommand command, CancellationToken cancellationToken)
         {
             try
             {
                 var (isValid, userId) = await _currentUserService.IsUserValidAsync();
                 if (!isValid || userId == null)
                 {
+                    _logger.LogWarning("Invalid or unauthenticated user attempting to update product review");
                     return Result.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
                 }
 
-                var repo = _unitOfWork.Repository<Domain.Entities.AnimeSeries>();
-                var entity = await repo.GetFirstOrDefaultAsync(x => x.Id == command.Id);
+                var repo = _unitOfWork.Repository<Domain.Entities.ProductReview>();
+                var entity = await repo.GetFirstOrDefaultAsync(x => x.Id == command.Id && !x.IsDeleted);
+                if (entity == null || entity.UserId != userId)
+                {
+                    _logger.LogWarning("Comment not found", command.Id);
+                    return Result.Failure("Comment not found", ErrorCodeEnum.NotFound);
+                }
 
-                if (entity == null)
-                    return Result.Failure("Anime series not found", ErrorCodeEnum.NotFound);
 
-                var oldValue = JsonSerializer.Serialize(_mapper.Map<AnimeSeriesRequest>(entity));
+                // Check if product exists
+                var productExists = await _unitOfWork.Repository<Domain.Entities.Product>().AnyAsync(x => x.Id == command.Request.ProductId && !x.IsDeleted);
+                if (!productExists)
+                {
+                    _logger.LogWarning("Product with ID {ProductId} not found", command.Request.ProductId);
+                    return Result.Failure("Product not found", ErrorCodeEnum.NotFound);
+                }
+
+                var oldValue = JsonSerializer.Serialize(_mapper.Map<ProductReviewRequest>(entity));
                 var oldStatus = entity.Status;
-                var oldImagePath = entity.ImagePath;
 
                 _mapper.Map(command.Request, entity);
+                entity.UserId = userId.Value; // Ensure UserId remains unchanged
                 entity.UpdatedBy = userId;
                 entity.UpdatedAt = DateTime.UtcNow;
-
-                if (command.Request.ImageFile != null)
-                {
-                    // Delete old image if exists
-                    if (!string.IsNullOrEmpty(oldImagePath))
-                    {
-                        await _fileService.DeleteFileAsync(oldImagePath, cancellationToken);
-                    }
-
-                    // Upload new image
-                    var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads", cancellationToken);
-                    entity.ImagePath = imagePath;
-                }
-                else
-                {
-                    // If no new image provided, keep the old image or set to null if explicitly cleared
-                    entity.ImagePath = null;
-                }
 
                 try
                 {
@@ -88,11 +76,11 @@ namespace NekoViBE.Application.Features.AnimeSeries.Commands.UpdateAnimeSeries
                         UserId = userId.Value,
                         Action = UserActionEnum.Update,
                         EntityId = entity.Id,
-                        EntityName = "AnimeSeries",
+                        EntityName = "ProductReview",
                         OldValue = oldValue,
                         NewValue = JsonSerializer.Serialize(command.Request),
                         IPAddress = _currentUserService.IPAddress ?? "Unknown",
-                        ActionDetail = $"Updated anime series with title: {command.Request.Title}",
+                        ActionDetail = $"Updated product review for product ID: {command.Request.ProductId}",
                         CreatedAt = DateTime.UtcNow,
                         Status = EntityStatusEnum.Active
                     };
@@ -105,11 +93,11 @@ namespace NekoViBE.Application.Features.AnimeSeries.Commands.UpdateAnimeSeries
                             UserId = userId.Value,
                             Action = UserActionEnum.StatusChange,
                             EntityId = entity.Id,
-                            EntityName = "AnimeSeries",
+                            EntityName = "ProductReview",
                             OldValue = oldStatus.ToString(),
                             NewValue = command.Request.Status.ToString(),
                             IPAddress = _currentUserService.IPAddress ?? "Unknown",
-                            ActionDetail = $"Changed status of anime series '{entity.Title}' from {oldStatus} to {command.Request.Status}",
+                            ActionDetail = $"Changed status of product review from {oldStatus} to {command.Request.Status}",
                             CreatedAt = DateTime.UtcNow,
                             Status = EntityStatusEnum.Active
                         };
@@ -124,17 +112,12 @@ namespace NekoViBE.Application.Features.AnimeSeries.Commands.UpdateAnimeSeries
                     throw;
                 }
 
-                return Result.Success("Anime series updated successfully");
-            }
-            catch (IOException ex)
-            {
-                _logger.LogError(ex, "Error handling file for anime series");
-                return Result.Failure("Error handling file", ErrorCodeEnum.InternalError);
+                return Result.Success("Product review updated successfully");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating anime series with ID: {Id}", command.Id);
-                return Result.Failure("Error updating anime series", ErrorCodeEnum.InternalError);
+                _logger.LogError(ex, "Error updating product review with ID: {Id}", command.Id);
+                return Result.Failure("Error updating product review", ErrorCodeEnum.InternalError);
             }
         }
     }

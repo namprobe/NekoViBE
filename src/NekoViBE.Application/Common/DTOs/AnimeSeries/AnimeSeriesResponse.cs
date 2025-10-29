@@ -9,7 +9,6 @@ namespace NekoViBE.Application.Common.DTOs.AnimeSeries
 {
     public class AnimeSeriesResponse : AnimeSeriesItem
     {
-        [JsonPropertyName("description")]
-        public string? Description { get; set; }
+        
     }
 }

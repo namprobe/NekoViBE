@@ -21,5 +21,11 @@ namespace NekoViBE.Application.Common.DTOs.Product
 
         [JsonPropertyName("hasImage")]
         public bool? HasImage { get; set; }
+
+        [JsonPropertyName("priceRange")]
+        public string? PriceRange { get; set; }  // "under-500k", "500k-1m", "1m-2m", "over-2m"
+
+        [JsonPropertyName("sortType")]
+        public string? SortType { get; set; }    // "price-asc", "price-desc", "name-asc", "name-desc"
     }
 }

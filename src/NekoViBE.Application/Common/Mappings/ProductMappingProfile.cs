@@ -32,7 +32,15 @@ namespace NekoViBE.Application.Common.Mappings
 
             CreateMap<Product, ProductItem>()
                 .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Category))
-                .ForMember(dest => dest.AnimeSeriesId, opt => opt.MapFrom(src => src.AnimeSeriesId));// Ánh xạ trực tiếp
+                .ForMember(dest => dest.AnimeSeriesId, opt => opt.MapFrom(src => src.AnimeSeriesId))
+                .ForMember(dest => dest.PrimaryImage, opt => opt.MapFrom(src =>
+                    src.ProductImages
+                        .Where(pi => !pi.IsDeleted)
+                        .OrderByDescending(pi => pi.IsPrimary) // Ưu tiên ảnh chính
+                        .ThenBy(pi => pi.DisplayOrder)
+                        .Select(pi => pi.ImagePath)
+                        .FirstOrDefault() // Lấy 1 ảnh đầu tiên (hoặc null)
+                ));
 
             CreateMap<Product, ProductResponse>()
                 .ForMember(dest => dest.ProductTags, opt => opt.MapFrom(src => src.ProductTags))
@@ -54,7 +62,7 @@ namespace NekoViBE.Application.Common.Mappings
 
             // Mapping cho các entity con
             CreateMap<ProductImage, ProductImageResponse>();
-            CreateMap<ProductReview, ProductReviewResponse>()
+            CreateMap<ProductReview, ProductReviewItem>()
                 .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User.UserName)); // Giả sử User có UserName
             CreateMap<Tag, TagItem>();
             CreateMap<Event, EventItem>();

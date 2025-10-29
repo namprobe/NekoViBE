@@ -16,6 +16,10 @@ namespace NekoViBE.Application.Features.Event.Commands.CreateEvent
                 .NotNull().WithMessage("Event request is required");
                 
                 this.SetupEventRules(x => x.Request);
+
+            //RuleFor(x => x.Request.StartDate)
+            //    .GreaterThanOrEqualTo(DateTime.UtcNow.Date)
+            //    .WithMessage("Start date must not be earlier than the current date");
         }
     }
 }
