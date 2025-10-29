@@ -1,13 +1,12 @@
-using NekoViBE.Domain.Common;
 using NekoViBE.Domain.Enums;
 
-namespace NekoViBE.Domain.Entities;
+namespace NekoViBE.Application.Common.DTOs.UserAddress;
 
-public class UserAddress : BaseEntity
+public class UserAddressDetail : BaseResponse
 {
-    public Guid UserId { get; set; }
     public string FullName { get; set; } = string.Empty;
-    public AddressTypeEnum AddressType { get; set; } = AddressTypeEnum.Home;
+    public AddressTypeEnum AddressType { get; set; }
+    public string AddressTypeEnumName => AddressType.ToString();
     public string Address { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
     public string? State { get; set; }
@@ -15,6 +14,4 @@ public class UserAddress : BaseEntity
     public string Country { get; set; } = string.Empty;
     public bool IsDefault { get; set; } = true;
     public string? PhoneNumber { get; set; }
-    // navigation property
-    public virtual AppUser? User { get; set; }
 }

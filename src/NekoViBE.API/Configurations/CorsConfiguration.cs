@@ -1,11 +1,10 @@
 namespace NekoViBE.API.Configurations;
 
-// <summary>
+/// <summary>
 /// Configuration for Cross-Origin Resource Sharing (CORS)
 /// </summary>
 public static class CorsConfiguration
 {
-    private const string DefaultCorsPolicy = "DefaultCorsPolicy";
     private const string ProductionCorsPolicy = "ProductionCorsPolicy";
     private const string DevelopmentCorsPolicy = "DevelopmentCorsPolicy";
     
@@ -13,40 +12,31 @@ public static class CorsConfiguration
     /// Configure CORS with environment-specific policies
     /// </summary>
     public static IServiceCollection AddCorsConfiguration(this IServiceCollection services, 
-        IConfiguration configuration, bool allowAnyOrigin = false)
+        IConfiguration configuration)
     {
         // Extract allowed origins from configuration
         var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
-        
-        // Get current environment
-        var environment = services.BuildServiceProvider().GetRequiredService<IWebHostEnvironment>();
-        var isProduction = environment.IsProduction();
 
         services.AddCors(options =>
         {
-            // Default policy (for backward compatibility)
-            options.AddPolicy(DefaultCorsPolicy, policy =>
-            {
-                ConfigurePolicy(policy, allowedOrigins, isProduction, allowAnyOrigin);
-            });
-
             // Production-specific policy with strict security
             options.AddPolicy(ProductionCorsPolicy, policy =>
             {
                 if (allowedOrigins.Length > 0)
                 {
-                    policy.WithOrigins(allowedOrigins);
+                    policy.WithOrigins(allowedOrigins)
+                          .AllowCredentials(); // Allow cookies and auth headers
                 }
                 else
                 {
+                    // Fallback: không có origins thì allow any (không khuyến khích)
                     policy.AllowAnyOrigin();
                 }
                 
                 policy
                     .AllowAnyMethod()
                     .AllowAnyHeader()
-                    .WithExposedHeaders("Content-Disposition", "Token-Expired")
-                    .SetIsOriginAllowedToAllowWildcardSubdomains();
+                    .WithExposedHeaders("Content-Disposition", "Token-Expired", "X-Pagination");
             });
 
             // Development-specific policy with looser security
@@ -54,7 +44,8 @@ public static class CorsConfiguration
             {
                 if (allowedOrigins.Length > 0)
                 {
-                    policy.WithOrigins(allowedOrigins);
+                    policy.WithOrigins(allowedOrigins)
+                          .AllowCredentials(); // Allow cookies and auth headers
                 }
                 else
                 {
@@ -64,41 +55,13 @@ public static class CorsConfiguration
                 policy
                     .AllowAnyMethod()
                     .AllowAnyHeader()
-                    .WithExposedHeaders("Content-Disposition", "Token-Expired");
+                    .WithExposedHeaders("Content-Disposition", "Token-Expired", "X-Pagination");
             });
         });
         
         return services;
     }
 
-    // Helper method to configure a policy based on environment
-    private static void ConfigurePolicy(Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder policy, 
-        string[] allowedOrigins, bool isProduction, bool allowAnyOrigin)
-    {
-        // Configure origins
-        if (allowAnyOrigin)
-        {
-            policy.AllowAnyOrigin();
-        }
-        else
-        {
-            if (allowedOrigins.Length == 0)
-            {
-                policy.AllowAnyOrigin();
-            }
-            else
-            {
-                policy.WithOrigins(allowedOrigins);
-            }
-        }
-        
-        // Configure general settings
-        policy
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .WithExposedHeaders("Content-Disposition", "Token-Expired");
-    }
-    
     /// <summary>
     /// Use the environment-appropriate CORS policy
     /// </summary>

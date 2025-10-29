@@ -33,8 +33,8 @@ public class AuthMappingProfile : Profile
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => EntityStatusEnum.Active));
 
         CreateMap<AppUser, ProfileResponse>()
-            .ForMember(dest => dest.Gender, opt => opt.MapFrom(src => src.CustomerProfile != null ? src.CustomerProfile.Gender.ToString() :
-            src.StaffProfile != null ? src.StaffProfile.Gender.ToString() : null))
+            .ForMember(dest => dest.Gender, opt => opt.MapFrom(src => src.CustomerProfile != null ? src.CustomerProfile.Gender :
+            src.StaffProfile != null ? src.StaffProfile.Gender : null))
             .ForMember(dest => dest.DateOfBirth, opt => opt.MapFrom(src => src.CustomerProfile != null ? src.CustomerProfile.DateOfBirth : null))
             .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.StaffProfile != null ? src.StaffProfile.Position.ToString() : null))
             .ForMember(dest => dest.HireDate, opt => opt.MapFrom(src => src.StaffProfile != null ? src.StaffProfile.HireDate : null))

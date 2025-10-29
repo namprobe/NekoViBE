@@ -52,7 +52,7 @@ public class JwtService : IJwtService
             issuer: _jwtSettings.Issuer,
             audience: _jwtSettings.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiresInMinutes),
+            expires: DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireInMinutes),
             signingCredentials: creds
         );
 
@@ -65,7 +65,7 @@ public class JwtService : IJwtService
     public (string token, List<string> roles, DateTime expiresAt) GenerateJwtTokenWithExpiration(AppUser user, string? requestOrigin = null)
     {
         var (token, roles) = GenerateJwtToken(user, requestOrigin);
-        var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiresInMinutes);
+        var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireInMinutes);
         return (token, roles, expiresAt);
     }
 
@@ -74,7 +74,7 @@ public class JwtService : IJwtService
     /// </summary>
     public int GetTokenExpirationMinutes()
     {
-        return _jwtSettings.ExpiresInMinutes;
+        return _jwtSettings.ExpireInMinutes;
     }
 
     /// <summary>

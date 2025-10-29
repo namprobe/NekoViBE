@@ -20,9 +20,9 @@ public class JwtSettings
     /// <summary>
     /// Token expiration time in minutes
     /// </summary>
-    public int ExpiresInMinutes { get; set; } = 60;
+    public int ExpireInMinutes { get; set; } = 7;
     
-    /// <summary>
+    /// <summary>  
     /// Refresh token expiration time in days
     /// </summary>
     public int RefreshTokenExpiresInDays { get; set; } = 7;
