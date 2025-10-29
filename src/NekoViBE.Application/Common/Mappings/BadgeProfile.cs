@@ -2,6 +2,7 @@
 using NekoViBE.Application.Common.DTOs.Badge;
  using NekoViBE.Application.Common.DTOs.UserBadge;
  using NekoViBE.Domain.Entities;
+using NekoViBE.Domain.Enums;
 
 namespace NekoViBE.Application.MappingProfiles;
 
@@ -24,5 +25,10 @@ public class BadgeProfile : Profile
 
         CreateMap<UserBadge, UserBadgeDto>();
         CreateMap<AssignBadgeToUserRequest, UserBadge>();
+        CreateMap<Domain.Entities.Badge, BadgeItem>()
+                .ForMember(dest => dest.IsActive,
+                    opt => opt.MapFrom(src => src.Status == EntityStatusEnum.Active))
+                .ForMember(dest => dest.UserCount,
+                    opt => opt.MapFrom(src => src.UserBadges.Count));
     }
 }

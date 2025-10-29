@@ -9,6 +9,6 @@ using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Features.Badge.Queries.GetBadge
 {
-    public record GetBadgesQuery : IRequest<Result<BadgesResponse>>;
+    public record GetBadgesQuery(BadgeFilter Filter) : IRequest<PaginationResult<BadgeItem>>;
 
 }

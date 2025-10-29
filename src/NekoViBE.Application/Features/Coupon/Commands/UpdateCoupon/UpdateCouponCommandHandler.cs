@@ -42,7 +42,7 @@ namespace NekoViBE.Application.Features.Coupon.Commands.UpdateCoupon
                     return Result<CouponDto>.Failure("Unauthorized", ErrorCodeEnum.Unauthorized);
                 }
 
-                var coupon = await _unitOfWork.Repository<Domain.Entities.Coupon>().GetByIdAsync(command.Request.Id);
+                var coupon = await _unitOfWork.Repository<Domain.Entities.Coupon>().GetByIdAsync(command.Id);
                 if (coupon == null)
                 {
                     return Result<CouponDto>.Failure("Coupon not found", ErrorCodeEnum.NotFound);
@@ -66,7 +66,7 @@ namespace NekoViBE.Application.Features.Coupon.Commands.UpdateCoupon
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating coupon {CouponId}", command.Request.Id);
+                _logger.LogError(ex, "Error updating coupon {CouponId}", command.Id);
                 return Result<CouponDto>.Failure("Error updating coupon", ErrorCodeEnum.InternalError);
             }
         }

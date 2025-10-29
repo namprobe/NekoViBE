@@ -10,8 +10,8 @@ namespace NekoViBE.Application.Common.DTOs.Coupon
 {
     public class UpdateCouponRequest
     {
-        [Required]
-        public Guid Id { get; set; }
+        [StringLength(500)]
+        public string? Code { get; set; }
 
         [StringLength(500)]
         public string? Description { get; set; }

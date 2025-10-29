@@ -17,10 +17,10 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace NekoViBE.API.Controllers.Cms
 {
     [ApiController]
-    [Route("api/customer/coupons")]
+    [Route("api/cms/coupons")]
     [ApiExplorerSettings(GroupName = "v1")]
-    [Configurations.Tags("Customer", "Customer_Order")]
-    [SwaggerTag("This API is used for order for Customer website")]
+    [Configurations.Tags("CMS", "CMS_Coupon")]
+    [SwaggerTag("This API is used for managing coupons in the CMS")]
     public class CouponsController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -148,7 +148,7 @@ namespace NekoViBE.API.Controllers.Cms
             return StatusCode(result.GetHttpStatusCode(), result);
         }
 
-        [HttpPut]
+        [HttpPut("{id}")]
         [AuthorizeRoles("Admin", "Staff")]
         [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
@@ -161,9 +161,9 @@ namespace NekoViBE.API.Controllers.Cms
             OperationId = "UpdateCoupon",
             Tags = new[] { "CMS", "CMS_Coupon" }
         )]
-        public async Task<IActionResult> UpdateCoupon([FromBody] UpdateCouponRequest request)
+        public async Task<IActionResult> UpdateCoupon(Guid id, [FromBody] UpdateCouponRequest request)
         {
-            var command = new UpdateCouponCommand(request);
+            var command = new UpdateCouponCommand(id, request);
             var result = await _mediator.Send(command);
             return StatusCode(result.GetHttpStatusCode(), result);
         }

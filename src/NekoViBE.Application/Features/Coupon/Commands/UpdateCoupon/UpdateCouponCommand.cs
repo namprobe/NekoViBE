@@ -9,6 +9,6 @@ using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Features.Coupon.Commands.UpdateCoupon
 {
-    public record UpdateCouponCommand(UpdateCouponRequest Request) : IRequest<Result<CouponDto>>;
+    public record UpdateCouponCommand(Guid Id, UpdateCouponRequest Request) : IRequest<Result<CouponDto>>;
 
 }

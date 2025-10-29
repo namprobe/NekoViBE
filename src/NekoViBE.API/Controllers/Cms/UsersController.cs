@@ -2,15 +2,15 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NekoViBE.API.Attributes;
-using NekoViBE.Application.Common.DTOs.Category;
 using NekoViBE.Application.Common.DTOs.User;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Extensions;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.User.Commands.CreateUser;
 using NekoViBE.Application.Features.User.Commands.DeleteUser;
+using NekoViBE.Application.Features.User.Commands.UpdateUser;
 using NekoViBE.Application.Features.User.Queries.GetUser;
-using NekoViBE.Domain.Entities;
+using NekoViBE.Application.Features.User.Queries.GetUserById;
 using Swashbuckle.AspNetCore.Annotations;
 
 
@@ -114,14 +114,14 @@ namespace NekoViBE.API.Controllers.Cms
             return Ok(result);
         }
 
-        //[HttpGet("{id}")]
-        //[Authorize(Roles = "Admin")]
-        //public async Task<IActionResult> GetUserById(Guid id)
-        //{
-        //    var query = new GetUserByIdQuery(id);
-        //    var result = await _mediator.Send(query);
-        //    return StatusCode(result.GetHttpStatusCode(), result);
-        //}
+        [HttpGet("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetUserById(Guid id)
+        {
+            var query = new GetUserByIdQuery(id);
+            var result = await _mediator.Send(query);
+            return StatusCode(result.GetHttpStatusCode(), result);
+        }
 
         //[HttpPost]
         //[Authorize(Roles = "Admin")]
@@ -136,18 +136,22 @@ namespace NekoViBE.API.Controllers.Cms
         //    return StatusCode(result.GetHttpStatusCode(), result);
         //}
 
-        //[HttpPut]
-        //[Authorize(Roles = "Admin")]
-        //public async Task<IActionResult> UpdateUser([FromBody] UpdateUserCommand command)
-        //{
-        //    if (!ModelState.IsValid)
-        //    {
-        //        return BadRequest(ModelState);
-        //    }
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequest request)
+        {
+            // Optional: Add FluentValidation
+            var validator = new UpdateUserRequestValidator();
+            var validationResult = await validator.ValidateAsync(request);
+            if (!validationResult.IsValid)
+            {
+                return BadRequest(Result.Failure("Validation failed", ErrorCodeEnum.ValidationFailed, validationResult.Errors.Select(e => e.ErrorMessage).ToList()));
+            }
 
-        //    var result = await _mediator.Send(command);
-        //    return StatusCode(result.GetHttpStatusCode(), result);
-        //}
+            var command = new UpdateUserCommand(id, request);
+            var result = await _mediator.Send(command);
+            return StatusCode(result.GetHttpStatusCode(), result);
+        }
 
         //[HttpDelete("{id}")]
         //[Authorize(Roles = "Admin")]
