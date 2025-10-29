@@ -17,5 +17,7 @@ public abstract class BaseResponse
     public Guid? UpdatedBy { get; set; }
     [JsonPropertyName("status")]
     public EntityStatusEnum Status { get; set; }
+    [JsonPropertyName("statusName")]
+    public string StatusName => Status.ToString();
 
 }
