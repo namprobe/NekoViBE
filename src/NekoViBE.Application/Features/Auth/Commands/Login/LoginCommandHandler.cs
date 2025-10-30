@@ -1,11 +1,13 @@
 using AutoMapper;
 using MediatR;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NekoViBE.Application.Common.DTOs.Auth;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Common;
+using NekoViBE.Domain.Entities;
 
 namespace NekoViBE.Application.Features.Auth.Commands.Login;
 
@@ -14,13 +16,14 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResp
     private readonly IIdentityService _identityService;
     private readonly IJwtService _jwtService;
     private readonly ILogger<LoginCommandHandler> _logger;
+    private readonly IServiceProvider _serviceProvider;
 
-    public LoginCommandHandler(IIdentityService identityService, IJwtService jwtService, ILogger<LoginCommandHandler> logger)
+    public LoginCommandHandler(IIdentityService identityService, IJwtService jwtService, ILogger<LoginCommandHandler> logger, IServiceProvider serviceProvider)
     {
         _identityService = identityService;
         _jwtService = jwtService;
         _logger = logger;
-                
+        _serviceProvider = serviceProvider;
     }
     public async Task<Result<AuthResponse>> Handle(LoginCommand command, CancellationToken cancellationToken)
     {
@@ -48,6 +51,20 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResp
                 Roles = roles,
                 ExpiresAt = expiresAt
             };
+            // Init shoppiong cart if not exists
+            _ = Task.Run(async () =>
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+                var shoppingCart = await unitOfWork.Repository<ShoppingCart>().GetFirstOrDefaultAsync(x => x.UserId == user.Id);
+                if (shoppingCart == null)
+                {
+                    shoppingCart = new ShoppingCart { UserId = user.Id };
+                    shoppingCart.InitializeEntity(user.Id);
+                    await unitOfWork.Repository<ShoppingCart>().AddAsync(shoppingCart);
+                    await unitOfWork.SaveChangesAsync(cancellationToken);
+                }
+            });
             return Result<AuthResponse>.Success(authResponse, "Login successfully!");
         }
         catch (Exception ex)
