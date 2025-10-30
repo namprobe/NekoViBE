@@ -13,10 +13,13 @@ public class NekoViOuterDbContextFactory : IDesignTimeDbContextFactory<NekoViOut
         // Đọc connection string từ appsettings.json của WebApp
         var webAppPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "NekoViBE.API");
         
+        // Lấy environment từ biến môi trường (Azure tự set ASPNETCORE_ENVIRONMENT=Production)
+        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+        
         var configuration = new ConfigurationBuilder()
             .SetBasePath(webAppPath)
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
-            .AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: false)
+            .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: false)
             .Build();
 
         var connectionString = configuration.GetConnectionString("OuterDbConnection");
