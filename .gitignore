@@ -430,3 +430,13 @@ $RECYCLE.BIN/
 /wwwroot/uploads/*
 **/wwwroot/uploads/**
 !**/wwwroot/uploads/.gitkeep
+wwwroot/uploads/
+
+# .NET publish profiles (Visual Studio / dotnet publish)
+# Ignore publish profile directories and user-specific files
+**/Properties/PublishProfiles/
+**/Properties/PublishProfiles/**
+**/PublishProfiles/
+**/PublishProfiles/**
+*.pubxml.user
+*.PublishSettings

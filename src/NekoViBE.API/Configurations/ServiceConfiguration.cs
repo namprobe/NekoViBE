@@ -1,6 +1,9 @@
 using NekoViBE.API.Injection;
 using NekoViBE.Application;
 using NekoViBE.Infrastructure;
+using NekoViBE.Infrastructure.Configurations;
+using NekoViBE.Infrastructure.Filters;
+using Hangfire;
 
 namespace NekoViBE.API.Configurations;
 
@@ -11,13 +14,27 @@ public static class ServiceConfiguration
     /// </summary>
     public static WebApplicationBuilder ConfigureServices(this WebApplicationBuilder builder)
     {
-        // Core ASP.NET services
-        builder.Services.AddControllers();
+        // Core ASP.NET services với camelCase đơn giản
+        builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            // Chỉ cần config JSON serialization thành camelCase - đơn giản!
+            options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+            options.JsonSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+            options.JsonSerializerOptions.WriteIndented = true;
+        });
+
         builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen();
+        
+        // Custom Swagger configuration with tagging and styling
+        builder.Services.AddSwaggerConfiguration();
 
         // Cross-cutting concerns
         builder.AddLoggingConfiguration();
+        
+        // Security configurations
+        builder.Services.AddJwtConfiguration(builder.Configuration);
+        builder.Services.AddCorsConfiguration(builder.Configuration);
 
         // Application & Infrastructure layers
         builder.Services.AddApplication();
@@ -34,13 +51,20 @@ public static class ServiceConfiguration
     /// </summary>
     public static WebApplication ConfigurePipeline(this WebApplication app)
     {
-        if (app.Environment.IsDevelopment())
-        {
-            app.UseSwagger();
-            app.UseSwaggerUI();
-        }
+        app.UseSwaggerConfiguration(app.Environment);
+        //if (app.Environment.IsDevelopment())
+        //{
+        //    // Use custom Swagger configuration with styling and tagging
+
+        //}
 
         app.UseHttpsRedirection();
+        
+        // Enable static files for Swagger custom CSS
+        app.UseStaticFiles();
+        
+        // Enable CORS
+        app.UseCorsConfiguration();
 
         // API-specific middlewares (exception handling, JWT, etc.)
         app.UseApiConfiguration();

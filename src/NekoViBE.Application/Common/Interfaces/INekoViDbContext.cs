@@ -1,10 +1,22 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using NekoViBE.Domain.Entities;
 
 namespace NekoViBE.Application.Common.Interfaces;
 
 public interface INekoViDbContext
 {
+    // Identity Tables (Add these)
+    DbSet<AppUser> Users { get; set; }
+    DbSet<AppRole> Roles { get; set; }
+    DbSet<IdentityUserRole<Guid>> UserRoles { get; set; }
+    DbSet<IdentityUserClaim<Guid>> UserClaims { get; set; }
+    DbSet<IdentityUserLogin<Guid>> UserLogins { get; set; }
+    DbSet<IdentityUserToken<Guid>> UserTokens { get; set; }
+    DbSet<IdentityRoleClaim<Guid>> RoleClaims { get; set; }
+
     DbSet<CustomerProfile> CustomerProfiles { get; set; }
     DbSet<StaffProfile> StaffProfiles { get; set; }
     DbSet<UserAddress> UserAddresses { get; set; }
@@ -12,6 +24,7 @@ public interface INekoViDbContext
     DbSet<Category> Categories { get; set; }
     DbSet<AnimeSeries> AnimeSeries { get; set; }
     DbSet<Product> Products { get; set; }
+    DbSet<ProductInventory> ProductInventories { get; set; }
     DbSet<ProductImage> ProductImages { get; set; }
     DbSet<Tag> Tags { get; set; }
     DbSet<ProductTag> ProductTags { get; set; }
@@ -35,4 +48,10 @@ public interface INekoViDbContext
     DbSet<PostTag> PostTags { get; set; }
     DbSet<Event> Events { get; set; }
     DbSet<EventProduct> EventProducts { get; set; }
+    DatabaseFacade Database { get; }
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    // Optional: Add other commonly used members
+    DbSet<TEntity> Set<TEntity>() where TEntity : class;
+    EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;
 }

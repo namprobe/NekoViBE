@@ -1,0 +1,30 @@
+﻿using Microsoft.AspNetCore.Http;
+using NekoViBE.Domain.Enums;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
+
+namespace NekoViBE.Application.Common.DTOs.AnimeSeries
+{
+    public class AnimeSeriesRequest
+    {
+        [JsonPropertyName("title")]
+        public string Title { get; set; } = string.Empty;
+
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
+
+        [JsonPropertyName("releaseYear")]
+        public int ReleaseYear { get; set; }
+
+        [JsonPropertyName("imageFile")]
+        public IFormFile? ImageFile { get; set; }
+
+
+        [JsonPropertyName("status")]
+        public EntityStatusEnum Status { get; set; }
+    }
+}

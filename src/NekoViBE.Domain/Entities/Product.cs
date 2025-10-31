@@ -24,4 +24,5 @@ public class Product : BaseEntity
     public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     public virtual ICollection<WishlistItem> WishlistItems { get; set; } = new List<WishlistItem>();
     public virtual ICollection<EventProduct> EventProducts { get; set; } = new List<EventProduct>();
+    public virtual ICollection<ProductInventory> ProductInventories { get; set; } = new List<ProductInventory>();
 }

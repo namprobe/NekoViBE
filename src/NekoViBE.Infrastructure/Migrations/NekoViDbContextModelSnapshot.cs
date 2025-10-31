@@ -1208,7 +1208,7 @@ namespace NekoViBE.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<decimal?>("ProcessingFee")
+                    b.Property<decimal>("ProcessingFee")
                         .HasColumnType("decimal(5,2)");
 
                     b.Property<string>("ProcessorName")
@@ -1475,6 +1475,53 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("ProductImages");
+                });
+
+            modelBuilder.Entity("NekoViBE.Domain.Entities.ProductInventory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("ProductInventories");
                 });
 
             modelBuilder.Entity("NekoViBE.Domain.Entities.ProductReview", b =>
@@ -1925,6 +1972,10 @@ namespace NekoViBE.Infrastructure.Migrations
 
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDefault")
                         .ValueGeneratedOnAdd()
@@ -2436,6 +2487,17 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("NekoViBE.Domain.Entities.ProductInventory", b =>
+                {
+                    b.HasOne("NekoViBE.Domain.Entities.Product", "Product")
+                        .WithMany("ProductInventories")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("NekoViBE.Domain.Entities.ProductReview", b =>
                 {
                     b.HasOne("NekoViBE.Domain.Entities.Product", "Product")
@@ -2679,6 +2741,8 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.Navigation("OrderItems");
 
                     b.Navigation("ProductImages");
+
+                    b.Navigation("ProductInventories");
 
                     b.Navigation("ProductReviews");
 

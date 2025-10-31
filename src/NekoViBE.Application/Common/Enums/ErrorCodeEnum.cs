@@ -19,6 +19,7 @@ public enum ErrorCodeEnum
     InvalidInput = 2002,
     DuplicateEntry = 2003,
     InvalidOperation = 2004,
+    TooManyRequests = 2005,
     
     // Not Found (404)
     NotFound = 3001,
@@ -48,5 +49,6 @@ public enum ErrorCodeEnum
     EmailSendFailed = 8001,
     EmailNotConfirmed = 8002,
     EmailAlreadyConfirmed = 8003,
-    InvalidEmailToken = 8004
+    InvalidEmailToken = 8004,
+    Conflict = 8005
 }

@@ -5,7 +5,7 @@ using NekoViBE.Domain.Common;
 
 namespace NekoViBE.Infrastructure.Repositories;
 
-public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
+public class GenericRepository<T> : IGenericRepository<T> where T : class, IEntityLike
 {
     private readonly DbContext _context;
     private readonly DbSet<T> _dbSet;
@@ -215,4 +215,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
             _context.Entry(entity).State = EntityState.Modified;
         }
     }
+
+    public async Task<T> GetByIdAsync(object id) => await _dbSet.FindAsync(id);
+
 }

@@ -43,7 +43,7 @@ public class AuthorizationBehavior<TRequest, TResponse> : IPipelineBehavior<TReq
         
         if (authorizeAttributesWithRoles.Any())
         {
-            var userRoles = _currentUserService.Roles;
+            var userRoles = _currentUserService.Roles.Select(r => r.ToString());
             
             var authorized = authorizeAttributesWithRoles.All(a => 
                 a.Roles.Split(',').Any(r => userRoles.Contains(r.Trim())));

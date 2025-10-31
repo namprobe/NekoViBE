@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using NekoViBE.Application.Common.Behaviors;
     using FluentValidation;
+using NekoViBE.Application.Common.Mappings;
 
 namespace NekoViBE.Application;
 
@@ -26,12 +27,22 @@ public static class ApplicationDependencyInjection
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(PerformanceBehavior<,>));
         });
         
-        // Register AutoMapper (manual, explicit profiles like GameHub)
+        // Register AutoMapper (manual, explicit profiles)
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             // Đăng ký các profile riêng (ví dụ):
-            // cfg.AddProfile(new UserMappingProfile());
-            // cfg.AddProfile(new ProductMappingProfile());
+            cfg.AddProfile(new AuthMappingProfile());
+            cfg.AddProfile(new PaymentMethodMappingProfile());
+            cfg.AddProfile(new AnimeSeriesMappingProfile());
+            cfg.AddProfile(new CategoryMappingProfile());
+            cfg.AddProfile(new ProductMappingProfile());
+            cfg.AddProfile(new ProductInventoryMappingProfile());
+            cfg.AddProfile(new ProductImageMappingProfile());
+            cfg.AddProfile(new EventMappingProfile());
+            cfg.AddProfile(new EventProductMappingProfile());
+            cfg.AddProfile(new TagMappingProfile());
+            cfg.AddProfile(new ProductTagMappingProfile());
+
 
             // Và tự động quét tất cả Profile trong assembly này    
             cfg.AddMaps(Assembly.GetExecutingAssembly());

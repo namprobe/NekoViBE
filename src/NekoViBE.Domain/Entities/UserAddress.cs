@@ -6,6 +6,7 @@ namespace NekoViBE.Domain.Entities;
 public class UserAddress : BaseEntity
 {
     public Guid UserId { get; set; }
+    public string FullName { get; set; } = string.Empty;
     public AddressTypeEnum AddressType { get; set; } = AddressTypeEnum.Home;
     public string Address { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;

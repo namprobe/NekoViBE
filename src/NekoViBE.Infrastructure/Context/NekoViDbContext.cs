@@ -19,6 +19,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
     public DbSet<Category> Categories { get; set; }
     public DbSet<AnimeSeries> AnimeSeries { get; set; }
     public DbSet<Product> Products { get; set; }
+    public DbSet<ProductInventory> ProductInventories { get; set; }
     public DbSet<ProductImage> ProductImages { get; set; }
     public DbSet<Tag> Tags { get; set; }
     public DbSet<ProductTag> ProductTags { get; set; }
@@ -51,20 +52,6 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-        // Apply soft delete filter to all entities inheriting from BaseEntity
-        foreach (var entityType in builder.Model.GetEntityTypes())
-        {
-            if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
-            {
-                var parameter = Expression.Parameter(entityType.ClrType, "e");
-                var property = Expression.Property(parameter, nameof(BaseEntity.IsDeleted));
-                var falseConstant = Expression.Constant(false);
-                var condition = Expression.Equal(property, falseConstant);
-                var lambda = Expression.Lambda(condition, parameter);
-                
-                builder.Entity(entityType.ClrType).HasQueryFilter(lambda);
-            }
-        }
 
         // Đổi tên bảng Identity
         builder.Entity<AppUser>().ToTable("Users");
@@ -118,7 +105,6 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         // AppRole
         builder.Entity<AppRole>(entity =>
         {
-            entity.ToTable("Roles");
             entity.Property(x => x.Status).HasConversion<int>();
         });
 
@@ -222,6 +208,16 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.HasIndex(x => x.PreOrderReleaseDate).HasFilter("PreOrderReleaseDate IS NOT NULL");
             entity.HasIndex(x => x.Price);
             entity.HasIndex(x => x.StockQuantity);
+        });
+
+        // ProductInventory
+        builder.Entity<ProductInventory>(entity =>
+        {
+            entity.HasOne(x => x.Product)
+                .WithMany(x => x.ProductInventories)
+                .HasForeignKey(x => x.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => x.ProductId);
         });
 
         // ProductImage
@@ -575,42 +571,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         });
 
         // Gọi cấu hình chung cho BaseEntity
-        ConfigureBaseEntity(builder);
-    }
-
-    private void ConfigureBaseEntity(ModelBuilder modelBuilder)
-    {
-        // Cấu hình chung cho tất cả BaseEntity
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes()
-                     .Where(e => typeof(BaseEntity).IsAssignableFrom(e.ClrType)))
-        {
-            // Primary key
-            modelBuilder.Entity(entityType.ClrType).HasKey("Id");
-            
-            // Default values for audit fields
-            modelBuilder.Entity(entityType.ClrType)
-                .Property<DateTime?>("CreatedAt")
-                .HasDefaultValueSql("(getdate())")
-                .HasColumnType("datetime");
-                
-            modelBuilder.Entity(entityType.ClrType)
-                .Property<DateTime?>("UpdatedAt")
-                .HasColumnType("datetime");
-            
-            modelBuilder.Entity(entityType.ClrType)
-                .Property<DateTime?>("DeletedAt")
-                .HasColumnType("datetime");
-                
-            modelBuilder.Entity(entityType.ClrType)
-                .Property<bool>("IsDeleted")
-                .HasDefaultValue(false);
-
-            // Enum conversions
-            modelBuilder.Entity(entityType.ClrType)
-                .Property<EntityStatusEnum>("Status")
-                .HasConversion<int>();
-            
-        }
+        BaseEntityConfigurationHelper.ConfigureBaseEntities(builder);
     }
 }
     

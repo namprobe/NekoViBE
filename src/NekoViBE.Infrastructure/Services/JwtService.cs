@@ -44,7 +44,7 @@ public class JwtService : IJwtService
         claims.AddRange(userRoles.Select(role => new Claim(ClaimTypes.Role, role)));
 
         // Create signing credentials
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         // Create token
@@ -52,7 +52,7 @@ public class JwtService : IJwtService
             issuer: _jwtSettings.Issuer,
             audience: _jwtSettings.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiresInMinutes),
+            expires: DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireInMinutes),
             signingCredentials: creds
         );
 
@@ -62,11 +62,11 @@ public class JwtService : IJwtService
     /// <summary>
     /// Generate JWT token with expiration info for a user
     /// </summary>
-    public (string token, List<string> roles, int expiresInMinutes, DateTime expiresAt) GenerateJwtTokenWithExpiration(AppUser user, string? requestOrigin = null)
+    public (string token, List<string> roles, DateTime expiresAt) GenerateJwtTokenWithExpiration(AppUser user, string? requestOrigin = null)
     {
         var (token, roles) = GenerateJwtToken(user, requestOrigin);
-        var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiresInMinutes);
-        return (token, roles, _jwtSettings.ExpiresInMinutes, expiresAt);
+        var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireInMinutes);
+        return (token, roles, expiresAt);
     }
 
     /// <summary>
@@ -74,18 +74,18 @@ public class JwtService : IJwtService
     /// </summary>
     public int GetTokenExpirationMinutes()
     {
-        return _jwtSettings.ExpiresInMinutes;
+        return _jwtSettings.ExpireInMinutes;
     }
 
     /// <summary>
     /// Generate refresh token
     /// </summary>
-    public string GenerateRefreshToken()
+    public (string refreshToken, DateTime refreshTokenExpiryTime) GenerateRefreshTokenWithExpiration()
     {
         var randomNumber = new byte[64];
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(randomNumber);
-        return Convert.ToBase64String(randomNumber);
+        return (Convert.ToBase64String(randomNumber), DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiresInDays));
     }
 
     /// <summary>
@@ -94,7 +94,7 @@ public class JwtService : IJwtService
     public bool ValidateToken(string token)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_jwtSettings.Secret);
+        var key = Encoding.UTF8.GetBytes(_jwtSettings.Key);
 
         try
         {
@@ -138,7 +138,7 @@ public class JwtService : IJwtService
     public ClaimsPrincipal? GetPrincipalFromToken(string token)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_jwtSettings.Secret);
+        var key = Encoding.UTF8.GetBytes(_jwtSettings.Key);
 
         try
         {
