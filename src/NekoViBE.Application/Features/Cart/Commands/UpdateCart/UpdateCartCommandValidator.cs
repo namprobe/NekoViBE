@@ -10,6 +10,6 @@ public class UpdateCartCommandValidator : AbstractValidator<UpdateCartCommand>
             .NotEmpty().WithMessage("CartItemId is required.");
 
         RuleFor(x => x.Quantity)
-            .GreaterThan(0).WithMessage("Quantity must be greater than zero.");
+            .GreaterThanOrEqualTo(0).WithMessage("Quantity must be greater than or equal to zero.");
     }
 }

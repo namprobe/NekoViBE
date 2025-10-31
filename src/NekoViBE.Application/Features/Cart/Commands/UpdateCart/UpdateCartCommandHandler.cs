@@ -13,7 +13,6 @@ namespace NekoViBE.Application.Features.Cart.Commands.UpdateCart;
 public class UpdateCartCommandHandler : IRequestHandler<UpdateCartCommand, Result>
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
     private readonly ICurrentUserService _currentUserService;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<UpdateCartCommandHandler> _logger;
@@ -21,7 +20,6 @@ public class UpdateCartCommandHandler : IRequestHandler<UpdateCartCommand, Resul
     public UpdateCartCommandHandler(IUnitOfWork unitOfWork, IMapper mapper, ICurrentUserService currentUserService, IServiceProvider serviceProvider, ILogger<UpdateCartCommandHandler> logger)
     {
         _unitOfWork = unitOfWork;
-        _mapper = mapper;
         _currentUserService = currentUserService;
         _serviceProvider = serviceProvider;
         _logger = logger;
@@ -43,14 +41,15 @@ public class UpdateCartCommandHandler : IRequestHandler<UpdateCartCommand, Resul
             {
                 return Result.Failure("Cart item not found.", ErrorCodeEnum.NotFound);
             }
-
+             _logger.LogInformation("Cart item found. CartItemId: {CartItemId}, Quantity: {Quantity}", command.CartItemId, cartItem.Quantity);
+            //
             if (command.Quantity == 0)
             {
                 _unitOfWork.Repository<CartItem>().Delete(cartItem);
-                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
                 return Result.Success("Cart item removed successfully.");
             }
-
+           
             if (cartItem.Quantity == command.Quantity)
             {
                 return Result.Success("Quantity is the same. No changes made.");
@@ -58,7 +57,9 @@ public class UpdateCartCommandHandler : IRequestHandler<UpdateCartCommand, Resul
 
             cartItem.Quantity = command.Quantity;
             cartItem.UpdateEntity(userId);
-            await _unitOfWork.SaveChangesAsync();
+            _unitOfWork.Repository<CartItem>().Update(cartItem);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Cart item quantity updated. CartItemId: {CartItemId}, Quantity after update: {Quantity}", command.CartItemId, cartItem.Quantity);
 
             // Log user action using helper (fire and forget)
             UserActionHelper.LogUpdateAction(
