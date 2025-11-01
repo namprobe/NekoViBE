@@ -44,6 +44,7 @@ public static class ApplicationDependencyInjection
             cfg.AddProfile(new ProductTagMappingProfile());
             cfg.AddProfile(new ProductReviewMappingProfile());
             cfg.AddProfile(new PostCategoryMappingProfile());
+            cfg.AddProfile(new BlogPostMappingProfile());
 
 
 

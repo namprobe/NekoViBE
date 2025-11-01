@@ -1,4 +1,4 @@
-﻿// CreateBlogPostCommandHandler.cs
+﻿// File: CreateBlogPostCommandHandler.cs
 using AutoMapper;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -10,96 +10,82 @@ using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 using System.Text.Json;
 
-namespace NekoViBE.Application.Features.BlogPost.Commands.CreateBlogPost;
-
-public class CreateBlogPostCommandHandler : IRequestHandler<CreateBlogPostCommand, Result>
+namespace NekoViBE.Application.Features.BlogPost.Commands.CreateBlogPost
 {
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
-    private readonly ILogger<CreateBlogPostCommandHandler> _logger;
-    private readonly ICurrentUserService _currentUserService;
-    private readonly IFileService _fileService;
-
-    public CreateBlogPostCommandHandler(IUnitOfWork unitOfWork, IMapper mapper,
-        ILogger<CreateBlogPostCommandHandler> logger, ICurrentUserService currentUserService, IFileService fileService)
+    public class CreateBlogPostCommandHandler : IRequestHandler<CreateBlogPostCommand, Result<BlogPostResponse>>
     {
-        _unitOfWork = unitOfWork;
-        _mapper = mapper;
-        _logger = logger;
-        _currentUserService = currentUserService;
-        _fileService = fileService;
-    }
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
+        private readonly ILogger<CreateBlogPostCommandHandler> _logger;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly IFileService _fileService;
 
-    public async Task<Result> Handle(CreateBlogPostCommand command, CancellationToken ct)
-    {
-        try
+        public CreateBlogPostCommandHandler(IUnitOfWork uow, IMapper mapper, ILogger<CreateBlogPostCommandHandler> logger,
+            ICurrentUserService userService, IFileService fileService)
+        {
+            _unitOfWork = uow;
+            _mapper = mapper;
+            _logger = logger;
+            _currentUserService = userService;
+            _fileService = fileService;
+        }
+
+        public async Task<Result<BlogPostResponse>> Handle(CreateBlogPostCommand cmd, CancellationToken ct)
         {
             var (isValid, userId) = await _currentUserService.IsUserValidAsync();
-            if (!isValid || userId == null)
-                return Result.Failure("Unauthorized", ErrorCodeEnum.Unauthorized);
+            if (!isValid || userId == null) return Result<BlogPostResponse>.Failure("Unauthorized", ErrorCodeEnum.Unauthorized);
 
-            var entity = _mapper.Map<Domain.Entities.BlogPost>(command.Request);
+            var entity = _mapper.Map<Domain.Entities.BlogPost>(cmd.Request);
             entity.AuthorId = userId;
             entity.CreatedBy = userId;
             entity.CreatedAt = DateTime.UtcNow;
-            entity.PublishDate = command.Request.PublishDate ?? DateTime.UtcNow;
+            entity.PublishDate = cmd.Request.PublishDate ?? DateTime.UtcNow;
 
-            string? imagePath = null;
-            if (command.Request.FeaturedImageFile != null)
+            // Upload image
+            if (cmd.Request.FeaturedImageFile != null)
             {
-                imagePath = await _fileService.UploadFileAsync(command.Request.FeaturedImageFile, "blog", ct);
-                entity.FeaturedImagePath = imagePath;
+                entity.FeaturedImagePath = await _fileService.UploadFileAsync(cmd.Request.FeaturedImageFile, "blog", ct);
             }
 
-            await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
-
-            await _unitOfWork.Repository<Domain.Entities.BlogPost>().AddAsync(entity);
-
-            // Xử lý Tags
-            foreach (var tagName in command.Request.TagNames.Distinct(StringComparer.OrdinalIgnoreCase))
+            try
             {
-                var normalizedName = tagName.Trim();
-                var tag = await _unitOfWork.Repository<Tag>()
-                    .GetFirstOrDefaultAsync(t => t.Name.ToLower() == normalizedName.ToLower());
+                await _unitOfWork.BeginTransactionAsync(ct);
 
-                if (tag == null)
+                await _unitOfWork.Repository<Domain.Entities.BlogPost>().AddAsync(entity);
+
+                // Add Tags
+                foreach (var tagId in cmd.Request.TagIds)
                 {
-                    tag = new Tag { Name = normalizedName, CreatedBy = userId, CreatedAt = DateTime.UtcNow };
-                    await _unitOfWork.Repository<Tag>().AddAsync(tag);
-                    await _unitOfWork.SaveChangesAsync(ct); // Để lấy Id
+                    var postTag = new PostTag { PostId = entity.Id, TagId = tagId };
+                    await _unitOfWork.Repository<PostTag>().AddAsync(postTag);
                 }
 
-                var postTag = new PostTag
+                // Audit
+                var action = new UserAction
                 {
-                    PostId = entity.Id,
-                    TagId = tag.Id,
-                    CreatedBy = userId,
-                    CreatedAt = DateTime.UtcNow
+                    UserId = userId.Value,
+                    Action = UserActionEnum.Create,
+                    EntityId = entity.Id,
+                    EntityName = "BlogPost",
+                    NewValue = JsonSerializer.Serialize(cmd.Request),
+                    ActionDetail = $"Created blog: {cmd.Request.Title}",
+                    IPAddress = _currentUserService.IPAddress ?? "Unknown",
+                    CreatedAt = DateTime.UtcNow,
+                    Status = EntityStatusEnum.Active
                 };
-                await _unitOfWork.Repository<PostTag>().AddAsync(postTag);
+                await _unitOfWork.Repository<UserAction>().AddAsync(action);
+
+                await _unitOfWork.CommitTransactionAsync(ct);
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync(ct);
+                throw;
             }
 
-            var userAction = new UserAction
-            {
-                UserId = userId.Value,
-                Action = UserActionEnum.Create,
-                EntityId = entity.Id,
-                EntityName = "BlogPost",
-                NewValue = JsonSerializer.Serialize(command.Request),
-                IPAddress = _currentUserService.IPAddress ?? "Unknown",
-                ActionDetail = $"Created blog post: {entity.Title}",
-                CreatedAt = DateTime.UtcNow,
-                Status = EntityStatusEnum.Active
-            };
-            await _unitOfWork.Repository<UserAction>().AddAsync(userAction);
-
-            await _unitOfWork.CommitTransactionAsync(ct);
-            return Result.Success("Blog post created successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating blog post");
-            return Result.Failure("Error creating blog post", ErrorCodeEnum.InternalError);
+            entity.FeaturedImagePath = _fileService.GetFileUrl(entity.FeaturedImagePath);
+            var response = _mapper.Map<BlogPostResponse>(entity);
+            return Result<BlogPostResponse>.Success(response);
         }
     }
 }

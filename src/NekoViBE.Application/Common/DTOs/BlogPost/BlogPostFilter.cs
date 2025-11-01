@@ -1,4 +1,4 @@
-﻿// NekoViBE.Application.Common.DTOs.BlogPost/BlogPostFilter.cs
+﻿// File: Application/Common/DTOs/BlogPost/BlogPostFilter.cs
 using NekoViBE.Application.Common.Models;
 using System.Text.Json.Serialization;
 
@@ -9,13 +9,16 @@ namespace NekoViBE.Application.Common.DTOs.BlogPost
         [JsonPropertyName("title")]
         public string? Title { get; set; }
 
-        [JsonPropertyName("categoryId")]
-        public Guid? CategoryId { get; set; }
+        [JsonPropertyName("postCategoryId")]
+        public Guid? PostCategoryId { get; set; }
 
-        [JsonPropertyName("tagIds")]
-        public List<Guid>? TagIds { get; set; }
+        [JsonPropertyName("authorId")]
+        public Guid? AuthorId { get; set; }
 
         [JsonPropertyName("isPublished")]
         public bool? IsPublished { get; set; }
+
+        [JsonPropertyName("tagIds")]
+        public List<Guid>? TagIds { get; set; }
     }
 }

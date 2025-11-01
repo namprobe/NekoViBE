@@ -1,5 +1,6 @@
 ﻿// NekoViBE.Application.Common.DTOs.BlogPost/BlogPostItem.cs
 using NekoViBE.Application.Common.DTOs.PostCategory;
+using NekoViBE.Application.Common.DTOs.PostTag;
 using NekoViBE.Application.Common.DTOs.Tag;
 using NekoViBE.Application.Common.Models;
 using System.Text.Json.Serialization;
@@ -29,10 +30,11 @@ namespace NekoViBE.Application.Common.DTOs.BlogPost
         [JsonPropertyName("isPublished")]
         public bool IsPublished { get; set; }
 
-        [JsonPropertyName("featuredImagePath")]
-        public string? FeaturedImagePath { get; set; }
+        [JsonPropertyName("featuredImage")]
+        public string? FeaturedImage { get; set; } // Đổi tên từ FeaturedImagePath thành FeaturedImage (URL)
 
-        [JsonPropertyName("tags")]
-        public List<TagItem> Tags { get; set; } = new();
+        [JsonPropertyName("postTags")]
+        public List<PostTagItem> PostTags { get; set; } = new();
+
     }
 }

@@ -44,7 +44,7 @@ public class DeletePostCategoryCommandHandler : IRequestHandler<DeletePostCatego
                 return Result.Failure("Post category not found", ErrorCodeEnum.NotFound);
 
             // Check for dependencies
-            var hasPosts = await _unitOfWork.Repository<BlogPost>().AnyAsync(x => x.PostCategoryId == command.Id);
+            var hasPosts = await _unitOfWork.Repository<Domain.Entities.BlogPost>().AnyAsync(x => x.PostCategoryId == command.Id);
             if (hasPosts)
                 return Result.Failure("Cannot delete category with associated blog posts", ErrorCodeEnum.ResourceConflict);
 

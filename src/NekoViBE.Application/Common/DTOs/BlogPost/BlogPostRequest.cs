@@ -1,4 +1,4 @@
-﻿// NekoViBE.Application.Common.DTOs.BlogPost/BlogPostRequest.cs
+﻿// File: Application/Common/DTOs/BlogPost/BlogPostRequest.cs
 using Microsoft.AspNetCore.Http;
 using NekoViBE.Domain.Enums;
 using System.Text.Json.Serialization;
@@ -16,9 +16,6 @@ namespace NekoViBE.Application.Common.DTOs.BlogPost
         [JsonPropertyName("postCategoryId")]
         public Guid? PostCategoryId { get; set; }
 
-        [JsonPropertyName("tagNames")]
-        public List<string> TagNames { get; set; } = new();
-
         [JsonPropertyName("publishDate")]
         public DateTime? PublishDate { get; set; }
 
@@ -27,6 +24,9 @@ namespace NekoViBE.Application.Common.DTOs.BlogPost
 
         [JsonPropertyName("featuredImageFile")]
         public IFormFile? FeaturedImageFile { get; set; }
+
+        [JsonPropertyName("tagIds")]
+        public List<Guid> TagIds { get; set; } = new();
 
         [JsonPropertyName("status")]
         public EntityStatusEnum Status { get; set; } = EntityStatusEnum.Active;
