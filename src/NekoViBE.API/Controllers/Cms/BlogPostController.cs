@@ -1,5 +1,4 @@
-﻿// File: API/Controllers/Cms/BlogPostController.cs
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NekoViBE.API.Attributes;
@@ -7,6 +6,7 @@ using NekoViBE.Application.Common.DTOs.BlogPost;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.BlogPost.Commands.CreateBlogPost;
 using NekoViBE.Application.Features.BlogPost.Commands.DeleteBlogPost;
+using NekoViBE.Application.Features.BlogPost.Commands.PublishBlogPost;
 using NekoViBE.Application.Features.BlogPost.Commands.UpdateBlogPost;
 using NekoViBE.Application.Features.BlogPost.Queries.GetBlogPost;
 using NekoViBE.Application.Features.BlogPost.Queries.GetBlogPostList;
@@ -77,6 +77,19 @@ namespace NekoViBE.API.Controllers.Cms
         {
             var result = await _mediator.Send(new DeleteBlogPostCommand(id));
             return result.IsSuccess ? Ok(result) : NotFound(result);
+        }
+
+        [HttpPatch("{id}/publish")]
+        [AuthorizeRoles("Admin", "Staff")]
+        [ProducesResponseType(typeof(Result<BlogPostResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<BlogPostResponse>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Result<BlogPostResponse>), StatusCodes.Status404NotFound)]
+        [SwaggerOperation(Summary = "Publish or unpublish a blog post", OperationId = "PublishBlogPost")]
+        public async Task<IActionResult> Publish(Guid id, [FromForm] PublishBlogPostRequest request)
+        {
+            var command = new PublishBlogPostCommand(id, request.IsPublished);
+            var result = await _mediator.Send(command);
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
     }
 }

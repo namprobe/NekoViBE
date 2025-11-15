@@ -30,5 +30,8 @@ namespace NekoViBE.Application.Common.DTOs.BlogPost
 
         [JsonPropertyName("status")]
         public EntityStatusEnum Status { get; set; } = EntityStatusEnum.Active;
+
+        [JsonPropertyName("removeFeaturedImage")]
+        public bool RemoveFeaturedImage { get; set; } = false;
     }
 }

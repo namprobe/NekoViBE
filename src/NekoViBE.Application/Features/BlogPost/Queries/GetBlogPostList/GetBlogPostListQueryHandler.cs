@@ -62,6 +62,7 @@ namespace NekoViBE.Application.Features.BlogPost.Queries.GetBlogPostList
             foreach (var (dto, entity) in blogPostItems.Zip(items))
             {
                 dto.FeaturedImage = _fileService.GetFileUrl(entity.FeaturedImagePath);
+                dto.AuthorAvatar = _fileService.GetFileUrl(entity.Author?.AvatarPath);
             }
 
             // Log nếu có bài viết chưa có ảnh nổi bật

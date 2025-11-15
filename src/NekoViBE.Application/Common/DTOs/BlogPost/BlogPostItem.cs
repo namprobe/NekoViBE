@@ -24,6 +24,9 @@ namespace NekoViBE.Application.Common.DTOs.BlogPost
         [JsonPropertyName("authorName")]
         public string? AuthorName { get; set; }
 
+        [JsonPropertyName("authorAvatar")]
+        public string? AuthorAvatar { get; set; }
+
         [JsonPropertyName("publishDate")]
         public DateTime PublishDate { get; set; }
 

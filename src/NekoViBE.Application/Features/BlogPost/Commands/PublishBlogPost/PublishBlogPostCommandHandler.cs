@@ -1,4 +1,4 @@
-﻿// File: Application/Features/BlogPost/Commands/UpdateBlogPost/UpdateBlogPostCommandHandler.cs
+﻿// File: Application/Features/BlogPost/Commands/PublishBlogPost/PublishBlogPostCommandHandler.cs
 using AutoMapper;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -10,20 +10,20 @@ using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 using System.Text.Json;
 
-namespace NekoViBE.Application.Features.BlogPost.Commands.UpdateBlogPost
+namespace NekoViBE.Application.Features.BlogPost.Commands.PublishBlogPost
 {
-    public class UpdateBlogPostCommandHandler : IRequestHandler<UpdateBlogPostCommand, Result<BlogPostResponse>>
+    public class PublishBlogPostCommandHandler : IRequestHandler<PublishBlogPostCommand, Result<BlogPostResponse>>
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly ILogger<UpdateBlogPostCommandHandler> _logger;
+        private readonly ILogger<PublishBlogPostCommandHandler> _logger;
         private readonly ICurrentUserService _currentUserService;
         private readonly IFileService _fileService;
 
-        public UpdateBlogPostCommandHandler(
+        public PublishBlogPostCommandHandler(
             IUnitOfWork unitOfWork,
             IMapper mapper,
-            ILogger<UpdateBlogPostCommandHandler> logger,
+            ILogger<PublishBlogPostCommandHandler> logger,
             ICurrentUserService currentUserService,
             IFileService fileService)
         {
@@ -34,7 +34,7 @@ namespace NekoViBE.Application.Features.BlogPost.Commands.UpdateBlogPost
             _fileService = fileService;
         }
 
-        public async Task<Result<BlogPostResponse>> Handle(UpdateBlogPostCommand command, CancellationToken cancellationToken)
+        public async Task<Result<BlogPostResponse>> Handle(PublishBlogPostCommand command, CancellationToken cancellationToken)
         {
             try
             {
@@ -52,36 +52,31 @@ namespace NekoViBE.Application.Features.BlogPost.Commands.UpdateBlogPost
 
                 if (entity == null)
                     return Result<BlogPostResponse>.Failure("Blog post not found", ErrorCodeEnum.NotFound);
+                // Kiểm tra trạng thái hiện tại
+                if (entity.IsPublished == command.IsPublished)
+                {
+                    var status = command.IsPublished ? "published" : "unpublished";
+                    return Result<BlogPostResponse>.Failure($"Blog post is already {status}", ErrorCodeEnum.Conflict);
+                }
 
-                var oldImagePath = entity.FeaturedImagePath;
-                var oldValue = JsonSerializer.Serialize(_mapper.Map<BlogPostRequest>(entity));
+                // Lưu giá trị cũ để audit
+                var oldValue = JsonSerializer.Serialize(new
+                {
+                    entity.IsPublished,
+                    entity.PublishDate
+                });
 
-                _mapper.Map(command.Request, entity);
+                // Cập nhật
+                entity.IsPublished = command.IsPublished;
+
+                if (command.IsPublished)
+                {
+                    entity.PublishDate = DateTime.UtcNow; // Chỉ cập nhật khi publish
+                }
+                // Nếu unpublish → giữ nguyên PublishDate
+
                 entity.UpdatedBy = userId;
                 entity.UpdatedAt = DateTime.UtcNow;
-
-                if (command.Request.FeaturedImageFile != null)
-                {
-                    // Có ảnh mới → xóa ảnh cũ
-                    if (!string.IsNullOrEmpty(oldImagePath))
-                        await _fileService.DeleteFileAsync(oldImagePath, cancellationToken);
-
-                    var newPath = await _fileService.UploadFileAsync(command.Request.FeaturedImageFile, "blog", cancellationToken);
-                    entity.FeaturedImagePath = newPath;
-                }
-                else if (command.Request.RemoveFeaturedImage)
-                {
-                    // Yêu cầu xóa ảnh → xóa file + set null
-                    if (!string.IsNullOrEmpty(oldImagePath))
-                        await _fileService.DeleteFileAsync(oldImagePath, cancellationToken);
-
-                    entity.FeaturedImagePath = null;
-                }
-                else
-                {
-                    // Không làm gì → giữ nguyên ảnh cũ
-                    entity.FeaturedImagePath = oldImagePath;
-                }
 
                 try
                 {
@@ -89,19 +84,11 @@ namespace NekoViBE.Application.Features.BlogPost.Commands.UpdateBlogPost
 
                     repo.Update(entity);
 
-                    // Xóa PostTag cũ
-                    var oldTags = await _unitOfWork.Repository<PostTag>()
-    .FindAsync(x => x.PostId == entity.Id); // ← DÙNG FindAsync
-                    _unitOfWork.Repository<PostTag>().DeleteRange(oldTags);
+                    // Audit log
+                    var actionDetail = command.IsPublished
+                        ? $"Published blog post: {entity.Title}"
+                        : $"Unpublished blog post: {entity.Title}";
 
-                    // Thêm PostTag mới
-                    foreach (var tagId in command.Request.TagIds)
-                    {
-                        var postTag = new PostTag { PostId = entity.Id, TagId = tagId };
-                        await _unitOfWork.Repository<PostTag>().AddAsync(postTag);
-                    }
-
-                    // Audit
                     var userAction = new UserAction
                     {
                         UserId = userId.Value,
@@ -109,14 +96,18 @@ namespace NekoViBE.Application.Features.BlogPost.Commands.UpdateBlogPost
                         EntityId = entity.Id,
                         EntityName = "BlogPost",
                         OldValue = oldValue,
-                        NewValue = JsonSerializer.Serialize(command.Request),
+                        NewValue = JsonSerializer.Serialize(new
+                        {
+                            entity.IsPublished,
+                            PublishDate = entity.PublishDate
+                        }),
                         IPAddress = _currentUserService.IPAddress ?? "Unknown",
-                        ActionDetail = $"Updated blog post: {command.Request.Title}",
+                        ActionDetail = actionDetail,
                         CreatedAt = DateTime.UtcNow,
                         Status = EntityStatusEnum.Active
                     };
-                    await _unitOfWork.Repository<UserAction>().AddAsync(userAction);
 
+                    await _unitOfWork.Repository<UserAction>().AddAsync(userAction);
                     await _unitOfWork.CommitTransactionAsync(cancellationToken);
                 }
                 catch
@@ -125,14 +116,16 @@ namespace NekoViBE.Application.Features.BlogPost.Commands.UpdateBlogPost
                     throw;
                 }
 
+                // Lấy URL ảnh
                 entity.FeaturedImagePath = _fileService.GetFileUrl(entity.FeaturedImagePath);
                 var response = _mapper.Map<BlogPostResponse>(entity);
+
                 return Result<BlogPostResponse>.Success(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating blog post {Id}", command.Id);
-                return Result<BlogPostResponse>.Failure("Failed to update blog post", ErrorCodeEnum.InternalError);
+                _logger.LogError(ex, "Error publishing/unpublishing blog post {Id}", command.Id);
+                return Result<BlogPostResponse>.Failure("Failed to update publish status", ErrorCodeEnum.InternalError);
             }
         }
     }

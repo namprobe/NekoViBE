@@ -35,11 +35,11 @@ namespace NekoViBE.Application.Features.BlogPost.Queries.GetBlogPost
             try
             {
                 var entity = await _unitOfWork.Repository<Domain.Entities.BlogPost>().GetFirstOrDefaultAsync(
-    x => x.Id == query.Id,
-    x => x.PostCategory,
-    x => x.Author,
-    x => x.PostTags
-);
+                    x => x.Id == query.Id,
+                    x => x.PostCategory,
+                    x => x.Author,
+                    x => x.PostTags
+                );
 
 
                 if (entity == null)
@@ -57,12 +57,15 @@ namespace NekoViBE.Application.Features.BlogPost.Queries.GetBlogPost
                 // Gán URL ảnh
                 response.FeaturedImage = _fileService.GetFileUrl(entity.FeaturedImagePath);
 
+                response.AuthorAvatar = _fileService.GetFileUrl(entity.Author?.AvatarPath);
+
                 // Gán danh sách Tag
                 response.PostTags = entity.PostTags
                     .GroupBy(pt => pt.Id)
                     .Select(g => new Application.Common.DTOs.PostTag.PostTagItem
                     {
                         Id = g.Key,
+                        TagId = g.First().TagId,
                         Tags = g
                             .Where(pt => pt.Tag != null)
                             .Select(pt => new TagItem
