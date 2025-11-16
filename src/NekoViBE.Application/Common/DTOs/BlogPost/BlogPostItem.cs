@@ -39,5 +39,8 @@ namespace NekoViBE.Application.Common.DTOs.BlogPost
         [JsonPropertyName("postTags")]
         public List<PostTagItem> PostTags { get; set; } = new();
 
+        [JsonPropertyName("content")]
+        public string Content { get; set; } = string.Empty;
+
     }
 }

@@ -8,9 +8,6 @@ namespace NekoViBE.Application.Common.DTOs.BlogPost
 {
     public class BlogPostResponse : BlogPostItem
     {
-        [JsonPropertyName("content")]
-        public string Content { get; set; } = string.Empty;
-
         [JsonPropertyName("products")]
         public List<ProductItem>? Products { get; set; } = new List<ProductItem>();
     }
