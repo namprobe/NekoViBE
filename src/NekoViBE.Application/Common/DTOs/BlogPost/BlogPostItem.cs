@@ -34,7 +34,7 @@ namespace NekoViBE.Application.Common.DTOs.BlogPost
         public bool IsPublished { get; set; }
 
         [JsonPropertyName("featuredImage")]
-        public string? FeaturedImage { get; set; } // Đổi tên từ FeaturedImagePath thành FeaturedImage (URL)
+        public string? FeaturedImage { get; set; } 
 
         [JsonPropertyName("postTags")]
         public List<PostTagItem> PostTags { get; set; } = new();

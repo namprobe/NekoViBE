@@ -54,7 +54,8 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProductList
                 includes: new Expression<Func<Domain.Entities.Product, object>>[]
                 {
                     x => x.ProductImages,
-                    x => x.Category
+                    x => x.Category,
+                    x => x.ProductTags
                 });
 
             var productItems = _mapper.Map<List<ProductItem>>(items);

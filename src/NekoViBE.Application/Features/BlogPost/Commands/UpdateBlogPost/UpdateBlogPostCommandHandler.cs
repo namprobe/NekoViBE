@@ -46,7 +46,7 @@ namespace NekoViBE.Application.Features.BlogPost.Commands.UpdateBlogPost
                 var entity = await repo.GetFirstOrDefaultAsync(
                     x => x.Id == command.Id,
                     x => x.PostTags,
-                    x => x.PostCategory,
+                    //x => x.PostCategory,
                     x => x.Author
                 );
 
@@ -81,6 +81,16 @@ namespace NekoViBE.Application.Features.BlogPost.Commands.UpdateBlogPost
                 {
                     // Không làm gì → giữ nguyên ảnh cũ
                     entity.FeaturedImagePath = oldImagePath;
+                }
+
+                if (command.Request.PostCategoryId.HasValue &&
+    command.Request.PostCategoryId.Value != entity.PostCategoryId)
+                {
+                    // Kiểm tra category có tồn tại không
+                    var exists = await _unitOfWork.Repository<Domain.Entities.PostCategory>()
+                        .AnyAsync(x => x.Id == command.Request.PostCategoryId.Value);
+                    if (!exists)
+                        return Result<BlogPostResponse>.Failure("Invalid category", ErrorCodeEnum.InvalidInput);
                 }
 
                 try
