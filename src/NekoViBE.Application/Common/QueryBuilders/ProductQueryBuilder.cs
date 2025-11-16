@@ -63,6 +63,16 @@ namespace NekoViBE.Application.Common.QueryBuilders
                 };
             }
 
+            if (filter.TagIds != null && filter.TagIds.Any())
+            {
+                var tagPredicate = PredicateBuilder.False<Product>();
+                foreach (var tagId in filter.TagIds)
+                {
+                    var id = tagId; // capture variable
+                    tagPredicate = tagPredicate.CombineOr(p => p.ProductTags.Any(pt => pt.TagId == id));
+                }
+                predicate = predicate.CombineAnd(tagPredicate);
+            }
 
             return predicate;
         }

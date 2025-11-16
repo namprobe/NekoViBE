@@ -22,7 +22,8 @@ namespace NekoViBE.Application.Common.Mappings
                 .ForMember(dest => dest.PostTags, opt => opt.Ignore())
                 .ForMember(dest => dest.AuthorId, opt => opt.Ignore())
                 .ForMember(dest => dest.Author, opt => opt.Ignore())
-                .ForMember(dest => dest.PostCategory, opt => opt.Ignore());
+                .ForMember(dest => dest.PostCategory, opt => opt.Ignore())
+                .ForMember(dest => dest.PostCategoryId, opt => opt.MapFrom(src => src.PostCategoryId)); ;
 
             // 2. BlogPost → BlogPostRequest (Audit log) ← CHỈ MAP NHỮNG FIELD CẦN
             CreateMap<BlogPost, BlogPostRequest>()
@@ -49,7 +50,8 @@ namespace NekoViBE.Application.Common.Mappings
             CreateMap<BlogPost, BlogPostResponse>()
                 .IncludeBase<BlogPost, BlogPostItem>()
                 .ForMember(dest => dest.Content, opt => opt.MapFrom(src => src.Content))
-                .ForMember(dest => dest.FeaturedImage, opt => opt.Ignore()); // Sẽ set sau
+                .ForMember(dest => dest.FeaturedImage, opt => opt.Ignore())
+                .ForMember(dest => dest.Products, opt => opt.Ignore()); ; // Sẽ set sau
 
             // 5. PostTag → PostTagItem
             CreateMap<PostTag, PostTagItem>()
