@@ -35,5 +35,11 @@ namespace NekoViBE.Application.Common.DTOs.Product
         [JsonPropertyName("primaryImage")]
         public string? PrimaryImage { get; set; }
 
+        [JsonPropertyName("averageRating")]
+        public double? AverageRating { get; set; }
+
+        [JsonPropertyName("reviewCount")]
+        public int ReviewCount { get; set; }
     }
 }
+
