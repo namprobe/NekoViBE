@@ -18,5 +18,8 @@ namespace NekoViBE.Application.Common.DTOs.Category
 
         [JsonPropertyName("hasImage")]
         public bool? HasImage { get; set; }
+
+        [JsonPropertyName("isRoot")]
+        public bool? IsRoot { get; set; }
     }
 }

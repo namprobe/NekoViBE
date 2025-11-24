@@ -35,7 +35,11 @@ namespace NekoViBE.Application.Common.QueryBuilders
                 predicate = predicate.CombineAnd(x => x.Name == filter.Name);
             }
 
-            if (filter.ParentCategoryId.HasValue)
+            if (filter.IsRoot == true)
+            {
+                predicate = predicate.CombineAnd(x => x.ParentCategoryId == null);
+            }
+            else if (filter.ParentCategoryId.HasValue)
             {
                 predicate = predicate.CombineAnd(x => x.ParentCategoryId == filter.ParentCategoryId.Value);
             }
