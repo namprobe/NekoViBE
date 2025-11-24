@@ -44,7 +44,6 @@ namespace NekoViBE.Application.Features.Order.OrderBusinessLogic
                 // 3. Create order
                 var order = new Domain.Entities.Order
                 {
-                    OrderNumber = GenerateOrderNumber(),
                     UserId = userId,
                     IsOneClick = request.IsOneClick,
                     GuestEmail = request.GuestEmail,
@@ -341,11 +340,6 @@ namespace NekoViBE.Application.Features.Order.OrderBusinessLogic
 
             // Link coupon to order
             order.UserCoupons.Add(userCoupon);
-        }
-
-        private string GenerateOrderNumber()
-        {
-            return $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()}";
         }
 
         public async Task<ServiceResult<bool>> CancelOrderAsync(Guid orderId, Guid? userId, CancellationToken cancellationToken)
