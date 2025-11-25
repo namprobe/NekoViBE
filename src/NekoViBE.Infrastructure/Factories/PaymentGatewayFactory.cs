@@ -17,8 +17,8 @@ public class PaymentGatewayFactory : IPaymentGatewayFactory
         return gatewayName switch
         {
             PaymentGatewayType.VnPay => _serviceProvider.GetRequiredService<VnPayService>(),
+            PaymentGatewayType.Momo => _serviceProvider.GetRequiredService<MomoService>(),
             // FUTURE: Add other payment gateways here
-            // PaymentGatewayType.Momo => new MomoService(),
             // PaymentGatewayType.PayPal => new PayPalService(),
             _ => throw new ArgumentException("Invalid payment gateway type"),
         };

@@ -8,7 +8,7 @@ public class Payment : BaseEntity
     public Guid OrderId { get; set; }
     public Guid PaymentMethodId { get; set; }
     public decimal Amount { get; set; }
-    public string? TransactionId { get; set; }
+    public string? TransactionNo { get; set; }
     public PaymentStatusEnum PaymentStatus { get; set; } = PaymentStatusEnum.Pending;
     public DateTime? PaymentDate { get; set; }
     public string? Notes { get; set; } // For error messages, additional info

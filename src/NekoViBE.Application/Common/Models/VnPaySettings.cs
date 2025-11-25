@@ -8,5 +8,6 @@ public class VnPaySettings
     public string IpnUrl { get; set; } = string.Empty;
     public string Version { get; set; } = string.Empty;
     public string OrderType { get; set; } = string.Empty;
+    public string BaseUrl { get; set; } = string.Empty;
     public int TimeOut { get; set; } = 900;
 }

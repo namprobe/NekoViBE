@@ -7,6 +7,7 @@ using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Extensions;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.Order.Commands.CreateOrder;
+using NekoViBE.Application.Features.Order.Commands.PlaceOrder;
 using NekoViBE.Application.Features.Order.Queries.GetOrderById;
 using NekoViBE.Application.Features.Order.Queries.GetOrderList;
 using NekoViBE.Application.Features.OrderItem.Query.GetOrderItemsByOrderId;
@@ -16,10 +17,10 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace NekoViBE.API.Controllers.Customer
 {
     [ApiController]
-    [Route("api/cms/orders")]
+    [Route("api/customer/orders")]
     [ApiExplorerSettings(GroupName = "v1")]
-    [Configurations.Tags("CMS", "CMS_Order")]
-    [SwaggerTag("This API is used for order management in CMS")]
+    [Configurations.Tags("Customer", "Customer_Order")]
+    [SwaggerTag("This API is used for order management in Customer")]
     public class OrdersController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -32,25 +33,24 @@ namespace NekoViBE.API.Controllers.Customer
         }
 
         [HttpPost]
-        [AuthorizeRoles("Admin", "Staff")]
+        [AuthorizeRoles("Customer")]
         [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
         [SwaggerOperation(
-            Summary = "Create a new order",
-            Description = "This API creates a new order. It requires Admin role access",
-            OperationId = "CreateOrder",
-            Tags = new[] { "CMS", "CMS_Order" }
+            Summary = "Place a new order",
+            Description = "This API places a new order. It requires Customer role access",
+            OperationId = "PlaceOrder",
+            Tags = new[] { "Customer", "Customer_Order" }
         )]
-        public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
+        public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest request)
         {
-            var command = new CreateOrderCommand(request);
+            var command = new PlaceOrderCommand(request);
             var result = await _mediator.Send(command);
             return StatusCode(result.GetHttpStatusCode(), result);
         }
-
 
         [HttpGet]
         [ProducesResponseType(typeof(PaginationResult<OrderListItem>), StatusCodes.Status200OK)]
@@ -61,7 +61,7 @@ namespace NekoViBE.API.Controllers.Customer
             Summary = "Get all orders with pagination and filtering",
             Description = "This API retrieves a paginated list of orders with filtering options",
             OperationId = "GetOrderList",
-            Tags = new[] { "CMS", "CMS_Order" }
+            Tags = new[] { "Customer", "Customer_Order" }
         )]
         public async Task<IActionResult> GetOrderList([FromQuery] OrderFilter filter, CancellationToken cancellationToken)
         {
@@ -98,7 +98,7 @@ namespace NekoViBE.API.Controllers.Customer
         Summary = "Get all order items for a specific order",
         Description = "Retrieves all items belonging to a specific order with product details",
         OperationId = "GetOrderItemsByOrderId",
-        Tags = new[] { "Order" }
+        Tags = new[] { "Customer", "Customer_Order" }
     )]
         public async Task<IActionResult> GetOrderItemsByOrderId(Guid orderId, CancellationToken cancellationToken)
         {

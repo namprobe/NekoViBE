@@ -1,15 +1,17 @@
 using AutoMapper;
 using MediatR;
 using System.Linq;
+using NekoViBE.Application.Common.DTOs.Order;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Common;
 using NekoViBE.Domain.Enums;
+using PaymentService.Application.Commons.Models.Momo;
 
 namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
 
-public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Result<object>>
+    public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Result<PlaceOrderResponse>>
 {
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
@@ -24,7 +26,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Resul
         _paymentGatewayFactory = paymentGatewayFactory;
     }
 
-    public async Task<Result<object>> Handle(PlaceOrderCommand command, CancellationToken cancellationToken)
+    public async Task<Result<PlaceOrderResponse>> Handle(PlaceOrderCommand command, CancellationToken cancellationToken)
     {
         try
         {
@@ -53,6 +55,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Resul
             decimal couponDiscountAmount = 0m;
             Domain.Entities.Coupon? appliedCoupon = null;
             string? paymentUrl = null;
+            PaymentGatewayType? paymentGatewayType = null;
 
             await _unitOfWork.BeginTransactionAsync(cancellationToken);
             try
@@ -151,15 +154,27 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Resul
 
                 if (paymentMethod.IsOnlinePayment)
                 {
-                    var paymentGatewayService =
-                        _paymentGatewayFactory.GetPaymentGatewayService(Enum.Parse<PaymentGatewayType>(paymentMethod.Name));
-                    paymentUrl = await paymentGatewayService.CreatePaymentIntentAsync(new PaymentRequest
+                    paymentGatewayType = Enum.Parse<PaymentGatewayType>(paymentMethod.Name);
+                    var paymentGatewayService = _paymentGatewayFactory.GetPaymentGatewayService(paymentGatewayType.Value);
+                    var paymentIntent = await paymentGatewayService.CreatePaymentIntentAsync(new PaymentRequest
                     {
                         OrderId = newOrder.Id.ToString(),
                         Amount = newOrder.FinalAmount,
                         Currency = "VND",
-                        Description = "Thanh toán đơn hàng cho" + newOrder.Id,
-                    }) as string;
+                        Description = "Thanh Toan Don Hang Cho " + newOrder.Id,
+                    });
+
+                    paymentUrl = paymentGatewayType switch
+                    {
+                        PaymentGatewayType.Momo => (paymentIntent as MomoResponse)?.PayUrl,
+                        PaymentGatewayType.VnPay => paymentIntent as string,
+                        _ => paymentIntent?.ToString()
+                    };
+
+                    if (string.IsNullOrWhiteSpace(paymentUrl))
+                    {
+                        throw new InvalidOperationException($"Failed to generate payment url for {paymentGatewayType.Value}");
+                    }
                 }
 
                 if (appliedCoupon is not null)
@@ -173,8 +188,17 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Resul
                 //await _unitOfWork.Repository<Domain.Entities.OrderShippingMethod>().AddRangeAsync(shipping);
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
-                return Result<object>.Success(
-                    new { PaymentUrl = paymentUrl, Timestamp = newOrder.CreatedAt },
+                var response = new PlaceOrderResponse
+                {
+                    OrderId = newOrder.Id,
+                    PaymentGateway = paymentGatewayType,
+                    PaymentUrl = paymentUrl,
+                    CreatedAt = newOrder.CreatedAt ?? DateTime.UtcNow,
+                    FinalAmount = newOrder.FinalAmount
+                };
+
+                return Result<PlaceOrderResponse>.Success(
+                    response,
                     "Order placed successfully");
             }
             catch
@@ -213,7 +237,7 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Resul
 
         // Chỉ tính discount khi có DiscountPrice hợp lệ (có giá trị, > 0, và <= Price)
         if (product.DiscountPrice.HasValue 
-            && product.DiscountPrice.Value > 0 
+            && product.DiscountPrice.Value > 0  
             && product.DiscountPrice.Value <= product.Price)
         {
             var perItemDiscount = product.Price - product.DiscountPrice.Value;

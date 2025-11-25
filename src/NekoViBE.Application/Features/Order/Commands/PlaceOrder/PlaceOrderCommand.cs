@@ -4,4 +4,4 @@ using NekoViBE.Application.Common.Models;
 
 namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
 
-public record PlaceOrderCommand(PlaceOrderRequest Request) : IRequest<Result<object>>;
+public record PlaceOrderCommand(PlaceOrderRequest Request) : IRequest<Result<PlaceOrderResponse>>;

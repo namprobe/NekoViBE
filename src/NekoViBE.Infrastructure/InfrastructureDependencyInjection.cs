@@ -14,6 +14,7 @@ using NekoViBE.Infrastructure.Configurations;
 using NekoViBE.Infrastructure.Factories;
 using PaymentService.Infrastructure.Factories;
 using VNPAY.Extensions;
+using NekoViBE.Application.Common.Models.Momo;
 
 namespace NekoViBE.Infrastructure;
 
@@ -126,6 +127,7 @@ public static class InfrastructureDependencyInjection
         // Configure Email settings
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
         services.Configure<VnPaySettings>(configuration.GetSection("VnPay"));
+        services.Configure<MoMoSettings>(configuration.GetSection("Momo"));
 
         // Register repositories
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
@@ -136,6 +138,9 @@ public static class InfrastructureDependencyInjection
         // Register Outer Unit of Work for external services
         services.AddScoped<IOuterUnitOfWork, OuterUnitOfWork>();
         services.AddScoped<OuterUnitOfWork>(); // For direct injection in handlers
+
+        // Register HttpClientFactory for HTTP client services (required by MomoService)
+        services.AddHttpClient();
 
         // Register services
         services.AddScoped<IJwtService, JwtService>();
@@ -150,19 +155,13 @@ public static class InfrastructureDependencyInjection
         // External services
         services.AddScoped<IFileService, FileService>();
         // VNPay services
+        services.AddScoped<VnPayService>();
         services.AddScoped<IPaymentGatewayService, VnPayService>();
-
-        var vnpayConfig = configuration.GetSection("VNPAY");
-
-        services.AddVnpayClient(config =>
-    {
-        config.TmnCode = vnpayConfig["TmnCode"]!;
-        config.HashSecret = vnpayConfig["HashSecret"]!;
-        config.CallbackUrl = vnpayConfig["CallbackUrl"]!;
-        config.BaseUrl = vnpayConfig["PaymentUrl"]!; // Tùy chọn. Nếu không thiết lập, giá trị mặc định là URL thanh toán môi trường TEST
-        config.Version = vnpayConfig["Version"]!; // Tùy chọn. Nếu không thiết lập, giá trị mặc định là "2.1.0"
-        config.OrderType = vnpayConfig["OrderType"]!; // Tùy chọn. Nếu không thiết lập, giá trị mặc định là "other"
-    });
+        
+        // MoMo services
+        services.AddScoped<MomoService>();
+        services.AddScoped<IPaymentGatewayService, MomoService>();
+        
         return services;
     }
 }

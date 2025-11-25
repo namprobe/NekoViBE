@@ -17,16 +17,16 @@ public interface IPaymentGatewayService
     /// <summary>
     /// Verify IPN request from provider
     /// </summary>
-    public bool VerifyIpnRequest(object ipnRequest);
+    public PaymentGatewayResult VerifyIpnRequest(object ipnRequest);
 
-    /// <summary>
-    /// Refund a payment
-    /// </summary>
-    Task<object?> RefundPaymentAsync(
-        string transactionId,
-        decimal amount,
-        string reason,
-        CancellationToken cancellationToken = default);
+    // /// <summary>
+    // /// Refund a payment
+    // /// </summary>
+    // Task<object?> RefundPaymentAsync(
+    //     string transactionId,
+    //     decimal amount,
+    //     string reason,
+    //     CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get payment provider name
@@ -34,13 +34,20 @@ public interface IPaymentGatewayService
     string GetProviderName();
 
     /// <summary>
-    /// Build signature for request
+    /// Build signature for IPN response (used by MoMo and other gateways that require signed responses)
     /// </summary>
-    string BuildSignature(Dictionary<string, string> parameters);
+    /// <param name="response">The IPN response object to sign</param>
+    /// <returns>Signature string</returns>
+    string BuildIpnResponseSignature(object response);
 
-    /// <summary>
-    /// Query transaction status from provider
-    /// </summary>
-    Task<object?> QueryTransactionAsync(object request, CancellationToken cancellationToken = default);
+    // /// <summary>
+    // /// Build signature for request
+    // /// </summary>
+    // string BuildSignature(Dictionary<string, string> parameters);
+
+    // /// <summary>
+    // /// Query transaction status from provider
+    // /// </summary>
+    // Task<object?> QueryTransactionAsync(object request, CancellationToken cancellationToken = default);
 }
 
