@@ -5,7 +5,6 @@ namespace NekoViBE.Domain.Entities;
 
 public class Order : BaseEntity
 {
-    public string OrderNumber { get; set; } = string.Empty;
     public Guid? UserId { get; set; }
     public bool IsOneClick { get; set; } = false;
     public string? GuestEmail { get; set; }

@@ -1,0 +1,20 @@
+namespace NekoViBE.Application.Common.DTOs.Order;
+
+public class PlaceOrderRequest
+{
+    //Nếu ProductId null nghĩa là đặt hàng thông qua cart, nếu ko null tức là mua ngay 1 sản phẩm
+    public Guid? ProductId { get; set; }
+    //Nếu Quantity null nghĩa là đặt hàng thông qua cart, nếu ko null tức là mua ngay 1 sản phẩm
+    public int? Quantity { get; set; }
+    public string? CouponCode { get; set; }
+    public Guid PaymentMethodId { get; set; }
+    // public Guid ShippingMethodId { get; set; }
+
+    //Nếu IsOneClickToBuy true nghĩa là đặt hàng thông qua 1 click, cần có email để đặt hàng
+    public bool IsOneClick { get; set; } = false;
+    public string? GuestEmail { get; set; }
+    public string? GuestFirstName { get; set; }
+    public string? GuestLastName { get; set; }
+    public string? GuestPhone { get; set; }
+    public string? OneClickAddress { get; set; }
+}   
