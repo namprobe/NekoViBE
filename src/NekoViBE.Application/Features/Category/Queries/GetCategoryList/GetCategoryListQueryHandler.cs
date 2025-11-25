@@ -42,11 +42,6 @@ namespace NekoViBE.Application.Features.Category.Queries.GetCategoryList
         {
             try
             {
-                var (isValid, _) = await _currentUserService.IsUserValidAsync();
-                if (!isValid)
-                {
-                    return PaginationResult<CategoryItem>.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
-                }
 
                 var predicate = request.Filter.BuildPredicate();
                 var orderBy = request.Filter.BuildOrderBy();
@@ -62,7 +57,6 @@ namespace NekoViBE.Application.Features.Category.Queries.GetCategoryList
 
                 var categoryItems = _mapper.Map<List<CategoryItem>>(items);
 
-                // Update ImagePath to full URL
                 foreach (var (category, entity) in categoryItems.Zip(items))
                 {
                     category.ImagePath = _fileService.GetFileUrl(entity.ImagePath);
