@@ -12,6 +12,9 @@ using NekoViBE.Infrastructure.Repositories.Outer;
 using NekoViBE.Infrastructure.Services;
 using NekoViBE.Infrastructure.Configurations;
 using NekoViBE.Infrastructure.Factories;
+using PaymentService.Infrastructure.Factories;
+using VNPAY.Extensions;
+using NekoViBE.Application.Common.Models.Momo;
 
 namespace NekoViBE.Infrastructure;
 
@@ -123,6 +126,8 @@ public static class InfrastructureDependencyInjection
 
         // Configure Email settings
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
+        services.Configure<VnPaySettings>(configuration.GetSection("VnPay"));
+        services.Configure<MoMoSettings>(configuration.GetSection("Momo"));
 
         // Register repositories
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
@@ -134,6 +139,9 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IOuterUnitOfWork, OuterUnitOfWork>();
         services.AddScoped<OuterUnitOfWork>(); // For direct injection in handlers
 
+        // Register HttpClientFactory for HTTP client services (required by MomoService)
+        services.AddHttpClient();
+
         // Register services
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IIdentityService, IdentityService>();
@@ -142,10 +150,18 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<INotificationFactory, NotificationFactory>();
         services.AddScoped<IFirebaseService, FirebaseService>();
+        services.AddScoped<IPaymentGatewayFactory, PaymentGatewayFactory>();
+
         // External services
         services.AddScoped<IFileService, FileService>();
-
-
+        // VNPay services
+        services.AddScoped<VnPayService>();
+        services.AddScoped<IPaymentGatewayService, VnPayService>();
+        
+        // MoMo services
+        services.AddScoped<MomoService>();
+        services.AddScoped<IPaymentGatewayService, MomoService>();
+        
         return services;
     }
 }

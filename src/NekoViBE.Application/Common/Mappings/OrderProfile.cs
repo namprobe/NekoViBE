@@ -14,6 +14,8 @@ namespace NekoViBE.Application.Common.Mappings
     {
         public OrderProfile()
         {
+            CreateMap<PlaceOrderRequest, Order>()
+                .IgnoreBaseEntityFields();
             CreateMap<Order, OrderDto>();
             CreateMap<OrderItem, OrderItemDto>()
                 .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product.Name));

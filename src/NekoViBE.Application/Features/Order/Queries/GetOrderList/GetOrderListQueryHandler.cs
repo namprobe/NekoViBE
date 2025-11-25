@@ -6,6 +6,7 @@ using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Extensions;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
+using NekoViBE.Application.Common.QueryBuilders;
 using NekoViBE.Domain.Entities;
 using System;
 using System.Collections.Generic;

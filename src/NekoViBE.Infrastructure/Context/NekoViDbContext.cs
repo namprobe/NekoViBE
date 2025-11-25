@@ -348,8 +348,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
                 .WithMany(x => x.Orders)
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
-                
-            entity.HasIndex(x => x.OrderNumber).IsUnique();
+            
             entity.HasIndex(x => x.UserId).HasFilter("UserId IS NOT NULL");
             entity.HasIndex(x => x.PaymentStatus);
             entity.HasIndex(x => x.OrderStatus);
@@ -432,7 +431,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.HasIndex(x => x.OrderId).IsUnique();
             entity.HasIndex(x => x.PaymentMethodId);
             entity.HasIndex(x => x.PaymentStatus);
-            entity.HasIndex(x => x.TransactionId).HasFilter("TransactionId IS NOT NULL");
+            entity.HasIndex(x => x.TransactionNo).HasFilter("TransactionNo IS NOT NULL");
             entity.HasIndex(x => x.PaymentDate).HasFilter("PaymentDate IS NOT NULL");
         });
 

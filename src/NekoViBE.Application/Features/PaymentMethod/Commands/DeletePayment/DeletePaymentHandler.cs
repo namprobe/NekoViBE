@@ -40,7 +40,7 @@ public class DeletePaymentHandler : IRequestHandler<DeletePaymentCommand, Result
                 return Result.Failure("Payment method not found", ErrorCodeEnum.NotFound);
             }
 
-            if (await _unitOfWork.Repository<Payment>().AnyAsync(x => x.PaymentMethodId == request.Id))
+            if (await _unitOfWork.Repository<Domain.Entities.PaymentMethod>().AnyAsync(x => x.Id == request.Id))
             {
                 return Result.Failure("Payment method is in use", ErrorCodeEnum.ValidationFailed);
             }
