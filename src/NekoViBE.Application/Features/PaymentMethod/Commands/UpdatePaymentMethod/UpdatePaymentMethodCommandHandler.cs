@@ -48,7 +48,11 @@ public class UpdatePaymentMethodCommandHandler : IRequestHandler<UpdatePaymentMe
             {
                 return Result.Failure("Payment method not found", ErrorCodeEnum.NotFound);
             }
-
+            var isNameExists = await _unitOfWork.Repository<Domain.Entities.PaymentMethod>().AnyAsync(x => x.Name == command.Request.Name.ToString() && x.Id != command.Id);
+            if (isNameExists)
+            {
+                return Result.Failure("Payment method name already exists", ErrorCodeEnum.ValidationFailed);
+            }
             // Map updated data to existing entity
             _mapper.Map(command.Request, existingPaymentMethod);
             

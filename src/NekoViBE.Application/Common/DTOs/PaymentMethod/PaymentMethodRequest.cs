@@ -7,7 +7,7 @@ namespace NekoViBE.Application.Common.DTOs;
 public class PaymentMethodRequest
 {
     [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;
+    public PaymentGatewayType Name { get; set; } = PaymentGatewayType.VnPay;
     [JsonPropertyName("description")]
     public string? Description { get; set; }
     [JsonPropertyName("iconImage")]
