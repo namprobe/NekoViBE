@@ -47,6 +47,7 @@ public class AddToWishlistCommandHandler : IRequestHandler<AddToWishlistCommand,
                 Name = "My Wishlist"
             };
             await _unitOfWork.Repository<Domain.Entities.Wishlist>().AddAsync(wishlist);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
         // Toggle logic: Nếu đã có -> xóa, chưa có -> thêm
