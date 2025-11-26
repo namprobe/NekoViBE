@@ -5,7 +5,6 @@ using NekoViBE.Application.Common.DTOs.OrderItem;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.Order.OrderBusinessLogic;
-using NekoViBE.Application.Features.OrderItem.Query.GetOrderItemsByOrderId;
 using NekoViBE.Infrastructure.Factories;
 using NekoViBE.Infrastructure.Services;
 

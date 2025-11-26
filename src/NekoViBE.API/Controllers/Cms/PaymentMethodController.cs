@@ -1,8 +1,10 @@
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NekoViBE.Application.Common.DTOs;
 using NekoViBE.Application.Common.DTOs.PaymentMethod;
 using NekoViBE.Application.Common.Models;
+using NekoViBE.Domain.Enums;
 using Swashbuckle.AspNetCore.Annotations;
 using NekoViBE.API.Attributes;
 using NekoViBE.Application.Features.PaymentMethod.Commands.CreatePaymentMethod;
@@ -147,7 +149,14 @@ public class PaymentMethodController : ControllerBase
     /// Headers:
     ///     Authorization: Bearer &lt;access_token&gt;
     /// </remarks>
-    /// <param name="request">Payment method creation request</param>
+    /// <param name="name">Payment gateway type (e.g., VnPay, Momo)</param>
+    /// <param name="description">Payment method description</param>
+    /// <param name="isOnlinePayment">Whether this is an online payment method</param>
+    /// <param name="processingFee">Processing fee for this payment method</param>
+    /// <param name="processorName">Name of the payment processor</param>
+    /// <param name="configuration">JSON configuration for payment processor</param>
+    /// <param name="status">Entity status (Active, Inactive, etc.)</param>
+    /// <param name="iconImage">Icon image file for the payment method (optional)</param>
     /// <returns>Creation result</returns>
     /// <response code="200">Payment method created successfully</response>
     /// <response code="400">Creation failed (validation error)</response>
@@ -167,8 +176,28 @@ public class PaymentMethodController : ControllerBase
         OperationId = "CreatePaymentMethod",
         Tags = new[] { "CMS", "CMS_PaymentMethods" }
     )]
-    public async Task<IActionResult> CreatePaymentMethod([FromForm] PaymentMethodRequest request)
+    public async Task<IActionResult> CreatePaymentMethod(
+        [FromForm] PaymentGatewayType name,
+        [FromForm] string? description,
+        [FromForm] bool isOnlinePayment,
+        [FromForm] decimal processingFee,
+        [FromForm] string? processorName,
+        [FromForm] string? configuration,
+        [FromForm] EntityStatusEnum status,
+        IFormFile? iconImage = null)
     {
+        var request = new PaymentMethodRequest
+        {
+            Name = name,
+            Description = description,
+            IsOnlinePayment = isOnlinePayment,
+            ProcessingFee = processingFee,
+            ProcessorName = processorName,
+            Configuration = configuration,
+            Status = status,
+            IconImage = iconImage
+        };
+        
         var command = new CreatePaymentMethodCommand(request);
         var result = await _mediator.Send(command);
 
@@ -205,7 +234,14 @@ public class PaymentMethodController : ControllerBase
     ///     Authorization: Bearer &lt;access_token&gt;
     /// </remarks>
     /// <param name="id">Payment method ID</param>
-    /// <param name="request">Payment method update request</param>
+    /// <param name="name">Payment gateway type (e.g., VnPay, Momo)</param>
+    /// <param name="description">Payment method description</param>
+    /// <param name="isOnlinePayment">Whether this is an online payment method</param>
+    /// <param name="processingFee">Processing fee for this payment method</param>
+    /// <param name="processorName">Name of the payment processor</param>
+    /// <param name="configuration">JSON configuration for payment processor</param>
+    /// <param name="status">Entity status (Active, Inactive, etc.)</param>
+    /// <param name="iconImage">Icon image file for the payment method (optional)</param>
     /// <returns>Update result</returns>
     /// <response code="200">Payment method updated successfully</response>
     /// <response code="400">Update failed (validation error)</response>
@@ -227,8 +263,29 @@ public class PaymentMethodController : ControllerBase
         OperationId = "UpdatePaymentMethod",
         Tags = new[] { "CMS", "CMS_PaymentMethods" }
     )]
-    public async Task<IActionResult> UpdatePaymentMethod(Guid id, [FromForm] PaymentMethodRequest request)
+    public async Task<IActionResult> UpdatePaymentMethod(
+        Guid id,
+        [FromForm] PaymentGatewayType name,
+        [FromForm] string? description,
+        [FromForm] bool isOnlinePayment,
+        [FromForm] decimal processingFee,
+        [FromForm] string? processorName,
+        [FromForm] string? configuration,
+        [FromForm] EntityStatusEnum status,
+        IFormFile? iconImage = null)
     {
+        var request = new PaymentMethodRequest
+        {
+            Name = name,
+            Description = description,
+            IsOnlinePayment = isOnlinePayment,
+            ProcessingFee = processingFee,
+            ProcessorName = processorName,
+            Configuration = configuration,
+            Status = status,
+            IconImage = iconImage
+        };
+        
         var command = new UpdatePaymentMethodCommand(id, request);
         var result = await _mediator.Send(command);
 

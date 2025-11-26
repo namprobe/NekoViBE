@@ -16,14 +16,17 @@ public class CreatePaymentMethodHandler : IRequestHandler<CreatePaymentMethodCom
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<CreatePaymentMethodHandler> _logger;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IFileServiceFactory _fileServiceFactory;
 
     public CreatePaymentMethodHandler(IMapper mapper, IUnitOfWork unitOfWork, 
-    ILogger<CreatePaymentMethodHandler> logger, ICurrentUserService currentUserService)
+    ILogger<CreatePaymentMethodHandler> logger, ICurrentUserService currentUserService,
+    IFileServiceFactory fileServiceFactory)
     {
         _mapper = mapper;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _currentUserService = currentUserService;
+        _fileServiceFactory = fileServiceFactory;
     }
 
     public async Task<Result> Handle(CreatePaymentMethodCommand command, CancellationToken cancellationToken)
@@ -45,9 +48,19 @@ public class CreatePaymentMethodHandler : IRequestHandler<CreatePaymentMethodCom
                 return Result.Failure("Payment method name already exists", ErrorCodeEnum.ValidationFailed);
             }
             var paymentMethod = _mapper.Map<Domain.Entities.PaymentMethod>(command.Request);
+            
             try
             {
                 await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                
+                // Upload icon image if provided
+                if (command.Request.IconImage != null)
+                {
+                    var fileService = _fileServiceFactory.CreateFileService("local");
+                    var iconPath = await fileService.UploadFileAsync(command.Request.IconImage, "uploads/payment-methods", cancellationToken);
+                    paymentMethod.IconPath = iconPath;
+                }
+                
                 paymentMethod.InitializeEntity(userId);
                 await _unitOfWork.Repository<Domain.Entities.PaymentMethod>().AddAsync(paymentMethod);
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);

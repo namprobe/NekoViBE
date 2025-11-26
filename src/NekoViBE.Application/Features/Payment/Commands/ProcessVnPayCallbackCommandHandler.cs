@@ -1,6 +1,8 @@
+using System;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using NekoViBE.Application.Common.Enums;
+using NekoViBE.Application.Common.Helpers;
 using NekoViBE.Application.Common.Helpers.PaymentHelper;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
@@ -15,17 +17,20 @@ public class ProcessVnPayCallbackCommandHandler : IRequestHandler<ProcessVnPayCa
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ProcessVnPayCallbackCommandHandler> _logger;
     private readonly IOrderRollbackService _orderRollbackService;
+    private readonly IServiceProvider _serviceProvider;
 
     public ProcessVnPayCallbackCommandHandler(
         IPaymentGatewayFactory paymentGatewayFactory, 
         IUnitOfWork unitOfWork, 
         ILogger<ProcessVnPayCallbackCommandHandler> logger,
-        IOrderRollbackService orderRollbackService)
+        IOrderRollbackService orderRollbackService,
+        IServiceProvider serviceProvider)
     {
         _paymentGatewayFactory = paymentGatewayFactory;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _orderRollbackService = orderRollbackService;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<Result<object>> Handle(ProcessVnPayCallbackCommand request, CancellationToken cancellationToken)
@@ -66,9 +71,25 @@ public class ProcessVnPayCallbackCommandHandler : IRequestHandler<ProcessVnPayCa
                         {
                             _orderRollbackService.UpdatePaymentAsFailed(
                                 failedOrder.Payment, paymentNote, paymentResult.Message, _unitOfWork);
-                        }
+            }
                         
                         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                        LogOrderAction(
+                            failedOrder,
+                            "[VNPay IPN] Order marked as failed",
+                            new { failedOrder.OrderStatus, failedOrder.PaymentStatus, paymentNote },
+                            cancellationToken);
+
+                        if (failedOrder.Payment != null)
+                        {
+                            LogPaymentAction(
+                                failedOrder,
+                                failedOrder.Payment,
+                                "[VNPay IPN] Payment marked as failed",
+                                new { failedOrder.Payment.PaymentStatus, failedOrder.Payment.ProcessorResponse },
+                                cancellationToken);
+                        }
                     }
                 }
                 
@@ -104,6 +125,12 @@ public class ProcessVnPayCallbackCommandHandler : IRequestHandler<ProcessVnPayCa
                 _orderRollbackService.UpdateOrderAsFailed(
                     order, $"{paymentNote} | Payment record not found", _unitOfWork);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                LogOrderAction(
+                    order,
+                    "[VNPay IPN] Order reverted due to missing payment record",
+                    new { order.OrderStatus, order.PaymentStatus, paymentNote },
+                    cancellationToken);
                 
                 throw new Exception($"Payment not found for Order: {order.Id} (TnxRef: {transaction.TnxRef})");
             }
@@ -124,6 +151,19 @@ public class ProcessVnPayCallbackCommandHandler : IRequestHandler<ProcessVnPayCa
             _unitOfWork.Repository<Domain.Entities.Payment>().Update(payment);
             
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            LogOrderAction(
+                order,
+                "[VNPay IPN] Order confirmed",
+                new { order.OrderStatus, order.PaymentStatus, transaction.TransactionNo, transaction.Amount },
+                cancellationToken);
+
+            LogPaymentAction(
+                order,
+                payment,
+                "[VNPay IPN] Payment completed",
+                new { payment.PaymentStatus, payment.TransactionNo, payment.PaymentDate },
+                cancellationToken);
             return Result<object>.Success(new { RspCode = "00", Message = "Success" });
         }
         catch (Exception ex)
@@ -131,5 +171,47 @@ public class ProcessVnPayCallbackCommandHandler : IRequestHandler<ProcessVnPayCa
             _logger.LogError(ex, "Error processing VNPay callback: {Message}", ex.Message);
             return Result<object>.Failure(ex.Message, ErrorCodeEnum.InternalError);
         }
+    }
+    private void LogOrderAction(
+        Domain.Entities.Order order,
+        string detail,
+        object? newValue,
+        CancellationToken cancellationToken)
+    {
+        var actorId = order.UserId ?? Guid.Empty;
+
+        UserActionHelper.LogUserActionAsync(
+            _serviceProvider,
+            actorId,
+            UserActionEnum.Update,
+            order.Id,
+            nameof(Domain.Entities.Order),
+            detail,
+            ipAddress: null,
+            oldValue: null,
+            newValue: newValue,
+            cancellationToken: cancellationToken);
+            }
+
+    private void LogPaymentAction(
+        Domain.Entities.Order order,
+        Domain.Entities.Payment payment,
+        string detail,
+        object? newValue,
+        CancellationToken cancellationToken)
+        {
+        var actorId = order.UserId ?? Guid.Empty;
+
+        UserActionHelper.LogUserActionAsync(
+            _serviceProvider,
+            actorId,
+            UserActionEnum.Update,
+            payment.Id,
+            nameof(Domain.Entities.Payment),
+            detail,
+            ipAddress: null,
+            oldValue: null,
+            newValue: newValue,
+            cancellationToken: cancellationToken);
     }
 }
