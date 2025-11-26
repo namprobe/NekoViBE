@@ -56,6 +56,10 @@ public static class ApplicationDependencyInjection
         
         // Register FluentValidation
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
+        
+        // Register Payment services
+        services.AddScoped<Features.Payment.Services.IOrderRollbackService, Features.Payment.Services.OrderRollbackService>();
+        
         return services;
     }
 }

@@ -6,6 +6,7 @@ using NekoViBE.Application.Common.Helpers.PaymentHelper;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Common.Models.Momo;
+using NekoViBE.Application.Features.Payment.Services;
 using NekoViBE.Domain.Enums;
 using PaymentService.Application.Commons.Models.Momo;
 using System.Net;
@@ -19,17 +20,20 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
     private readonly IPaymentGatewayFactory _paymentGatewayFactory;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ProcessMomoCallbackCommandHandler> _logger;
+    private readonly IOrderRollbackService _orderRollbackService;
     private readonly HashSet<string> _ipWhitelist;
 
     public ProcessMomoCallbackCommandHandler(
         IPaymentGatewayFactory paymentGatewayFactory,
         IUnitOfWork unitOfWork,
         ILogger<ProcessMomoCallbackCommandHandler> logger,
-        IOptions<MoMoSettings> moMoSettings)
+        IOptions<MoMoSettings> moMoSettings,
+        IOrderRollbackService orderRollbackService)
     {
         _paymentGatewayFactory = paymentGatewayFactory;
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _orderRollbackService = orderRollbackService;
         var whitelistConfig = moMoSettings.Value.MomoIpnWhitelist;
         _ipWhitelist = whitelistConfig?
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -91,8 +95,9 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
                     {
                         _logger.LogInformation("[MoMo IPN] Looking up failed order: {OrderId}", failedOrderId);
                         
+                        // QUAN TRỌNG: chỉ update order status thành failed nếu order status là Processing
                         var failedOrder = await _unitOfWork.Repository<Domain.Entities.Order>()
-                            .GetFirstOrDefaultAsync(x => x.Id == failedOrderId, o => o.Payment);
+                            .GetFirstOrDefaultAsync(x => x.Id == failedOrderId && x.OrderStatus == OrderStatusEnum.Processing, o => o.Payment);
                         
                         if (failedOrder != null)
                         {
@@ -100,11 +105,16 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
                                 "[MoMo IPN] Updating order as failed - OrderId: {OrderId}, HasPayment: {HasPayment}",
                                 failedOrderId, failedOrder.Payment != null);
                             
-                            UpdateOrderAsFailed(failedOrder, paymentNote);
+                            // Revert stock và coupon trước khi update order status
+                            await _orderRollbackService.RevertOrderChangesAsync(
+                                failedOrder, _unitOfWork, _logger, cancellationToken);
+                            
+                            _orderRollbackService.UpdateOrderAsFailed(failedOrder, paymentNote, _unitOfWork);
                             
                             if (failedOrder.Payment != null)
                             {
-                                UpdatePaymentAsFailed(failedOrder.Payment, paymentNote, paymentResult.Message);
+                                _orderRollbackService.UpdatePaymentAsFailed(
+                                    failedOrder.Payment, paymentNote, paymentResult.Message, _unitOfWork);
                             }
                             
                             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -154,7 +164,8 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
             _logger.LogInformation("[MoMo IPN] Looking up order: {OrderId}", orderId);
             
             var order = await _unitOfWork.Repository<Domain.Entities.Order>()
-                .GetFirstOrDefaultAsync(x => x.Id == orderId, o => o.Payment);
+                .GetFirstOrDefaultAsync(x => x.Id == orderId && x.OrderStatus == OrderStatusEnum.Processing, o => o.Payment);
+            // QUAN TRỌNG: chỉ update order status thành failed hoặc confirmed nếu order status là Processing
             
             if (order == null)
             {
@@ -175,8 +186,14 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
             if (payment == null)
             {
                 _logger.LogError("[MoMo IPN] Payment record not found for order - OrderId: {OrderId}", order.Id);
+                
+                // Revert stock và coupon trước khi update order status
+                await _orderRollbackService.RevertOrderChangesAsync(
+                    order, _unitOfWork, _logger, cancellationToken);
+                
                 // Update order fail và save changes trước khi trả response
-                UpdateOrderAsFailed(order, $"{paymentNote} | Payment record not found");
+                _orderRollbackService.UpdateOrderAsFailed(
+                    order, $"{paymentNote} | Payment record not found", _unitOfWork);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
                 
                 resultCode = 99;
@@ -338,30 +355,6 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
         {
             return false;
         }
-    }
-
-    /// <summary>
-    /// Update order thành failed
-    /// </summary>
-    private void UpdateOrderAsFailed(Domain.Entities.Order order, string note)
-    {
-        order.OrderStatus = OrderStatusEnum.Cancelled;
-        order.PaymentStatus = PaymentStatusEnum.Failed;
-        order.Notes = note;
-        order.UpdatedAt = DateTime.UtcNow;
-        _unitOfWork.Repository<Domain.Entities.Order>().Update(order);
-    }
-
-    /// <summary>
-    /// Update payment thành failed
-    /// </summary>
-    private void UpdatePaymentAsFailed(Domain.Entities.Payment payment, string note, string processorResponse)
-    {
-        payment.PaymentStatus = PaymentStatusEnum.Failed;
-        payment.Notes = note;
-        payment.ProcessorResponse = processorResponse;
-        payment.UpdatedAt = DateTime.UtcNow;
-        _unitOfWork.Repository<Domain.Entities.Payment>().Update(payment);
     }
 }
 

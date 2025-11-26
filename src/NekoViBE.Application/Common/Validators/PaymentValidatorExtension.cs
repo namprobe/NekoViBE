@@ -15,12 +15,10 @@ public static class PaymentValidatorExtension
     /// Validates payment method name with business rules
     /// Required | 2-100 chars | Alphanumeric with spaces, hyphens, underscores, dots
     /// </summary>
-    public static IRuleBuilderOptions<T, string> ValidPaymentMethodName<T>(this IRuleBuilder<T, string> ruleBuilder)
+    public static IRuleBuilderOptions<T, PaymentGatewayType> ValidPaymentMethodName<T>(this IRuleBuilder<T, PaymentGatewayType> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Payment method name is required")
-            .Length(2, 100).WithMessage("Payment method name must be between 2 and 100 characters")
-            .Matches(@"^[a-zA-Z0-9\s\-_.]+$").WithMessage("Payment method name can only contain letters, numbers, spaces, hyphens, underscores, and dots");
+            .IsInEnum().WithMessage("Invalid payment method name");
     }
     
     /// <summary>
