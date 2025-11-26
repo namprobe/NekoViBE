@@ -52,6 +52,8 @@ public static class OrderQueryBuilder
                 o => o.GuestFirstName != null && o.GuestFirstName.ToLower().Contains(search));
             searchPredicate = searchPredicate.CombineOr(
                 o => o.GuestLastName != null && o.GuestLastName.ToLower().Contains(search));
+            searchPredicate = searchPredicate.CombineOr(
+                o => o.OrderItems.Any(item => item.Product.Name.ToLower().Contains(search)));
 
             predicate = predicate.CombineAnd(searchPredicate);
         }
@@ -104,6 +106,16 @@ public static class OrderQueryBuilder
             predicate = filter.HasCoupon.Value
                 ? predicate.CombineAnd(o => o.UserCoupons.Any())
                 : predicate.CombineAnd(o => !o.UserCoupons.Any());
+        }
+
+        if (filter.CategoryId.HasValue)
+        {
+            predicate = predicate.CombineAnd(o => o.OrderItems.Any(item => item.Product.CategoryId == filter.CategoryId.Value));
+        }
+
+        if (filter.AnimeSeriesId.HasValue)
+        {
+            predicate = predicate.CombineAnd(o => o.OrderItems.Any(item => item.Product.AnimeSeriesId == filter.AnimeSeriesId.Value));
         }
 
         return predicate;

@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
 using AutoMapper;
 using MediatR;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
@@ -17,15 +16,13 @@ public class GetProfileQueryHandler : IRequestHandler<GetProfileQuery, Result<Pr
     private readonly IMapper _mapper;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUserService;
-    private readonly string _baseStorageUrl;
 
-    public GetProfileQueryHandler(ILogger<GetProfileQueryHandler> logger, IMapper mapper, IUnitOfWork unitOfWork, ICurrentUserService currentUserService, IConfiguration configuration)
+    public GetProfileQueryHandler(ILogger<GetProfileQueryHandler> logger, IMapper mapper, IUnitOfWork unitOfWork, ICurrentUserService currentUserService)
     {
         _logger = logger;
         _mapper = mapper;
         _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
-        _baseStorageUrl = configuration.GetSection("FileStorage:BaseStorageUrl").Value ?? throw new ArgumentNullException(nameof(configuration));
     }
 
     public async Task<Result<ProfileResponse>> Handle(GetProfileQuery request, CancellationToken cancellationToken)
@@ -46,7 +43,7 @@ public class GetProfileQueryHandler : IRequestHandler<GetProfileQuery, Result<Pr
                 u => u.Id == userId, include);
             var response = _mapper.Map<ProfileResponse>(user);
             response.Bio = user?.CustomerProfile?.Bio?? user?.StaffProfile?.Bio;
-            response.AvatarPath = $"{_baseStorageUrl}{response.AvatarPath }";
+            // AvatarPath is already converted to full URL by AvatarPathUrlResolver
             return Result<ProfileResponse>.Success(response, "Profile retrieved successfully");
         }
         catch (Exception ex)
