@@ -15,14 +15,17 @@ public class UpdatePaymentMethodCommandHandler : IRequestHandler<UpdatePaymentMe
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<UpdatePaymentMethodCommandHandler> _logger;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IFileServiceFactory _fileServiceFactory;
 
     public UpdatePaymentMethodCommandHandler(IMapper mapper, IUnitOfWork unitOfWork, 
-        ILogger<UpdatePaymentMethodCommandHandler> logger, ICurrentUserService currentUserService)
+        ILogger<UpdatePaymentMethodCommandHandler> logger, ICurrentUserService currentUserService,
+        IFileServiceFactory fileServiceFactory)
     {
         _mapper = mapper;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _currentUserService = currentUserService;
+        _fileServiceFactory = fileServiceFactory;
     }
 
     public async Task<Result> Handle(UpdatePaymentMethodCommand command, CancellationToken cancellationToken)
@@ -53,6 +56,10 @@ public class UpdatePaymentMethodCommandHandler : IRequestHandler<UpdatePaymentMe
             {
                 return Result.Failure("Payment method name already exists", ErrorCodeEnum.ValidationFailed);
             }
+            
+            // Store old icon path for deletion if new image is uploaded
+            string? oldIconPath = existingPaymentMethod.IconPath;
+            
             // Map updated data to existing entity
             _mapper.Map(command.Request, existingPaymentMethod);
             
@@ -60,11 +67,36 @@ public class UpdatePaymentMethodCommandHandler : IRequestHandler<UpdatePaymentMe
             {
                 await _unitOfWork.BeginTransactionAsync(cancellationToken);
                 
+                // Upload new icon image if provided
+                if (command.Request.IconImage != null)
+                {
+                    var fileService = _fileServiceFactory.CreateFileService("local");
+                    var iconPath = await fileService.UploadFileAsync(command.Request.IconImage, "uploads/payment-methods", cancellationToken);
+                    existingPaymentMethod.IconPath = iconPath;
+                }
+                
                 // Update audit fields
                 existingPaymentMethod.UpdateEntity(userId);
                 
                 _unitOfWork.Repository<Domain.Entities.PaymentMethod>().Update(existingPaymentMethod);
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+                // Delete old icon file if a new one was uploaded (fire-and-forget)
+                if (oldIconPath != null && command.Request.IconImage != null)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var fileService = _fileServiceFactory.CreateFileService("local");
+                            await fileService.DeleteFileAsync(oldIconPath, cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error deleting old payment method icon file at {OldIconPath}", oldIconPath);
+                        }
+                    });
+                }
             }
             catch
             {

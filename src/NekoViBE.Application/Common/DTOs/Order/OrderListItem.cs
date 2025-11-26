@@ -10,8 +10,6 @@ namespace NekoViBE.Application.Common.DTOs.Order
 {
     public class OrderListItem : BaseResponse
     {
-        [JsonPropertyName("orderNumber")]
-        public string OrderNumber { get; set; } = string.Empty;
 
         [JsonPropertyName("userId")]
         public Guid? UserId { get; set; }
@@ -54,9 +52,6 @@ namespace NekoViBE.Application.Common.DTOs.Order
 
         [JsonPropertyName("itemCount")]
         public int ItemCount { get; set; }
-
-        [JsonPropertyName("createdAt")]
-        public DateTime CreatedAt { get; set; }
     }
     
     

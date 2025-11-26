@@ -54,6 +54,8 @@ public static class ApplicationDependencyInjection
         });
         IMapper mapper = mapperConfig.CreateMapper();
         services.AddSingleton(mapper);
+        // Register AutoMapper with DI support (allows constructor injection in resolvers)
+        services.AddAutoMapper(Assembly.GetExecutingAssembly());
         
         // Register FluentValidation
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
