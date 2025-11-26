@@ -1,5 +1,4 @@
-﻿// File: Application/Common/QueryBuilders/BlogPostQueryBuilder.cs
-using Google.Apis.Gmail.v1.Data;
+﻿using Google.Apis.Gmail.v1.Data;
 using NekoViBE.Application.Common.DTOs.BlogPost;
 using NekoViBE.Application.Common.Extensions;
 using NekoViBE.Domain.Entities;
