@@ -9,6 +9,7 @@ public class PaymentMethodMappingProfile : Profile
     public PaymentMethodMappingProfile()
     {
         CreateMap<PaymentMethodRequest, PaymentMethod>()
+            .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name.ToString()))
             .ForMember(dest => dest.IconPath, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
