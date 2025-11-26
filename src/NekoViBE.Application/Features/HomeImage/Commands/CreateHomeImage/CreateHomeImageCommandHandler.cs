@@ -53,6 +53,7 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.CreateHomeImage
                 var entity = new Domain.Entities.HomeImage
                 {
                     ImagePath = imagePath,
+                    Name = command.Request.Name.Trim(),
                     AnimeSeriesId = command.Request.AnimeSeriesId,
                     CreatedBy = userId,
                     CreatedAt = DateTime.UtcNow

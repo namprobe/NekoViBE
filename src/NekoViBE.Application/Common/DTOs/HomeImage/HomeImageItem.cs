@@ -12,6 +12,9 @@ namespace NekoViBE.Application.Common.DTOs.HomeImage
         [JsonPropertyName("imagePath")]
         public string ImagePath { get; set; } = string.Empty;
 
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
         [JsonPropertyName("animeSeriesId")]
         public Guid? AnimeSeriesId { get; set; }
 

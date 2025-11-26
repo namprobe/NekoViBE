@@ -10,6 +10,9 @@ namespace NekoViBE.Application.Common.DTOs.HomeImage
 {
     public class HomeImageFilter : BasePaginationFilter
     {
+        [JsonPropertyName("search")]
+        public string? Search { get; set; }
+
         [JsonPropertyName("animeSeriesId")]
         public Guid? AnimeSeriesId { get; set; }
 

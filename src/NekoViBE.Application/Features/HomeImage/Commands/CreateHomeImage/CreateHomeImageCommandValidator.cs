@@ -7,6 +7,8 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.CreateHomeImage
     {
         public CreateHomeImageCommandValidator()
         {
+            RuleFor(x => x.Request.Name).ValidHomeImageName();
+
             RuleFor(x => x.Request.ImageFile)
                 .ValidHomeImageFile();
 

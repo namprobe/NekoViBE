@@ -66,7 +66,7 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.DeleteHomeImage
                     EntityName = "HomeImage",
                     OldValue = JsonSerializer.Serialize(new { entity.ImagePath }),
                     IPAddress = _currentUserService.IPAddress ?? "Unknown",
-                    ActionDetail = "Deleted home image",
+                    ActionDetail = $"Deleted home image: {entity.Name}",
                     CreatedAt = DateTime.UtcNow,
                     Status = EntityStatusEnum.Active
                 };

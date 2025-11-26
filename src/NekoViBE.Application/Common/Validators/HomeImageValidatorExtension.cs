@@ -18,5 +18,13 @@ namespace NekoViBE.Application.Common.Validators
                 .Must(file => AllowedExtensions.Contains(Path.GetExtension(file.FileName).ToLowerInvariant()))
                     .WithMessage("Only .jpg, .jpeg, .png, .webp files are allowed");
         }
+
+        // Trong HomeImageValidatorExtension.cs (hoặc tạo mới)
+        public static IRuleBuilderOptions<T, string> ValidHomeImageName<T>(this IRuleBuilder<T, string> ruleBuilder)
+        {
+            return ruleBuilder
+                .NotEmpty().WithMessage("Name is required")
+                .Length(2, 100).WithMessage("Name must be between 2 and 100 characters");
+        }
     }
 }

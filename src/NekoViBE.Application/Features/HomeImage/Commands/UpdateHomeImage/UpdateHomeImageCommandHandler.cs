@@ -48,7 +48,7 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.UpdateHomeImage
                     return Result.Failure("Anime series not found", ErrorCodeEnum.NotFound);
 
                 var oldImagePath = entity.ImagePath;
-                var oldValue = JsonSerializer.Serialize(new { entity.ImagePath, entity.AnimeSeriesId });
+                var oldValue = JsonSerializer.Serialize(new { entity.ImagePath, entity.Name, entity.AnimeSeriesId });
 
                 // Nếu có file mới → upload + xóa cũ
                 if (command.Request.ImageFile != null)
@@ -60,6 +60,7 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.UpdateHomeImage
                         await _fileService.DeleteFileAsync(oldImagePath, ct);
                 }
 
+                entity.Name = command.Request.Name.Trim();
                 entity.AnimeSeriesId = command.Request.AnimeSeriesId;
                 entity.UpdatedBy = userId;
                 entity.UpdatedAt = DateTime.UtcNow;
@@ -74,7 +75,7 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.UpdateHomeImage
                     EntityId = entity.Id,
                     EntityName = "HomeImage",
                     OldValue = oldValue,
-                    NewValue = JsonSerializer.Serialize(new { entity.ImagePath, entity.AnimeSeriesId }),
+                    NewValue = JsonSerializer.Serialize(new { entity.ImagePath, entity.Name, entity.AnimeSeriesId }),
                     IPAddress = _currentUserService.IPAddress ?? "Unknown",
                     ActionDetail = "Updated home image",
                     CreatedAt = DateTime.UtcNow,

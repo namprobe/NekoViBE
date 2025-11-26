@@ -8,6 +8,8 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.UpdateHomeImage
     {
         public UpdateHomeImageCommandValidator()
         {
+            RuleFor(x => x.Request.Name).ValidHomeImageName();
+
             RuleFor(x => x.Id).NotEmpty();
             RuleFor(x => x.Request.ImageFile)
                 .ValidHomeImageFile()
