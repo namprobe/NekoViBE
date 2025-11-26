@@ -1,6 +1,7 @@
 using AutoMapper;
 using NekoViBE.Application.Common.DTOs.Auth;
 using NekoViBE.Application.Common.DTOs.Role;
+using NekoViBE.Application.Common.Mappings.Resolvers;
 using NekoViBE.Application.Features.Auth.Commands.Role;
 using NekoViBE.Application.Features.Auth.Queries.GetProfile;
 using NekoViBE.Application.Features.User.Commands.CreateUser;
@@ -38,7 +39,9 @@ public class AuthMappingProfile : Profile
             .ForMember(dest => dest.DateOfBirth, opt => opt.MapFrom(src => src.CustomerProfile != null ? src.CustomerProfile.DateOfBirth : null))
             .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.StaffProfile != null ? src.StaffProfile.Position.ToString() : null))
             .ForMember(dest => dest.HireDate, opt => opt.MapFrom(src => src.StaffProfile != null ? src.StaffProfile.HireDate : null))
-            .ForMember(dest => dest.Salary, opt => opt.MapFrom(src => src.StaffProfile != null ? src.StaffProfile.Salary : null));
+            .ForMember(dest => dest.Salary, opt => opt.MapFrom(src => src.StaffProfile != null ? src.StaffProfile.Salary : null))
+            .ForMember(dest => dest.AvatarPath, 
+                opt => opt.ConvertUsing<FilePathUrlConverter, string?>(src => src.AvatarPath));
 
         CreateMap<UpdateProfileRequest, AppUser>()
             .IgnoreIdentityFields()

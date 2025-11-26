@@ -1,7 +1,12 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NekoViBE.Application.Common.Enums;
+using NekoViBE.Application.Common.Helpers;
 using NekoViBE.Application.Common.Helpers.PaymentHelper;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
@@ -9,9 +14,6 @@ using NekoViBE.Application.Common.Models.Momo;
 using NekoViBE.Application.Features.Payment.Services;
 using NekoViBE.Domain.Enums;
 using PaymentService.Application.Commons.Models.Momo;
-using System.Net;
-using System.Linq;
-using System.Collections.Generic;
 
 namespace NekoViBE.Application.Features.Payment.Commands;
 
@@ -21,6 +23,7 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ProcessMomoCallbackCommandHandler> _logger;
     private readonly IOrderRollbackService _orderRollbackService;
+    private readonly IServiceProvider _serviceProvider;
     private readonly HashSet<string> _ipWhitelist;
 
     public ProcessMomoCallbackCommandHandler(
@@ -28,12 +31,14 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
         IUnitOfWork unitOfWork,
         ILogger<ProcessMomoCallbackCommandHandler> logger,
         IOptions<MoMoSettings> moMoSettings,
-        IOrderRollbackService orderRollbackService)
+        IOrderRollbackService orderRollbackService,
+        IServiceProvider serviceProvider)
     {
         _paymentGatewayFactory = paymentGatewayFactory;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _orderRollbackService = orderRollbackService;
+        _serviceProvider = serviceProvider;
         var whitelistConfig = moMoSettings.Value.MomoIpnWhitelist;
         _ipWhitelist = whitelistConfig?
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -119,6 +124,24 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
                             
                             await _unitOfWork.SaveChangesAsync(cancellationToken);
                             _logger.LogInformation("[MoMo IPN] Order and payment updated as failed - OrderId: {OrderId}", failedOrderId);
+
+                            LogOrderAction(
+                                failedOrder,
+                                "[MoMo IPN] Order marked as failed",
+                                request.CallerIpAddress,
+                                new { failedOrder.OrderStatus, failedOrder.PaymentStatus, paymentNote },
+                                cancellationToken);
+
+                            if (failedOrder.Payment != null)
+                            {
+                                LogPaymentAction(
+                                    failedOrder,
+                                    failedOrder.Payment,
+                                    "[MoMo IPN] Payment marked as failed",
+                                    request.CallerIpAddress,
+                                    new { failedOrder.Payment.PaymentStatus, failedOrder.Payment.ProcessorResponse },
+                                    cancellationToken);
+                            }
                         }
                         else
                         {
@@ -195,6 +218,13 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
                 _orderRollbackService.UpdateOrderAsFailed(
                     order, $"{paymentNote} | Payment record not found", _unitOfWork);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                LogOrderAction(
+                    order,
+                    "[MoMo IPN] Order reverted due to missing payment record",
+                    request.CallerIpAddress,
+                    new { order.OrderStatus, order.PaymentStatus, paymentNote },
+                    cancellationToken);
                 
                 resultCode = 99;
                 message = $"Payment not found for Order: {order.Id}";
@@ -222,6 +252,21 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
             _unitOfWork.Repository<Domain.Entities.Payment>().Update(payment);
             
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            LogOrderAction(
+                order,
+                "[MoMo IPN] Order confirmed",
+                request.CallerIpAddress,
+                new { order.OrderStatus, order.PaymentStatus, transaction.TransId, transaction.Amount },
+                cancellationToken);
+
+            LogPaymentAction(
+                order,
+                payment,
+                "[MoMo IPN] Payment completed",
+                request.CallerIpAddress,
+                new { payment.PaymentStatus, payment.TransactionNo, payment.PaymentDate },
+                cancellationToken);
             
             _logger.LogInformation(
                 "[MoMo IPN] Order and payment updated successfully - OrderId: {OrderId}, TransId: {TransId}, Amount: {Amount}",
@@ -355,6 +400,50 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
         {
             return false;
         }
+    }
+    private void LogOrderAction(
+        Domain.Entities.Order order,
+        string detail,
+        string? ipAddress,
+        object? newValue,
+        CancellationToken cancellationToken)
+    {
+        var actorId = order.UserId ?? Guid.Empty;
+
+        UserActionHelper.LogUserActionAsync(
+            _serviceProvider,
+            actorId,
+            UserActionEnum.Update,
+            order.Id,
+            nameof(Domain.Entities.Order),
+            detail,
+            ipAddress,
+            oldValue: null,
+            newValue: newValue,
+            cancellationToken: cancellationToken);
+    }
+
+    private void LogPaymentAction(
+        Domain.Entities.Order order,
+        Domain.Entities.Payment payment,
+        string detail,
+        string? ipAddress,
+        object? newValue,
+        CancellationToken cancellationToken)
+    {
+        var actorId = order.UserId ?? Guid.Empty;
+
+        UserActionHelper.LogUserActionAsync(
+            _serviceProvider,
+            actorId,
+            UserActionEnum.Update,
+            payment.Id,
+            nameof(Domain.Entities.Payment),
+            detail,
+            ipAddress,
+            oldValue: null,
+            newValue: newValue,
+            cancellationToken: cancellationToken);
     }
 }
 

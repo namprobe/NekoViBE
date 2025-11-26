@@ -58,12 +58,13 @@ public class GetCurrentUserCartQueryHandler : IRequestHandler<GetCurrentUserCart
                 });
             }
             var filter = query.Filter;
-            //get paged cart items
+            // get paged cart items - always sort by newest (CreatedAt descending)
             var (cartItems, totalCount) = await _unitOfWork.Repository<CartItem>().GetPagedAsync(
-                pageNumber: filter.Page, 
+                pageNumber: filter.Page,
                 pageSize: filter.PageSize,
                 predicate: c => c.CartId == cart.Id,
                 orderBy: c => c.CreatedAt!,
+                isAscending: false, // newest first
                 includes: c => c.Product);
             var totalPrice = await _unitOfWork.Repository<CartItem>().GetQueryable()
             .Where(c => c.CartId == cart.Id)

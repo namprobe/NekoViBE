@@ -1,8 +1,10 @@
+using System;
+using System.Linq;
 using AutoMapper;
 using MediatR;
-using System.Linq;
 using NekoViBE.Application.Common.DTOs.Order;
 using NekoViBE.Application.Common.Enums;
+using NekoViBE.Application.Common.Helpers;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Common;
@@ -17,13 +19,20 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly IPaymentGatewayFactory _paymentGatewayFactory; 
+    private readonly IServiceProvider _serviceProvider;
 
-    public PlaceOrderCommandHandler(ICurrentUserService currentUserService, IUnitOfWork unitOfWork, IMapper mapper, IPaymentGatewayFactory paymentGatewayFactory)
+    public PlaceOrderCommandHandler(
+        ICurrentUserService currentUserService,
+        IUnitOfWork unitOfWork,
+        IMapper mapper,
+        IPaymentGatewayFactory paymentGatewayFactory,
+        IServiceProvider serviceProvider)
     {
         _currentUserService = currentUserService;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _paymentGatewayFactory = paymentGatewayFactory;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<Result<PlaceOrderResponse>> Handle(PlaceOrderCommand command, CancellationToken cancellationToken)
@@ -51,6 +60,7 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
 
             var newOrder = _mapper.Map<Domain.Entities.Order>(request);
             var newOrderItems = new List<Domain.Entities.OrderItem>();
+            var productNames = new List<string>(); // Store product names for metadata
             decimal productDiscountAmount = 0m;
             decimal couponDiscountAmount = 0m;
             Domain.Entities.Coupon? appliedCoupon = null;
@@ -85,6 +95,7 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                     orderItem.InitializeEntity(userId.Value);
                     //Apply discount if any (future)
                     newOrderItems.Add(orderItem);
+                    productNames.Add(product.Name); // Store product name for metadata
                     //update product stock
                     product.StockQuantity -= request.Quantity.Value;
                     _unitOfWork.Repository<Domain.Entities.Product>().Update(product);
@@ -122,6 +133,7 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                         orderItem.Status = EntityStatusEnum.Active;
                         orderItem.InitializeEntity(userId.Value);
                         newOrderItems.Add(orderItem);
+                        productNames.Add(cartItem.Product.Name); // Store product name for metadata
                     }
                     _unitOfWork.Repository<Domain.Entities.CartItem>().DeleteRange(cartItems);
                 }
@@ -156,12 +168,43 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                 {
                     paymentGatewayType = Enum.Parse<PaymentGatewayType>(paymentMethod.Name);
                     var paymentGatewayService = _paymentGatewayFactory.GetPaymentGatewayService(paymentGatewayType.Value);
+                    
+                    // Build metadata for payment request (especially for Momo)
+                    var metadata = new Dictionary<string, string>();
+                    
+                    // Get user information
+                    var user = await _unitOfWork.Repository<Domain.Entities.AppUser>()
+                        .GetFirstOrDefaultAsync(x => x.Id == userId.Value);
+                    if (user != null)
+                    {
+                        var customerName = $"{user.FirstName} {user.LastName}".Trim();
+                        if (!string.IsNullOrEmpty(customerName))
+                        {
+                            metadata["CustomerName"] = customerName;
+                        }
+                    }
+                    
+                    // Add product names to metadata
+                    if (productNames.Any())
+                    {
+                        metadata["ProductNames"] = string.Join(", ", productNames);
+                    }
+                    
+                    // Add order amounts
+                    metadata["TotalAmount"] = newOrder.TotalAmount.ToString("N0");
+                    metadata["FinalAmount"] = newOrder.FinalAmount.ToString("N0");
+                    metadata["OrderId"] = newOrder.Id.ToString();
+                    
+                    // Add order creation date (UTC ISO format)
+                    metadata["CreatedAt"] = (newOrder.CreatedAt ?? DateTime.UtcNow).ToString("O");
+                    
                     var paymentIntent = await paymentGatewayService.CreatePaymentIntentAsync(new PaymentRequest
                     {
                         OrderId = newOrder.Id.ToString(),
                         Amount = newOrder.FinalAmount,
                         Currency = "VND",
                         Description = "Thanh Toan Don Hang Cho " + newOrder.Id,
+                        Metadata = metadata
                     });
 
                     paymentUrl = paymentGatewayType switch
@@ -196,6 +239,22 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                     CreatedAt = newOrder.CreatedAt ?? DateTime.UtcNow,
                     FinalAmount = newOrder.FinalAmount
                 };
+
+                UserActionHelper.LogUserActionAsync(
+                    _serviceProvider,
+                    userId.Value,
+                    UserActionEnum.Create,
+                    newOrder.Id,
+                    nameof(Domain.Entities.Order),
+                    $"Order placed via {paymentMethod.Name}",
+                    _currentUserService.IPAddress,
+                    newValue: new
+                    {
+                        newOrder.FinalAmount,
+                        PaymentGateway = paymentGatewayType?.ToString(),
+                        paymentUrl
+                    },
+                    cancellationToken: cancellationToken);
 
                 return Result<PlaceOrderResponse>.Success(
                     response,
