@@ -11,6 +11,7 @@ using NekoViBE.Domain.Common;
 using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using NekoViBE.Application.Common.Helpers;
 
 namespace NekoViBE.Application.Features.Auth.Commands.VerifyOtp;
@@ -22,11 +23,11 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly IIdentityService _identityService;
-    private readonly INotificationFactory _notificationFactory;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly string _passwordEncryptKey;
 
     public VerifyOtpCommandHandler(IOtpCacheService otpCacheService, ILogger<VerifyOtpCommandHandler> logger,
-    IUnitOfWork unitOfWork, IIdentityService identityService, IMapper mapper, IConfiguration configuration, INotificationFactory notificationFactory)
+    IUnitOfWork unitOfWork, IIdentityService identityService, IMapper mapper, IConfiguration configuration, IServiceScopeFactory serviceScopeFactory)
     {
         _otpCacheService = otpCacheService;
         _logger = logger;
@@ -34,7 +35,7 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
         _identityService = identityService;
         _mapper = mapper;
         _passwordEncryptKey = configuration.GetValue<string>("PasswordEncryptKey") ?? throw new Exception("PasswordEncryptKey is not set");
-        _notificationFactory = notificationFactory;
+        _serviceScopeFactory = serviceScopeFactory;
     }
 
     public async Task<Result> Handle(VerifyOtpCommand command, CancellationToken cancellationToken)
@@ -125,13 +126,24 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
         // create shopping cart for customer and remove OTP from cache (no need to wait for the task to complete)
         _ = Task.Run(async () =>
         {
-            var newShoppingCart = new ShoppingCart
+            try
             {
-                UserId = user.Id,
-            };
-            newShoppingCart.InitializeEntity(user.Id);
-            await _unitOfWork.Repository<ShoppingCart>().AddAsync(newShoppingCart);
-            await _unitOfWork.SaveChangesAsync();
+                using (var scope = _serviceScopeFactory.CreateScope())
+                {
+                    var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+                    var newShoppingCart = new ShoppingCart
+                    {
+                        UserId = user.Id,
+                    };
+                    newShoppingCart.InitializeEntity(user.Id);
+                    await unitOfWork.Repository<ShoppingCart>().AddAsync(newShoppingCart);
+                    await unitOfWork.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create shopping cart for user {UserId}", user.Id);
+            }
         });
 
 
@@ -140,18 +152,22 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result>
         {
             try
             {
-                var notificationService = _notificationFactory.GetSender(NotificationChannelEnum.Email);
-                var notification = new NotificationRequest
+                using (var scope = _serviceScopeFactory.CreateScope())
                 {
-                    To = registerRequest.Email,
-                    Template = NotificationTemplateEnums.Welcome,
-                };
-                var recipient = new RecipientInfo
-                {
-                    Email = registerRequest.Email,
-                    FullName = $"{registerRequest.FirstName} {registerRequest.LastName}".Trim()
-                };
-                await notificationService.SendNotificationAsync(notification, recipient);
+                    var notificationFactory = scope.ServiceProvider.GetRequiredService<INotificationFactory>();
+                    var notificationService = notificationFactory.GetSender(NotificationChannelEnum.Email);
+                    var notification = new NotificationRequest
+                    {
+                        To = registerRequest.Email,
+                        Template = NotificationTemplateEnums.Welcome,
+                    };
+                    var recipient = new RecipientInfo
+                    {
+                        Email = registerRequest.Email,
+                        FullName = $"{registerRequest.FirstName} {registerRequest.LastName}".Trim()
+                    };
+                    await notificationService.SendNotificationAsync(notification, recipient);
+                }
             }
             catch (Exception ex)
             {
