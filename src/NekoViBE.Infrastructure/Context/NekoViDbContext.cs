@@ -43,6 +43,8 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
     public DbSet<PostTag> PostTags { get; set; }
     public DbSet<Event> Events { get; set; }
     public DbSet<EventProduct> EventProducts { get; set; }
+    public DbSet<HomeImage> HomeImages { get; set; } = null!;
+    public DbSet<UserHomeImage> UserHomeImages { get; set; } = null!;
 
 
     public NekoViDbContext(DbContextOptions<NekoViDbContext> options) : base(options)
@@ -567,6 +569,54 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
                 
             entity.HasIndex(x => new { x.EventId, x.ProductId }).IsUnique();
             entity.HasIndex(x => x.IsFeatured);
+        });
+
+        // HomeImage
+        builder.Entity<HomeImage>(entity =>
+        {
+            entity.Property(x => x.ImagePath).IsRequired().HasMaxLength(500);
+
+            entity.HasIndex(x => x.AnimeSeriesId)
+                  .HasFilter("AnimeSeriesId IS NOT NULL");
+
+            entity.HasOne(x => x.AnimeSeries)
+                  .WithMany()
+                  .HasForeignKey(x => x.AnimeSeriesId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // UserHomeImage – bảng trung gian có thứ tự
+        builder.Entity<UserHomeImage>(entity =>
+        {
+            entity.HasKey(x => new { x.UserId, x.HomeImageId });
+
+            entity.HasOne(x => x.User)
+                  .WithMany(u => u.SelectedHomeImages)
+                  .HasForeignKey(x => x.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.HomeImage)
+                  .WithMany(h => h.UserSelections)
+                  .HasForeignKey(x => x.HomeImageId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Ràng buộc: mỗi user chỉ được chọn tối đa 3 ảnh
+            // Position chỉ được là 1, 2, 3
+            entity.Property(x => x.Position)
+                  .IsRequired()
+                  .HasConversion<byte>() // lưu dưới dạng TINYINT cho nhẹ
+                  .HasDefaultValue(1);
+
+            // Đảm bảo Position trong khoảng 1-3
+            entity.HasCheckConstraint("CK_UserHomeImage_Position", "Position BETWEEN 1 AND 3");
+
+            // Unique: mỗi user chỉ được chọn 1 ảnh ở 1 vị trí
+            entity.HasIndex(x => new { x.UserId, x.Position })
+                  .IsUnique()
+                  .HasDatabaseName("UX_UserHomeImage_UserId_Position");
+
+            // Index hỗ trợ query nhanh
+            entity.HasIndex(x => x.HomeImageId);
         });
 
         // Gọi cấu hình chung cho BaseEntity
