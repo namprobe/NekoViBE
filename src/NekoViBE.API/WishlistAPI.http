@@ -1,0 +1,28 @@
+### Wishlist API Testing
+### Base URL: https://localhost:7001/api/customer/wishlist
+
+@baseUrl = https://localhost:7001
+@access_token = YOUR_ACCESS_TOKEN_HERE
+
+### 1. Get Wishlist (Lấy danh sách wishlist của user)
+GET {{baseUrl}}/api/customer/wishlist
+Authorization: Bearer {{access_token}}
+
+###
+
+### 2. Add to Wishlist (Toggle - Thêm hoặc xóa sản phẩm)
+POST {{baseUrl}}/api/customer/wishlist
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{
+    "productId": "123e4567-e89b-12d3-a456-426614174000"
+}
+
+###
+
+### 3. Remove from Wishlist (Xóa sản phẩm khỏi wishlist)
+DELETE {{baseUrl}}/api/customer/wishlist/123e4567-e89b-12d3-a456-426614174000
+Authorization: Bearer {{access_token}}
+
+###
