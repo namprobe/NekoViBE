@@ -10,11 +10,11 @@ using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Features.Category.Queries.GetSelectList
 {
-    public class GetCategorySelectListQueryHandler : IRequestHandler<GetCategorySelectListQuery, List<CategorySelectItem>>
+    public class GetEventSelectListQueryHandler : IRequestHandler<GetCategorySelectListQuery, List<CategorySelectItem>>
     {
         private readonly IUnitOfWork _unitOfWork;
 
-        public GetCategorySelectListQueryHandler(IUnitOfWork unitOfWork)
+        public GetEventSelectListQueryHandler(IUnitOfWork unitOfWork)
         {
             _unitOfWork = unitOfWork;
         }

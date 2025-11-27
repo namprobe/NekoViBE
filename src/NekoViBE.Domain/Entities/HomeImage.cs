@@ -1,11 +1,11 @@
-﻿// Domain/Entities/HomeImage.cs
-using NekoViBE.Domain.Common;
+﻿using NekoViBE.Domain.Common;
 
 namespace NekoViBE.Domain.Entities;
 
 public class HomeImage : BaseEntity
 {
     public string ImagePath { get; set; } = string.Empty;
+    public string Name { get; set; } = null!;
 
     // FK tới AnimeSeries (có thể null nếu là ảnh chung)
     public Guid? AnimeSeriesId { get; set; }

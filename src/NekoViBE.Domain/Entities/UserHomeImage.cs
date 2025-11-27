@@ -1,5 +1,4 @@
-﻿// Domain/Entities/UserHomeImage.cs
-using NekoViBE.Domain.Common;
+﻿using NekoViBE.Domain.Common;
 
 namespace NekoViBE.Domain.Entities;
 
