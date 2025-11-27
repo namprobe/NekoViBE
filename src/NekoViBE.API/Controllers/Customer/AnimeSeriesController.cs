@@ -6,6 +6,7 @@ using NekoViBE.Application.Common.Extensions;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.AnimeSeries.Queries.GetAnimeSeries;
 using NekoViBE.Application.Features.AnimeSeries.Queries.GetAnimeSeriesList;
+using NekoViBE.Application.Features.AnimeSeries.Queries.GetSelectList;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace NekoViBE.API.Controllers.Customer
@@ -72,5 +73,14 @@ namespace NekoViBE.API.Controllers.Customer
             return Ok(result);
         }
 
+        [HttpGet("select-list")]
+        [AuthorizeRoles]
+        [ProducesResponseType(typeof(List<AnimeSeriesSelectItem>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAnimeSeriesSelectList([FromQuery] string? search)
+        {
+            var query = new GetAnimeSeriesSelectListQuery { Search = search };
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
     }
 }
