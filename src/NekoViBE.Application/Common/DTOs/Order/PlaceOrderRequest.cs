@@ -6,7 +6,7 @@ public class PlaceOrderRequest
     public Guid? ProductId { get; set; }
     //Nếu Quantity null nghĩa là đặt hàng thông qua cart, nếu ko null tức là mua ngay 1 sản phẩm
     public int? Quantity { get; set; }
-    public string? CouponCode { get; set; }
+    public Guid? UserCouponId { get; set; }
     public Guid PaymentMethodId { get; set; }
     // public Guid ShippingMethodId { get; set; }
 
