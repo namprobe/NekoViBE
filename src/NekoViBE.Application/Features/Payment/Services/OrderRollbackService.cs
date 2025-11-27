@@ -82,8 +82,11 @@ public class OrderRollbackService : IOrderRollbackService
                         userCoupon.CouponId, userCoupon.Coupon.CurrentUsage, order.Id);
                 }
 
-                // Xóa UserCoupon record
-                unitOfWork.Repository<Domain.Entities.UserCoupon>().Delete(userCoupon);
+                // Revert UserCoupon
+                userCoupon.UsedDate = null;
+                userCoupon.OrderId = null;
+                userCoupon.UpdatedAt = DateTime.UtcNow;
+                unitOfWork.Repository<Domain.Entities.UserCoupon>().Update(userCoupon);
             }
 
             logger.LogInformation("[Order Rollback] Successfully reverted order changes for OrderId: {OrderId}", order.Id);

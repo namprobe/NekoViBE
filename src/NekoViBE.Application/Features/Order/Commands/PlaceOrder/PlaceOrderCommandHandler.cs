@@ -64,6 +64,7 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
             decimal productDiscountAmount = 0m;
             decimal couponDiscountAmount = 0m;
             Domain.Entities.Coupon? appliedCoupon = null;
+            Domain.Entities.UserCoupon? appliedUserCoupon = null;
             string? paymentUrl = null;
             PaymentGatewayType? paymentGatewayType = null;
 
@@ -142,11 +143,12 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                 newOrder.TotalAmount = newOrderItems.Sum(x => x.UnitPrice * x.Quantity);
 
                 var amountAfterProductDiscount = newOrder.TotalAmount - productDiscountAmount;
-                if (!string.IsNullOrWhiteSpace(request.CouponCode) && amountAfterProductDiscount > 0)
+                if (request.UserCouponId.HasValue && amountAfterProductDiscount > 0)
                 {
-                    var couponResult = await ValidateCouponAsync(request.CouponCode.Trim(), amountAfterProductDiscount, userId.Value, cancellationToken);
+                    var couponResult = await ValidateUserCouponAsync(request.UserCouponId.Value, amountAfterProductDiscount, userId.Value, cancellationToken);
                     couponDiscountAmount = couponResult.discountAmount;
                     appliedCoupon = couponResult.coupon;
+                    appliedUserCoupon = couponResult.userCoupon;
                 }
 
                 newOrder.DiscountAmount = productDiscountAmount + couponDiscountAmount;
@@ -220,9 +222,9 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                     }
                 }
 
-                if (appliedCoupon is not null)
+                if (appliedCoupon is not null && appliedUserCoupon is not null)
                 {
-                    await AttachCouponToOrderAsync(newOrder, appliedCoupon, userId.Value);
+                    await AttachCouponToOrderAsync(newOrder, appliedCoupon, appliedUserCoupon, userId.Value);
                 }
 
                 //3. To do: Init Shipping
@@ -306,40 +308,62 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
         return (unitPrice, discountAmount);
     }
 
-    private async Task<(Domain.Entities.Coupon coupon, decimal discountAmount)> ValidateCouponAsync(
-        string couponCode,
+    private async Task<(Domain.Entities.Coupon coupon, Domain.Entities.UserCoupon userCoupon, decimal discountAmount)> ValidateUserCouponAsync(
+        Guid userCouponId,
         decimal orderAmountAfterProductDiscount,
         Guid userId,
         CancellationToken cancellationToken)
     {
-        var coupon = await _unitOfWork.Repository<Domain.Entities.Coupon>()
-            .GetFirstOrDefaultAsync(c => c.Code == couponCode && c.Status == EntityStatusEnum.Active);
-        if (coupon is null)
-            throw new ArgumentException("Coupon not found or inactive");
+        // Load UserCoupon với Coupon navigation property
+        var userCoupon = await _unitOfWork.Repository<Domain.Entities.UserCoupon>()
+            .GetFirstOrDefaultAsync(x => x.Id == userCouponId, x => x.Coupon);
+        
+        if (userCoupon is null)
+            throw new ArgumentException("User coupon not found");
 
+        // Kiểm tra UserCoupon thuộc về user hiện tại
+        if (userCoupon.UserId != userId)
+            throw new ArgumentException("This coupon does not belong to the current user");
+
+        // Kiểm tra UserCoupon chưa được sử dụng
+        if (userCoupon.UsedDate.HasValue)
+            throw new ArgumentException("This coupon has already been used");
+
+        // Load Coupon nếu chưa được load
+        if (userCoupon.Coupon is null)
+        {
+            userCoupon.Coupon = await _unitOfWork.Repository<Domain.Entities.Coupon>()
+                .GetFirstOrDefaultAsync(x => x.Id == userCoupon.CouponId);
+        }
+
+        var coupon = userCoupon.Coupon;
+        if (coupon is null)
+            throw new ArgumentException("Coupon not found");
+
+        // Kiểm tra coupon status
+        if (coupon.Status != EntityStatusEnum.Active)
+            throw new ArgumentException("Coupon is not active");
+
+        // Kiểm tra thời gian hiệu lực
         var now = DateTime.UtcNow;
         if (now < coupon.StartDate || now > coupon.EndDate)
         {
             throw new ArgumentException("Coupon is not valid at this time");
         }
 
+        // Kiểm tra usage limit
         if (coupon.UsageLimit.HasValue && coupon.CurrentUsage >= coupon.UsageLimit.Value)
         {
             throw new ArgumentException("Coupon usage limit exceeded");
         }
 
+        // Kiểm tra minimum order amount
         if (orderAmountAfterProductDiscount < coupon.MinOrderAmount)
         {
-            throw new ArgumentException($"Minimum order amount of {coupon.MinOrderAmount} is required for this coupon");
+            throw new ArgumentException($"Minimum order amount of {coupon.MinOrderAmount:N0} is required for this coupon");
         }
 
-        var existingUsage = await _unitOfWork.Repository<Domain.Entities.UserCoupon>()
-            .FindAsync(x => x.UserId == userId && x.CouponId == coupon.Id && x.UsedDate != null);
-        if (existingUsage.Any())
-        {
-            throw new ArgumentException("Coupon has already been used by this user");
-        }
-
+        // Tính discount amount
         var discountAmount = coupon.DiscountType switch
         {
             DiscountTypeEnum.Percentage => orderAmountAfterProductDiscount * (coupon.DiscountValue / 100),
@@ -347,33 +371,39 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
             _ => 0m
         };
 
+        // Đảm bảo discount không vượt quá order amount
         if (discountAmount > orderAmountAfterProductDiscount)
         {
             discountAmount = orderAmountAfterProductDiscount;
         }
 
-        return (coupon, discountAmount);
+        return (coupon, userCoupon, discountAmount);
     }
 
-    private async Task AttachCouponToOrderAsync(
+    private Task AttachCouponToOrderAsync(
         Domain.Entities.Order order,
         Domain.Entities.Coupon coupon,
+        Domain.Entities.UserCoupon userCoupon,
         Guid userId)
     {
-        var userCoupon = new Domain.Entities.UserCoupon
+        // Update UserCoupon đã tồn tại (không tạo mới)
+        userCoupon.OrderId = order.Id;
+        userCoupon.UsedDate = DateTime.UtcNow;
+        userCoupon.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Repository<Domain.Entities.UserCoupon>().Update(userCoupon);
+
+        // Thêm vào order navigation property
+        if (order.UserCoupons == null)
         {
-            UserId = userId,
-            CouponId = coupon.Id,
-            OrderId = order.Id,
-            UsedDate = DateTime.UtcNow
-        };
-        userCoupon.InitializeEntity(userId);
+            order.UserCoupons = new List<Domain.Entities.UserCoupon>();
+        }
         order.UserCoupons.Add(userCoupon);
 
-        await _unitOfWork.Repository<Domain.Entities.UserCoupon>().AddAsync(userCoupon);
-
+        // Update coupon usage count
         coupon.CurrentUsage++;
         coupon.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Repository<Domain.Entities.Coupon>().Update(coupon);
+
+        return Task.CompletedTask;
     }
 }

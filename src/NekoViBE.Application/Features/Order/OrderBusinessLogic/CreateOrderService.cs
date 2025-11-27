@@ -279,7 +279,7 @@ namespace NekoViBE.Application.Features.Order.OrderBusinessLogic
             // Validate user-specific restrictions (if any)
             if (userId.HasValue)
             {
-                var userCouponUsage = await _unitOfWork.Repository<UserCoupon>()
+                var userCouponUsage = await _unitOfWork.Repository<Domain.Entities.UserCoupon>()
                     .FindAsync(uc => uc.UserId == userId && uc.CouponId == coupon.Id && uc.UsedDate != null);
 
                 // Example: Limit one use per user
@@ -322,7 +322,7 @@ namespace NekoViBE.Application.Features.Order.OrderBusinessLogic
             if (coupon == null) return;
 
             // Create UserCoupon record
-            var userCoupon = new UserCoupon
+            var userCoupon = new Domain.Entities.UserCoupon
             {
                 UserId = userId,
                 CouponId = coupon.Id,
@@ -331,7 +331,7 @@ namespace NekoViBE.Application.Features.Order.OrderBusinessLogic
             };
             userCoupon.InitializeEntity(userId);
 
-            await _unitOfWork.Repository<UserCoupon>().AddAsync(userCoupon);
+            await _unitOfWork.Repository<Domain.Entities.UserCoupon>().AddAsync(userCoupon);
 
             // Update coupon usage count
             coupon.CurrentUsage++;
