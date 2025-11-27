@@ -38,8 +38,6 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.CreateHomeImage
             try
             {
                 var (isValid, userId) = await _currentUserService.IsUserValidAsync();
-                if (!isValid || userId == null)
-                    return Result.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
 
                 if (command.Request.AnimeSeriesId.HasValue)
                 {

@@ -9,5 +9,5 @@ using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Features.HomeImage.Commands.UpdateHomeImage
 {
-    public record UpdateHomeImageCommand(Guid Id, HomeImageRequest Request) : IRequest<Result>;
+    public record UpdateHomeImageCommand(Guid Id, UpdateHomeImageDTO Request) : IRequest<Result>;
 }

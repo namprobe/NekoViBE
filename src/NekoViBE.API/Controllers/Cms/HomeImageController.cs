@@ -55,13 +55,14 @@ namespace NekoViBE.API.Controllers.Cms
             return StatusCode(result.GetHttpStatusCode(), result);
         }
 
+        // HomeImageController.cs
         [HttpPut("{id}")]
         [AuthorizeRoles("Admin", "Staff")]
         [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(Result), StatusCodes.Status404NotFound)]
         [SwaggerOperation(Summary = "Update home image", OperationId = "UpdateHomeImage")]
-        public async Task<IActionResult> Update(Guid id, [FromForm] HomeImageRequest request)
+        public async Task<IActionResult> Update(Guid id, [FromForm] UpdateHomeImageDTO request) // ← ĐỔI TẠI ĐÂY
         {
             var result = await _mediator.Send(new UpdateHomeImageCommand(id, request));
             return StatusCode(result.GetHttpStatusCode(), result);

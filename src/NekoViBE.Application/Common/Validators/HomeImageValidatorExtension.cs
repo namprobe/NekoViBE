@@ -24,7 +24,7 @@ namespace NekoViBE.Application.Common.Validators
         {
             return ruleBuilder
                 .NotEmpty().WithMessage("Name is required")
-                .Length(2, 100).WithMessage("Name must be between 2 and 100 characters");
+                .Length(1, 100).WithMessage("Name must be between 2 and 100 characters");
         }
     }
 }

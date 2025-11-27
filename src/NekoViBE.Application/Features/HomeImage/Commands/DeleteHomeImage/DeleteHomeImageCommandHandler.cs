@@ -31,8 +31,6 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.DeleteHomeImage
             try
             {
                 var (isValid, userId) = await _currentUserService.IsUserValidAsync();
-                if (!isValid || userId == null)
-                    return Result.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
 
                 var repo = _unitOfWork.Repository<Domain.Entities.HomeImage>();
                 var entity = await repo.GetFirstOrDefaultAsync(x => x.Id == command.Id);
