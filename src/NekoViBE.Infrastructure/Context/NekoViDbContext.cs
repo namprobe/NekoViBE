@@ -576,6 +576,10 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         {
             entity.Property(x => x.ImagePath).IsRequired().HasMaxLength(500);
 
+            entity.Property(x => x.Name)
+                  .IsRequired()        
+                  .HasMaxLength(200);
+
             entity.HasIndex(x => x.AnimeSeriesId)
                   .HasFilter("AnimeSeriesId IS NOT NULL");
 
