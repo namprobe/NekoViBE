@@ -17,17 +17,20 @@ namespace NekoViBE.Application.Features.UserHomeImage.Queries.GetCurrentUserHome
         private readonly ICurrentUserService _currentUserService;
         private readonly IMapper _mapper;
         private readonly ILogger<GetCurrentUserHomeImagesQueryHandler> _logger;
+        private readonly IFileService _fileService;
 
         public GetCurrentUserHomeImagesQueryHandler(
             IUnitOfWork unitOfWork,
             ICurrentUserService currentUserService,
             IMapper mapper,
-            ILogger<GetCurrentUserHomeImagesQueryHandler> logger)
+            ILogger<GetCurrentUserHomeImagesQueryHandler> logger,
+            IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _mapper = mapper;
             _logger = logger;
+            _fileService = fileService;
         }
 
         public async Task<Result<List<UserHomeImageItem>>> Handle(GetCurrentUserHomeImagesQuery request, CancellationToken ct)
@@ -46,14 +49,24 @@ namespace NekoViBE.Application.Features.UserHomeImage.Queries.GetCurrentUserHome
                         predicate: x => x.UserId == userId.Value && !x.IsDeleted,
                         includes: new Expression<Func<Domain.Entities.UserHomeImage, object>>[]
                         {
-                            x => x.HomeImage!,
-                            x => x.HomeImage!.AnimeSeries!
+                    x => x.HomeImage!,
+                    x => x.HomeImage!.AnimeSeries!
                         });
 
+                // Map to DTO
                 var items = entities
                     .OrderBy(x => x.Position)
                     .Select(x => _mapper.Map<UserHomeImageItem>(x))
                     .ToList();
+
+                // 🔥 Convert ImagePath → FileUrl (giống GetHomeImageListQueryHandler)
+                foreach (var (dto, entity) in items.Zip(entities, (d, e) => (d, e)))
+                {
+                    if (dto.HomeImage != null && entity.HomeImage != null)
+                    {
+                        dto.HomeImage.ImagePath = _fileService.GetFileUrl(entity.HomeImage.ImagePath);
+                    }
+                }
 
                 return Result<List<UserHomeImageItem>>.Success(items);
             }
@@ -63,5 +76,6 @@ namespace NekoViBE.Application.Features.UserHomeImage.Queries.GetCurrentUserHome
                 return Result<List<UserHomeImageItem>>.Failure("Lỗi hệ thống", ErrorCodeEnum.InternalError);
             }
         }
+
     }
 }
