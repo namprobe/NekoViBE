@@ -38,7 +38,7 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.DeleteHomeImage
                     return Result.Failure("Home image not found", ErrorCodeEnum.NotFound);
 
                 // Kiểm tra có user nào đang chọn làm ảnh home không
-                var isInUse = await _unitOfWork.Repository<UserHomeImage>()
+                var isInUse = await _unitOfWork.Repository<Domain.Entities.UserHomeImage>()
                     .AnyAsync(x => x.HomeImageId == command.Id);
 
                 if (isInUse)
