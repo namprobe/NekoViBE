@@ -26,7 +26,7 @@ public static class ApplicationDependencyInjection
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>));
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(PerformanceBehavior<,>));
         });
-        
+
         // Register AutoMapper (manual, explicit profiles)
         var mapperConfig = new MapperConfiguration(cfg =>
         {
@@ -55,6 +55,7 @@ public static class ApplicationDependencyInjection
         });
         IMapper mapper = mapperConfig.CreateMapper();
         services.AddSingleton(mapper);
+
         // Register AutoMapper with DI support (allows constructor injection in resolvers)
         services.AddAutoMapper(Assembly.GetExecutingAssembly());
         
