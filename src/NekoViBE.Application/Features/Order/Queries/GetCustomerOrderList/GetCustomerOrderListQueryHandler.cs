@@ -67,7 +67,9 @@ public class GetCustomerOrderListQueryHandler
             query = query
                 .Include(o => o.OrderItems!)
                     .ThenInclude(oi => oi.Product!)
-                        .ThenInclude(p => p.ProductImages!);
+                        .ThenInclude(p => p.ProductImages!)
+                .Include(o => o.OrderShippingMethods!)
+                    .ThenInclude(os => os.ShippingMethod!);
 
             // Apply ordering
             if (orderBy != null)
@@ -85,6 +87,10 @@ public class GetCustomerOrderListQueryHandler
                 .ToListAsync(cancellationToken);
 
             var orderItems = _mapper.Map<List<CustomerOrderListItem>>(orders);
+            for (var i = 0; i < orders.Count; i++)
+            {
+                orderItems[i].Shipping = MapShippingInfo(orders[i]);
+            }
             // ProductImage is already converted to full URL by ProductImageUrlResolver
 
             return PaginationResult<CustomerOrderListItem>.Success(
@@ -100,6 +106,28 @@ public class GetCustomerOrderListQueryHandler
                 "An error occurred while retrieving orders",
                 ErrorCodeEnum.InternalError);
         }
+    }
+
+    private static CustomerOrderShippingDto? MapShippingInfo(Domain.Entities.Order order)
+    {
+        var shipping = order.OrderShippingMethods?
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefault();
+
+        if (shipping == null)
+        {
+            return null;
+        }
+
+        return new CustomerOrderShippingDto
+        {
+            ShippingMethodName = shipping.ShippingMethod?.Name,
+            TrackingNumber = shipping.TrackingNumber,
+            ShippedDate = shipping.ShippedDate,
+            EstimatedDeliveryDate = shipping.EstimatedDeliveryDate,
+            DeliveredDate = shipping.DeliveredDate,
+            ShippingStatus = order.OrderStatus
+        };
     }
 }
 

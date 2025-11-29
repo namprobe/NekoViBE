@@ -41,6 +41,19 @@ public class PlaceOrderCommandValidator : AbstractValidator<PlaceOrderCommand>
                 .Must(value => !string.IsNullOrWhiteSpace(value))
                 .WithMessage("Guest address is required for one click orders");
         });
+
+        When(x => x.Request is not null && x.Request.ShippingMethodId.HasValue, () =>
+        {
+            RuleFor(x => x.Request!.UserAddressId)
+                .NotNull()
+                .WithMessage("User address is required when shipping method is selected");
+            
+            RuleFor(x => x.Request!.ShippingAmount)
+                .NotNull()
+                .WithMessage("Shipping amount is required when shipping method is selected")
+                .GreaterThanOrEqualTo(0)
+                .WithMessage("Shipping amount cannot be negative");
+        });
     }
 }
 

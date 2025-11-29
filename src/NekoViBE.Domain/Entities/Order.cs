@@ -15,7 +15,7 @@ public class Order : BaseEntity
     public decimal TotalAmount { get; set; }
     public decimal DiscountAmount { get; set; } = 0;
     public decimal TaxAmount { get; set; } = 0;
-    public decimal ShippingAmount { get; set; } = 0;
+    //public decimal ShippingAmount { get; set; } = 0;
     public decimal FinalAmount { get; set; }
     public PaymentStatusEnum PaymentStatus { get; set; } = PaymentStatusEnum.Pending;
     public OrderStatusEnum OrderStatus { get; set; } = OrderStatusEnum.Processing;

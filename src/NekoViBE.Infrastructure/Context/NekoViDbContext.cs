@@ -16,6 +16,9 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
     public DbSet<StaffProfile> StaffProfiles { get; set; }
     public DbSet<UserAddress> UserAddresses { get; set; }
     public DbSet<UserAction> UserActions { get; set; }
+    // public DbSet<Province> Provinces { get; set; }
+    // public DbSet<District> Districts { get; set; }
+    // public DbSet<Ward> Wards { get; set; }
     public DbSet<Category> Categories { get; set; }
     public DbSet<AnimeSeries> AnimeSeries { get; set; }
     public DbSet<Product> Products { get; set; }
@@ -116,16 +119,61 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.HasKey(ur => new { ur.UserId, ur.RoleId });
         });
 
+        // // Province
+        // builder.Entity<Province>(entity =>
+        // {
+        //     entity.HasIndex(x => x.ProvinceId).IsUnique();
+        //     entity.HasIndex(x => x.ProvinceName);
+        //     entity.HasIndex(x => x.Code);
+        //     entity.HasIndex(x => x.Status);
+        // });
+
+        // // District
+        // builder.Entity<District>(entity =>
+        // {
+        //     entity.HasIndex(x => x.DistrictId).IsUnique();
+        //     entity.HasIndex(x => x.DistrictName);
+        //     entity.HasIndex(x => x.ProvinceId);
+        //     entity.HasIndex(x => x.GHNStatus);
+            
+        //     entity.HasOne(x => x.Province)
+        //         .WithMany(x => x.Districts)
+        //         .HasForeignKey(x => x.ProvinceId)
+        //         .HasPrincipalKey(x => x.ProvinceId) // Use ProvinceId as key, not Id
+        //         .OnDelete(DeleteBehavior.Restrict);
+        // });
+
+        // // Ward
+        // builder.Entity<Ward>(entity =>
+        // {
+        //     entity.HasIndex(x => x.WardCode).IsUnique();
+        //     entity.HasIndex(x => x.WardName);
+        //     entity.HasIndex(x => x.DistrictId);
+        //     entity.HasIndex(x => x.GHNStatus);
+            
+        //     entity.HasOne(x => x.District)
+        //         .WithMany(x => x.Wards)
+        //         .HasForeignKey(x => x.DistrictId)
+        //         .HasPrincipalKey(x => x.DistrictId) // Use DistrictId as key, not Id
+        //         .OnDelete(DeleteBehavior.Restrict);
+        // });
+
         // UserAddress
         builder.Entity<UserAddress>(entity =>
         {
             entity.Property(x => x.AddressType).HasConversion<int>();
             entity.Property(x => x.IsDefault).HasDefaultValue(true);
-            
+            entity.Property(x => x.ProvinceName).HasMaxLength(256);
+            entity.Property(x => x.DistrictName).HasMaxLength(256);
+            entity.Property(x => x.WardName).HasMaxLength(256);
+            entity.Property(x => x.WardCode).HasMaxLength(64);
+
             // Performance indexes
             entity.HasIndex(x => new { x.UserId, x.IsDefault }).HasFilter("IsDefault = 1");
             entity.HasIndex(x => x.AddressType);
-            entity.HasIndex(x => new { x.Country, x.State, x.City });
+            entity.HasIndex(x => x.ProvinceId).HasFilter("ProvinceId IS NOT NULL");
+            entity.HasIndex(x => x.DistrictId).HasFilter("DistrictId IS NOT NULL");
+            entity.HasIndex(x => x.WardCode).HasFilter("WardCode IS NOT NULL");
         });
 
         // StaffProfile

@@ -18,5 +18,6 @@ public class CustomerOrderListItem : BaseResponse
     public PaymentStatusEnum PaymentStatus { get; set; }
     public OrderStatusEnum OrderStatus { get; set; }
     public List<CustomerOrderItemDTO> Items { get; set; } = new();
+    public CustomerOrderShippingDto? Shipping { get; set; }
 }
 

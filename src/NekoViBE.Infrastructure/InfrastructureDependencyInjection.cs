@@ -15,6 +15,7 @@ using NekoViBE.Infrastructure.Factories;
 using PaymentService.Infrastructure.Factories;
 using VNPAY.Extensions;
 using NekoViBE.Application.Common.Models.Momo;
+using NekoViBE.Application.Common.Models.GHN;
 
 namespace NekoViBE.Infrastructure;
 
@@ -128,6 +129,7 @@ public static class InfrastructureDependencyInjection
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
         services.Configure<VnPaySettings>(configuration.GetSection("VnPay"));
         services.Configure<MoMoSettings>(configuration.GetSection("Momo"));
+        services.Configure<GHNSettings>(configuration.GetSection("GHN"));
 
         // Register repositories
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
@@ -151,6 +153,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<INotificationFactory, NotificationFactory>();
         services.AddScoped<IFirebaseService, FirebaseService>();
         services.AddScoped<IPaymentGatewayFactory, PaymentGatewayFactory>();
+        services.AddScoped<IShippingServiceFactory, ShippingServiceFactory>();
 
         // External services
         services.AddScoped<IFileService, FileService>();
@@ -161,6 +164,11 @@ public static class InfrastructureDependencyInjection
         // MoMo services
         services.AddScoped<MomoService>();
         services.AddScoped<IPaymentGatewayService, MomoService>();
+        
+        // GHN shipping services
+        services.AddScoped<GHNService>();
+        services.AddScoped<IShippingService, GHNService>();
+        //services.AddScoped<GHNAddressService>();
         
         return services;
     }

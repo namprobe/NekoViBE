@@ -9,4 +9,7 @@ public class UserAddressFilter : BasePaginationFilter
     public bool? IsDefault { get; set; }
     public AddressTypeEnum? AddressType { get; set; }
     public bool? IsCurrentUser { get; set; } = true; // If true, the user address will be filtered by the current user
+    public int? ProvinceId { get; set; }
+    public int? DistrictId { get; set; }
+    public string? WardCode { get; set; }
 }

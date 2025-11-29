@@ -7,6 +7,9 @@ public class OrderShippingMethod : BaseEntity
     public Guid OrderId { get; set; }
     public Guid ShippingMethodId { get; set; }
     public string? TrackingNumber { get; set; }
+    public decimal ShippingFee { get; set; }
+    public bool isFreeshipping { get; set; } = false;
+    public DateTime? EstimatedDeliveryDate { get; set; }
     public DateTime? ShippedDate { get; set; }
     public DateTime? DeliveredDate { get; set; }
     

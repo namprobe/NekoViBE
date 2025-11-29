@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NekoViBE.Application.Common.Behaviors;
     using FluentValidation;
 using NekoViBE.Application.Common.Mappings;
+using NekoViBE.Application.Features.Payment.Services;
 
 namespace NekoViBE.Application;
 
@@ -34,7 +35,7 @@ public static class ApplicationDependencyInjection
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
         
         // Register Payment services
-        services.AddScoped<Features.Payment.Services.IOrderRollbackService, Features.Payment.Services.OrderRollbackService>();
+        services.AddScoped<ICallBackShareLogic, CallBackShareLogic>();
         
         return services;
     }

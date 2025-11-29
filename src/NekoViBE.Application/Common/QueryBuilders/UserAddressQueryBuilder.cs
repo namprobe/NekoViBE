@@ -30,21 +30,19 @@ public static class UserAddressQueryBuilder
             searchPredicate = searchPredicate.CombineOr<UserAddress>(
                 x => x.Address != null && x.Address.Contains(filter.Search));
             
-            // Search trong City (null-safe)
-            searchPredicate = searchPredicate.CombineOr<UserAddress>(
-                x => x.City != null && x.City.Contains(filter.Search));
-            
-            // Search trong State (null-safe)
-            searchPredicate = searchPredicate.CombineOr<UserAddress>(
-                x => x.State != null && x.State.Contains(filter.Search));
-            
             // Search trong PostalCode (null-safe)
             searchPredicate = searchPredicate.CombineOr<UserAddress>(
                 x => x.PostalCode != null && x.PostalCode.Contains(filter.Search));
             
-            // Search trong Country (null-safe)
+            // Search trong ProvinceName/DistrictName/WardName (null-safe)
             searchPredicate = searchPredicate.CombineOr<UserAddress>(
-                x => x.Country != null && x.Country.Contains(filter.Search));
+                x => x.ProvinceName != null && x.ProvinceName.Contains(filter.Search));
+            searchPredicate = searchPredicate.CombineOr<UserAddress>(
+                x => x.DistrictName != null && x.DistrictName.Contains(filter.Search));
+            searchPredicate = searchPredicate.CombineOr<UserAddress>(
+                x => x.WardName != null && x.WardName.Contains(filter.Search));
+            searchPredicate = searchPredicate.CombineOr<UserAddress>(
+                x => x.WardCode != null && x.WardCode.Contains(filter.Search));
             
             // Search trong PhoneNumber (null-safe)
             searchPredicate = searchPredicate.CombineOr<UserAddress>(
@@ -69,6 +67,21 @@ public static class UserAddressQueryBuilder
             predicate = predicate.CombineAnd(x => x.AddressType == filter.AddressType.Value);
         }
 
+        if (filter.ProvinceId.HasValue)
+        {
+            predicate = predicate.CombineAnd(x => x.ProvinceId == filter.ProvinceId.Value);
+        }
+
+        if (filter.DistrictId.HasValue)
+        {
+            predicate = predicate.CombineAnd(x => x.DistrictId == filter.DistrictId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.WardCode))
+        {
+            predicate = predicate.CombineAnd(x => x.WardCode == filter.WardCode);
+        }
+
         return predicate;
     }
 
@@ -85,10 +98,10 @@ public static class UserAddressQueryBuilder
         {
             "fullname" => x => x.FullName,
             "address" => x => x.Address,
-            "city" => x => x.City,
-            "state" => x => x.State!,
-            "postalcode" => x => x.PostalCode,
-            "country" => x => x.Country,
+            "provincename" => x => x.ProvinceName!,
+            "districtname" => x => x.DistrictName!,
+            "wardname" => x => x.WardName!,
+            "postalcode" => x => x.PostalCode!,
             "phonenumber" => x => x.PhoneNumber!,
             "createdat" => x => x.CreatedAt!,
             "updatedat" => x => x.UpdatedAt!,

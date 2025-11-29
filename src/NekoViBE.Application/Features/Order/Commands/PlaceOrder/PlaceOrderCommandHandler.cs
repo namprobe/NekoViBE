@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using AutoMapper;
 using MediatR;
@@ -19,6 +20,7 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly IPaymentGatewayFactory _paymentGatewayFactory; 
+    private readonly IShippingServiceFactory _shippingServiceFactory;
     private readonly IServiceProvider _serviceProvider;
 
     public PlaceOrderCommandHandler(
@@ -26,12 +28,14 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
         IUnitOfWork unitOfWork,
         IMapper mapper,
         IPaymentGatewayFactory paymentGatewayFactory,
+        IShippingServiceFactory shippingServiceFactory,
         IServiceProvider serviceProvider)
     {
         _currentUserService = currentUserService;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _paymentGatewayFactory = paymentGatewayFactory;
+        _shippingServiceFactory = shippingServiceFactory;
         _serviceProvider = serviceProvider;
     }
 
@@ -63,10 +67,13 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
             var productNames = new List<string>(); // Store product names for metadata
             decimal productDiscountAmount = 0m;
             decimal couponDiscountAmount = 0m;
-            Domain.Entities.Coupon? appliedCoupon = null;
-            Domain.Entities.UserCoupon? appliedUserCoupon = null;
+            decimal shippingDiscountAmount = 0m;
+            decimal shippingAmount = 0m;
+            var appliedCoupons = new List<Domain.Entities.Coupon>();
+            var appliedUserCoupons = new List<Domain.Entities.UserCoupon>();
             string? paymentUrl = null;
             PaymentGatewayType? paymentGatewayType = null;
+            Domain.Entities.OrderShippingMethod? orderShippingMethod = null;
 
             await _unitOfWork.BeginTransactionAsync(cancellationToken);
             try
@@ -139,23 +146,57 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                     _unitOfWork.Repository<Domain.Entities.CartItem>().DeleteRange(cartItems);
                 }
 
-                newOrder.OrderItems = newOrderItems;
+                // Tính TotalAmount từ OrderItems (chưa gán vào Order để tránh tracking sớm)
                 newOrder.TotalAmount = newOrderItems.Sum(x => x.UnitPrice * x.Quantity);
 
                 var amountAfterProductDiscount = newOrder.TotalAmount - productDiscountAmount;
-                if (request.UserCouponId.HasValue && amountAfterProductDiscount > 0)
+                if (request.UserCouponIds != null &&
+                    request.UserCouponIds.Any() &&
+                    amountAfterProductDiscount > 0)
                 {
-                    var couponResult = await ValidateUserCouponAsync(request.UserCouponId.Value, amountAfterProductDiscount, userId.Value, cancellationToken);
-                    couponDiscountAmount = couponResult.discountAmount;
-                    appliedCoupon = couponResult.coupon;
-                    appliedUserCoupon = couponResult.userCoupon;
+                    // Validate và áp dụng coupons: Mỗi loại chỉ được chọn 1 voucher
+                    var couponTypeGroups = new Dictionary<DiscountTypeEnum, (Domain.Entities.Coupon coupon, Domain.Entities.UserCoupon userCoupon, decimal discountAmount)>();
+                    
+                    foreach (var userCouponId in request.UserCouponIds.Distinct())
+                    {
+                        var couponResult = await ValidateUserCouponAsync(
+                            userCouponId,
+                            amountAfterProductDiscount,
+                            userId.Value,
+                            cancellationToken);
+
+                        var discountType = couponResult.coupon.DiscountType;
+                        
+                        // Kiểm tra xem đã có coupon cùng loại chưa
+                        if (couponTypeGroups.ContainsKey(discountType))
+                        {
+                            throw new ArgumentException(
+                                $"Chỉ được chọn 1 voucher cho mỗi loại. Đã phát hiện nhiều voucher cùng loại {discountType}");
+                        }
+                        
+                        couponTypeGroups[discountType] = couponResult;
+                    }
+
+                    // Áp dụng các coupon đã validate
+                    foreach (var (discountType, couponResult) in couponTypeGroups)
+                    {
+                        appliedCoupons.Add(couponResult.coupon);
+                        appliedUserCoupons.Add(couponResult.userCoupon);
+
+                        if (discountType != DiscountTypeEnum.FreeShipping)
+                        {
+                            couponDiscountAmount += couponResult.discountAmount;
+                        }
+                    }
+
+                    couponDiscountAmount = Math.Min(couponDiscountAmount, amountAfterProductDiscount);
                 }
 
                 newOrder.DiscountAmount = productDiscountAmount + couponDiscountAmount;
+                newOrder.ShippingAmount = 0m; // Will be updated after shipping calculation
                 newOrder.FinalAmount = Math.Max(0, newOrder.TotalAmount - newOrder.DiscountAmount);
                 newOrder.UserId = userId.Value;
                 newOrder.InitializeEntity(userId.Value);
-                await _unitOfWork.Repository<Domain.Entities.Order>().AddAsync(newOrder);
 
                 //2. init payment
                 var payment = new Domain.Entities.Payment();
@@ -164,7 +205,6 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                 payment.Amount = newOrder.FinalAmount;
                 payment.Status = EntityStatusEnum.Active;
                 payment.InitializeEntity(userId.Value);
-                await _unitOfWork.Repository<Domain.Entities.Payment>().AddAsync(payment);
 
                 if (paymentMethod.IsOnlinePayment)
                 {
@@ -222,15 +262,118 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                     }
                 }
 
-                if (appliedCoupon is not null && appliedUserCoupon is not null)
+                if (appliedCoupons.Any())
                 {
-                    await AttachCouponToOrderAsync(newOrder, appliedCoupon, appliedUserCoupon, userId.Value);
+                    await AttachCouponsToOrderAsync(newOrder, appliedCoupons, appliedUserCoupons);
                 }
 
-                //3. To do: Init Shipping
-                //var shipping = new Domain.Entities.OrderShippingMethod();
+                //3. Handle Shipping (Client đã tính phí và truyền lên)
+                // Client sẽ gọi API calculate-fee trước, rồi truyền ShippingAmount vào request
+                if (request.ShippingMethodId.HasValue)
+                {
+                    // Validate shipping method exists and is active
+                    var shippingMethod = await _unitOfWork.Repository<Domain.Entities.ShippingMethod>()
+                        .GetFirstOrDefaultAsync(x => x.Id == request.ShippingMethodId.Value && x.Status == EntityStatusEnum.Active);
+                    
+                    if (shippingMethod == null)
+                    {
+                        throw new KeyNotFoundException("Shipping method not found or invalid");
+                    }
 
-                //await _unitOfWork.Repository<Domain.Entities.OrderShippingMethod>().AddRangeAsync(shipping);
+                    // Validate user address if provided
+                    if (request.UserAddressId.HasValue)
+                    {
+                        var userAddress = await _unitOfWork.Repository<Domain.Entities.UserAddress>()
+                            .GetFirstOrDefaultAsync(x => x.Id == request.UserAddressId.Value && x.UserId == userId.Value);
+                        
+                        if (userAddress == null)
+                        {
+                            throw new KeyNotFoundException("User address not found");
+                        }
+                    }
+
+                    // Use shipping amount from client request (client đã tính phí trước)
+                    shippingAmount = request.ShippingAmount ?? 0m;
+                    
+                    // Validate shipping amount is not negative
+                    if (shippingAmount < 0)
+                    {
+                        throw new ArgumentException("Shipping amount cannot be negative");
+                    }
+
+                    // Create OrderShippingMethod record (without tracking number - will be updated after shipping order is created)
+                    orderShippingMethod = new Domain.Entities.OrderShippingMethod
+                    {
+                        OrderId = newOrder.Id,
+                        ShippingMethodId = shippingMethod.Id,
+                        TrackingNumber = null, // Will be set after shipping order is created
+                        Status = EntityStatusEnum.Active
+                    };
+                    orderShippingMethod.InitializeEntity(userId.Value);
+                    await _unitOfWork.Repository<Domain.Entities.OrderShippingMethod>().AddAsync(orderShippingMethod);
+
+                    // Apply freeship coupons if available
+                    var freeShippingCoupons = appliedCoupons
+                        .Where(c => c.DiscountType == DiscountTypeEnum.FreeShipping)
+                        .ToList();
+
+                    if (freeShippingCoupons.Any())
+                    {
+                        var remainingShipping = shippingAmount;
+                        foreach (var coupon in freeShippingCoupons)
+                        {
+                            if (remainingShipping <= 0)
+                            {
+                                break;
+                            }
+
+                            if (coupon.DiscountValue > 0)
+                            {
+                                var applied = Math.Min(remainingShipping, coupon.DiscountValue);
+                                shippingDiscountAmount += applied;
+                                remainingShipping -= applied;
+                            }
+                            else
+                            {
+                                shippingDiscountAmount += remainingShipping;
+                                remainingShipping = 0;
+                            }
+                        }
+                    }
+
+                    // Update order with shipping amount and discounts
+                    var totalDiscountAmount = productDiscountAmount + couponDiscountAmount + shippingDiscountAmount;
+                    var userShippingPayable = Math.Max(0, shippingAmount - shippingDiscountAmount);
+
+                    newOrder.ShippingAmount = shippingAmount;
+                    newOrder.DiscountAmount = totalDiscountAmount;
+                    newOrder.FinalAmount = Math.Max(0, newOrder.TotalAmount - (productDiscountAmount + couponDiscountAmount) + userShippingPayable);
+                    //_unitOfWork.Repository<Domain.Entities.Order>().Update(newOrder);
+                    
+                    // Only create shipping order immediately for COD (offline payment)
+                    // For online payment, shipping order will be created after payment success
+                    if (!paymentMethod.IsOnlinePayment)
+                    {
+                        await CreateShippingOrderAfterPaymentAsync(
+                            newOrder,
+                            orderShippingMethod,
+                            userId.Value,
+                            paymentMethod,
+                            cancellationToken);
+                    }
+                }
+                else
+                {
+                    // No shipping method selected, shipping amount should be 0
+                    shippingAmount = 0m;
+                    newOrder.ShippingAmount = 0m;
+                    newOrder.DiscountAmount = productDiscountAmount + couponDiscountAmount;
+                    newOrder.FinalAmount = Math.Max(0, newOrder.TotalAmount - newOrder.DiscountAmount);
+                    // _unitOfWork.Repository<Domain.Entities.Order>().Update(newOrder);
+                }
+                newOrder.OrderItems = newOrderItems;
+                await _unitOfWork.Repository<Domain.Entities.Order>().AddAsync(newOrder);
+                await _unitOfWork.Repository<Domain.Entities.Payment>().AddAsync(payment);
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
                 var response = new PlaceOrderResponse
@@ -380,30 +523,144 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
         return (coupon, userCoupon, discountAmount);
     }
 
-    private Task AttachCouponToOrderAsync(
+    private Task AttachCouponsToOrderAsync(
         Domain.Entities.Order order,
-        Domain.Entities.Coupon coupon,
-        Domain.Entities.UserCoupon userCoupon,
-        Guid userId)
+        IReadOnlyList<Domain.Entities.Coupon> coupons,
+        IReadOnlyList<Domain.Entities.UserCoupon> userCoupons)
     {
-        // Update UserCoupon đã tồn tại (không tạo mới)
+        if (coupons.Count == 0 || userCoupons.Count == 0)
+    {
+            return Task.CompletedTask;
+        }
+
+        var pairCount = Math.Min(coupons.Count, userCoupons.Count);
+        for (var i = 0; i < pairCount; i++)
+        {
+            var userCoupon = userCoupons[i];
         userCoupon.OrderId = order.Id;
         userCoupon.UsedDate = DateTime.UtcNow;
         userCoupon.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Repository<Domain.Entities.UserCoupon>().Update(userCoupon);
 
-        // Thêm vào order navigation property
-        if (order.UserCoupons == null)
-        {
-            order.UserCoupons = new List<Domain.Entities.UserCoupon>();
-        }
+            order.UserCoupons ??= new List<Domain.Entities.UserCoupon>();
         order.UserCoupons.Add(userCoupon);
-
-        // Update coupon usage count
-        coupon.CurrentUsage++;
-        coupon.UpdatedAt = DateTime.UtcNow;
-        _unitOfWork.Repository<Domain.Entities.Coupon>().Update(coupon);
+        }
 
         return Task.CompletedTask;
+    }
+
+
+    /// <summary>
+    /// Create actual shipping order with GHN after payment success
+    /// </summary>
+    private async Task<Domain.Entities.OrderShippingMethod?> CreateShippingOrderAfterPaymentAsync(
+        Domain.Entities.Order order,
+        Domain.Entities.OrderShippingMethod orderShippingMethod,
+        Guid userId,
+        Domain.Entities.PaymentMethod paymentMethod,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // If tracking number already exists, shipping order was already created
+            if (!string.IsNullOrWhiteSpace(orderShippingMethod.TrackingNumber))
+            {
+                return orderShippingMethod;
+            }
+
+            var shippingMethod = await _unitOfWork.Repository<Domain.Entities.ShippingMethod>()
+                .GetFirstOrDefaultAsync(x => x.Id == orderShippingMethod.ShippingMethodId);
+            
+            if (shippingMethod == null || !Enum.TryParse<ShippingProviderType>(shippingMethod.Name, out var providerType) || 
+                providerType != ShippingProviderType.GHN)
+            {
+                return orderShippingMethod;
+            }
+
+            // Get user address
+            var userAddress = await _unitOfWork.Repository<Domain.Entities.UserAddress>()
+                .GetFirstOrDefaultAsync(
+                    x => x.UserId == order.UserId && x.IsDefault);
+            
+            if (userAddress == null ||
+                !userAddress.ProvinceId.HasValue ||
+                !userAddress.DistrictId.HasValue ||
+                string.IsNullOrWhiteSpace(userAddress.WardCode) ||
+                string.IsNullOrWhiteSpace(userAddress.ProvinceName) ||
+                string.IsNullOrWhiteSpace(userAddress.DistrictName) ||
+                string.IsNullOrWhiteSpace(userAddress.WardName))
+            {
+                throw new ArgumentException("User address is missing required GHN identifiers");
+            }
+
+            var ghnService = _shippingServiceFactory.GetShippingService(ShippingProviderType.GHN);
+
+            // Load order items
+            if (order.OrderItems == null || !order.OrderItems.Any())
+            {
+                var orderItems = await _unitOfWork.Repository<Domain.Entities.OrderItem>()
+                    .FindAsync(x => x.OrderId == order.Id, x => x.Product);
+                order.OrderItems = orderItems.ToList();
+            }
+
+            var shippingItems = order.OrderItems?.Select(item => new ShippingOrderItem
+            {
+                Name = item.Product?.Name ?? "Product",
+                Code = item.ProductId.ToString(),
+                Quantity = item.Quantity,
+                Price = (int)item.UnitPrice,
+                Weight = 500,
+                Length = 20,
+                Width = 20,
+                Height = 20
+            }).ToList();
+
+            var shippingOrderRequest = new ShippingOrderRequest
+            {
+                ClientOrderCode = order.Id.ToString(),
+                ToName = userAddress.FullName,
+                ToPhone = userAddress.PhoneNumber ?? string.Empty,
+                ToAddress = userAddress.Address,
+                ToWardName = userAddress.WardName,
+                ToDistrictName = userAddress.DistrictName,
+                ToProvinceName = userAddress.ProvinceName,
+                PaymentTypeId = paymentMethod.IsOnlinePayment ? 1 : 2,
+                ServiceTypeId = 2,
+                RequiredNote = "KHONGCHOXEMHANG",
+                Note = order.Notes,
+                Weight = 500,
+                Length = 20,
+                Width = 20,
+                Height = 20,
+                CodAmount = !paymentMethod.IsOnlinePayment ? (int)order.FinalAmount : null,
+                InsuranceValue = (int)order.FinalAmount,
+                Items = shippingItems
+            };
+
+            // Preview order
+            var previewResult = await ghnService.PreviewOrderAsync(shippingOrderRequest);
+            if (!previewResult.IsSuccess)
+            {
+                throw new InvalidOperationException($"Failed to preview shipping order: {previewResult.Message}");
+            }
+
+            // Create shipping order
+            var createResult = await ghnService.CreateOrderAsync(shippingOrderRequest);
+            if (!createResult.IsSuccess || createResult.Data == null)
+            {
+                throw new InvalidOperationException($"Failed to create shipping order: {createResult.Message}");
+            }
+
+            // Update OrderShippingMethod with tracking number
+            orderShippingMethod.TrackingNumber = createResult.Data.OrderCode;
+            orderShippingMethod.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Repository<Domain.Entities.OrderShippingMethod>().Update(orderShippingMethod);
+
+            return orderShippingMethod;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to create shipping order after payment: {ex.Message}", ex);
+        }
     }
 }
