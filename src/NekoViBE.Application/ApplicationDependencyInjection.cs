@@ -46,6 +46,7 @@ public static class ApplicationDependencyInjection
             cfg.AddProfile(new PostCategoryMappingProfile());
             cfg.AddProfile(new BlogPostMappingProfile());
             cfg.AddProfile(new HomeImageMappingProfile());
+            cfg.AddProfile(new UserHomeImageMappingProfile());
 
 
 

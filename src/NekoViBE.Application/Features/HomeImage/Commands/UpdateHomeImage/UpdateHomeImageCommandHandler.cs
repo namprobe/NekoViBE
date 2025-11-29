@@ -64,7 +64,7 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.UpdateHomeImage
                 // Chỉ upload nếu có file mới
                 if (command.Request.ImageFile != null)
                 {
-                    var newPath = await _fileService.UploadFileAsync(command.Request.ImageFile, "home-images", ct);
+                    var newPath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads", ct);
                     entity.ImagePath = newPath;
 
                     // Xóa ảnh cũ nếu có

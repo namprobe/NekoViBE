@@ -57,7 +57,7 @@ namespace NekoViBE.Application.Features.BlogPost.Commands.DeleteBlogPost
                     repo.Update(entity);
 
                     var oldTags = await _unitOfWork.Repository<PostTag>()
-    .FindAsync(x => x.PostId == command.Id);
+                                                   .FindAsync(x => x.PostId == command.Id);
                     _unitOfWork.Repository<PostTag>().DeleteRange(oldTags);
 
                     var userAction = new UserAction

@@ -46,7 +46,7 @@ namespace NekoViBE.Application.Features.HomeImage.Commands.CreateHomeImage
                         return Result.Failure("Anime series not found", ErrorCodeEnum.NotFound);
                 }
 
-                var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "home-images", ct);
+                var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads", ct);
 
                 var entity = new Domain.Entities.HomeImage
                 {
