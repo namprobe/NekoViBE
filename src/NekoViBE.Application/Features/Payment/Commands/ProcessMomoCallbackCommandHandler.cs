@@ -22,7 +22,8 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
     private readonly IPaymentGatewayFactory _paymentGatewayFactory;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ProcessMomoCallbackCommandHandler> _logger;
-    private readonly IOrderRollbackService _orderRollbackService;
+    private readonly ICallBackShareLogic _callBackShareLogic;
+    private readonly IShippingServiceFactory _shippingServiceFactory;
     private readonly IServiceProvider _serviceProvider;
     private readonly HashSet<string> _ipWhitelist;
 
@@ -31,13 +32,15 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
         IUnitOfWork unitOfWork,
         ILogger<ProcessMomoCallbackCommandHandler> logger,
         IOptions<MoMoSettings> moMoSettings,
-        IOrderRollbackService orderRollbackService,
+        ICallBackShareLogic callBackShareLogic,
+        IShippingServiceFactory shippingServiceFactory,
         IServiceProvider serviceProvider)
     {
         _paymentGatewayFactory = paymentGatewayFactory;
         _unitOfWork = unitOfWork;
         _logger = logger;
-        _orderRollbackService = orderRollbackService;
+        _callBackShareLogic = callBackShareLogic;
+        _shippingServiceFactory = shippingServiceFactory;
         _serviceProvider = serviceProvider;
         var whitelistConfig = moMoSettings.Value.MomoIpnWhitelist;
         _ipWhitelist = whitelistConfig?
@@ -111,14 +114,14 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
                                 failedOrderId, failedOrder.Payment != null);
                             
                             // Revert stock và coupon trước khi update order status
-                            await _orderRollbackService.RevertOrderChangesAsync(
+                            await _callBackShareLogic.RevertOrderChangesAsync(
                                 failedOrder, _unitOfWork, _logger, cancellationToken);
                             
-                            _orderRollbackService.UpdateOrderAsFailed(failedOrder, paymentNote, _unitOfWork);
+                            _callBackShareLogic.UpdateOrderAsFailed(failedOrder, paymentNote, _unitOfWork);
                             
                             if (failedOrder.Payment != null)
                             {
-                                _orderRollbackService.UpdatePaymentAsFailed(
+                                _callBackShareLogic.UpdatePaymentAsFailed(
                                     failedOrder.Payment, paymentNote, paymentResult.Message, _unitOfWork);
                             }
                             
@@ -211,11 +214,15 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
                 _logger.LogError("[MoMo IPN] Payment record not found for order - OrderId: {OrderId}", order.Id);
                 
                 // Revert stock và coupon trước khi update order status
-                await _orderRollbackService.RevertOrderChangesAsync(
+                await _callBackShareLogic.RevertOrderChangesAsync(
+                    order, _unitOfWork, _logger, cancellationToken);
+                
+                // Rollback shipping order if it was created
+                await _callBackShareLogic.RollbackShippingOrderAsync(
                     order, _unitOfWork, _logger, cancellationToken);
                 
                 // Update order fail và save changes trước khi trả response
-                _orderRollbackService.UpdateOrderAsFailed(
+                _callBackShareLogic.UpdateOrderAsFailed(
                     order, $"{paymentNote} | Payment record not found", _unitOfWork);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -251,6 +258,29 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
             payment.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Repository<Domain.Entities.Payment>().Update(payment);
             
+            // Create shipping order after payment success (before saving changes)
+            // This ensures everything is in the same transaction
+            try
+            {
+                var orderShippingMethods = await _unitOfWork.Repository<Domain.Entities.OrderShippingMethod>()
+                    .FindAsync(x => x.OrderId == order.Id, x => x.ShippingMethod!);
+                
+                var orderShippingMethod = orderShippingMethods.FirstOrDefault();
+                if (orderShippingMethod?.ShippingMethod != null &&
+                    Enum.TryParse<ShippingProviderType>(orderShippingMethod.ShippingMethod.Name, out var providerType))
+                {
+                    var shippingService = _shippingServiceFactory.GetShippingService(providerType);
+                    await _callBackShareLogic.CreateShippingOrderAfterPaymentSuccessAsync(
+                        order, shippingService, _unitOfWork, _logger, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[MoMo IPN] Error creating shipping order after payment success for order {OrderId}", order.Id);
+                // Don't throw - shipping order can be created manually later
+            }
+
+            // Save all changes together (order, payment, and shipping method updates)
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             LogOrderAction(

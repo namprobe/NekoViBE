@@ -654,6 +654,9 @@ namespace NekoViBE.Infrastructure.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<decimal?>("MaxDiscountCap")
+                        .HasColumnType("decimal(10,2)");
+
                     b.Property<decimal>("MinOrderAmount")
                         .HasColumnType("decimal(10,2)");
 
@@ -933,6 +936,9 @@ namespace NekoViBE.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("CouponDiscountAmount")
+                        .HasColumnType("decimal(10,2)");
+
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime")
@@ -946,9 +952,6 @@ namespace NekoViBE.Infrastructure.Migrations
 
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("DiscountAmount")
-                        .HasColumnType("decimal(10,2)");
 
                     b.Property<decimal>("FinalAmount")
                         .HasColumnType("decimal(10,2)");
@@ -985,16 +988,31 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.Property<int>("PaymentStatus")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("ShippingAmount")
+                    b.Property<decimal>("ProductDiscountAmount")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("ShippingDiscountAmount")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("ShippingFeeActual")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("ShippingFeeOriginal")
                         .HasColumnType("decimal(10,2)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("SubtotalAfterProductDiscount")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("SubtotalOriginal")
+                        .HasColumnType("decimal(10,2)");
+
                     b.Property<decimal>("TaxAmount")
                         .HasColumnType("decimal(10,2)");
 
-                    b.Property<decimal>("TotalAmount")
+                    b.Property<decimal>("TotalProductAmount")
                         .HasColumnType("decimal(10,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -1040,13 +1058,13 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<decimal>("DiscountAmount")
-                        .HasColumnType("decimal(10,2)");
-
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uniqueidentifier");
@@ -1060,7 +1078,13 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("UnitPrice")
+                    b.Property<decimal>("UnitDiscountAmount")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("UnitPriceAfterDiscount")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("UnitPriceOriginal")
                         .HasColumnType("decimal(10,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -1084,6 +1108,9 @@ namespace NekoViBE.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("CodFee")
+                        .HasColumnType("decimal(10,2)");
+
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime")
@@ -1101,16 +1128,40 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.Property<DateTime?>("DeliveredDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("EstimatedDeliveryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FreeshippingNote")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("InsuranceFee")
+                        .HasColumnType("decimal(10,2)");
+
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsFreeshipping")
+                        .HasColumnType("bit");
+
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ProviderName")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<DateTime?>("ShippedDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal>("ShippingDiscountAmount")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("ShippingFeeActual")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("ShippingFeeOriginal")
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<Guid>("ShippingMethodId")
                         .HasColumnType("uniqueidentifier");
@@ -1130,6 +1181,9 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OrderId");
+
+                    b.HasIndex("ProviderName")
+                        .HasFilter("ProviderName IS NOT NULL");
 
                     b.HasIndex("ShippingMethodId");
 
@@ -1682,6 +1736,88 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.ToTable("ProductTags");
                 });
 
+            modelBuilder.Entity("NekoViBE.Domain.Entities.ShippingHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AdditionalData")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CallerIpAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("EventTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EventType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrderShippingMethodId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StatusDescription")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StatusName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TrackingNumber")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventTime");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("OrderShippingMethodId");
+
+                    b.HasIndex("TrackingNumber")
+                        .HasFilter("TrackingNumber IS NOT NULL");
+
+                    b.HasIndex("OrderId", "EventTime");
+
+                    b.ToTable("ShippingHistories");
+                });
+
             modelBuilder.Entity("NekoViBE.Domain.Entities.ShippingMethod", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2000,12 +2136,10 @@ namespace NekoViBE.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("City")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Country")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -2020,6 +2154,13 @@ namespace NekoViBE.Infrastructure.Migrations
 
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("DistrictId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DistrictName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("FullName")
                         .IsRequired()
@@ -2039,11 +2180,17 @@ namespace NekoViBE.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PostalCode")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("ProvinceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProvinceName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<string>("State")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -2057,14 +2204,29 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("WardCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("WardName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AddressType");
 
+                    b.HasIndex("DistrictId")
+                        .HasFilter("DistrictId IS NOT NULL");
+
+                    b.HasIndex("ProvinceId")
+                        .HasFilter("ProvinceId IS NOT NULL");
+
+                    b.HasIndex("WardCode")
+                        .HasFilter("WardCode IS NOT NULL");
+
                     b.HasIndex("UserId", "IsDefault")
                         .HasFilter("IsDefault = 1");
-
-                    b.HasIndex("Country", "State", "City");
 
                     b.ToTable("UserAddresses");
                 });
@@ -2651,6 +2813,25 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("Tag");
+                });
+
+            modelBuilder.Entity("NekoViBE.Domain.Entities.ShippingHistory", b =>
+                {
+                    b.HasOne("NekoViBE.Domain.Entities.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("NekoViBE.Domain.Entities.OrderShippingMethod", "OrderShippingMethod")
+                        .WithMany()
+                        .HasForeignKey("OrderShippingMethodId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+
+                    b.Navigation("OrderShippingMethod");
                 });
 
             modelBuilder.Entity("NekoViBE.Domain.Entities.ShoppingCart", b =>

@@ -12,6 +12,7 @@ public class UserCouponItem : BaseResponse
     public string? Description { get; set; }
     public DiscountTypeEnum DiscountType { get; set; }
     public decimal DiscountValue { get; set; }
+    public decimal? MaxDiscountCap { get; set; }
     public decimal MinOrderAmount { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
