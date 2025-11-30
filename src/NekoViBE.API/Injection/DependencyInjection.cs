@@ -4,7 +4,7 @@ using NekoViBE.API.Middlewares;
 using NekoViBE.Application.Common.DTOs.OrderItem;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
-using NekoViBE.Application.Features.Order.OrderBusinessLogic;
+//using NekoViBE.Application.Features.Order.OrderBusinessLogic;
 using NekoViBE.Infrastructure.Factories;
 using NekoViBE.Infrastructure.Services;
 
@@ -19,7 +19,7 @@ public static class DependencyInjection
 
         // Đăng ký FileServiceFactory
         services.AddSingleton<IFileServiceFactory, FileServiceFactory>();
-        services.AddScoped<ICreateOrderService, CreateOrderService>();
+        //services.AddScoped<ICreateOrderService, CreateOrderService>();
         //services.AddScoped<IRequestHandler<GetOrderItemsByOrderIdQuery, Result<List<OrderItemDetailDTO>>>, GetOrderItemsByOrderIdQueryHandler>();
 
 

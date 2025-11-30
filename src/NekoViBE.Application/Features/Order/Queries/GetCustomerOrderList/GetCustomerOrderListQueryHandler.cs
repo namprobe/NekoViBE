@@ -69,7 +69,9 @@ public class GetCustomerOrderListQueryHandler
                     .ThenInclude(oi => oi.Product!)
                         .ThenInclude(p => p.ProductImages!)
                 .Include(o => o.OrderShippingMethods!)
-                    .ThenInclude(os => os.ShippingMethod!);
+                    .ThenInclude(os => os.ShippingMethod!)
+                .Include(o => o.UserCoupons!)
+                    .ThenInclude(uc => uc.Coupon!);
 
             // Apply ordering
             if (orderBy != null)

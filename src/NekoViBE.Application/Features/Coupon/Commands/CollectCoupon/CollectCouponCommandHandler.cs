@@ -44,7 +44,7 @@ public class CollectCouponCommandHandler : IRequestHandler<CollectCouponCommand,
         if (coupon.EndDate < now)
             return Result.Failure("Coupon has expired", Common.Enums.ErrorCodeEnum.InvalidOperation);
 
-        // Kiểm tra còn slot không
+        // Kiểm tra còn slot không (dựa trên CurrentUsage, không phải CurrentUsage)
         if (coupon.UsageLimit.HasValue && coupon.CurrentUsage >= coupon.UsageLimit.Value)
             return Result.Failure("Coupon usage limit has been reached", Common.Enums.ErrorCodeEnum.InvalidOperation);
 
@@ -67,7 +67,7 @@ public class CollectCouponCommandHandler : IRequestHandler<CollectCouponCommand,
 
         await _unitOfWork.Repository<Domain.Entities.UserCoupon>().AddAsync(userCoupon);
         
-        // Tăng CurrentUsage của coupon
+        // Tăng CurrentUsage của coupon (không thay đổi UsageLimit)
         coupon.CurrentUsage++;
         coupon.UpdatedAt = now;
         _unitOfWork.Repository<Domain.Entities.Coupon>().Update(coupon);

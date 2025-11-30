@@ -22,6 +22,9 @@ namespace NekoViBE.Application.Common.DTOs.Coupon
         [JsonPropertyName("discountValue")]
         public decimal DiscountValue { get; set; }
 
+        [JsonPropertyName("maxDiscountCap")]
+        public decimal? MaxDiscountCap { get; set; }
+
         [JsonPropertyName("minOrderAmount")]
         public decimal MinOrderAmount { get; set; }
 
@@ -34,14 +37,14 @@ namespace NekoViBE.Application.Common.DTOs.Coupon
         [JsonPropertyName("usageLimit")]
         public int? UsageLimit { get; set; }
 
-        [JsonPropertyName("currentUsage")]
+        [JsonPropertyName("CurrentUsage")]
         public int CurrentUsage { get; set; }
 
         [JsonPropertyName("isActive")]
         public bool IsActive { get; set; }
 
         [JsonPropertyName("remainingUses")]
-        public int? RemainingUses => UsageLimit - CurrentUsage;
+        public int? RemainingUses => UsageLimit.HasValue ? UsageLimit.Value - CurrentUsage : null;
 
         [JsonPropertyName("isExpired")]
         public bool IsExpired => DateTime.UtcNow > EndDate;

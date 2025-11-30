@@ -20,6 +20,9 @@ namespace NekoViBE.Application.Common.DTOs.Coupon
         public decimal DiscountValue { get; set; }
 
         [Range(0, 1000000000000)]
+        public decimal? MaxDiscountCap { get; set; }
+
+        [Range(0, 1000000000000)]
         public decimal MinOrderAmount { get; set; }
 
         public DateTime StartDate { get; set; }

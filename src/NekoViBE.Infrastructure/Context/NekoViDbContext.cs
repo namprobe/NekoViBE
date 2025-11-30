@@ -35,6 +35,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<ShippingMethod> ShippingMethods { get; set; }
     public DbSet<OrderShippingMethod> OrderShippingMethods { get; set; }
+    public DbSet<ShippingHistory> ShippingHistories { get; set; }
     public DbSet<Payment> Payments { get; set; }
     public DbSet<PaymentMethod> PaymentMethods { get; set; }
     public DbSet<Wishlist> Wishlists { get; set; }
@@ -386,10 +387,15 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         // Order
         builder.Entity<Order>(entity =>
         {
-            entity.Property(x => x.TotalAmount).HasColumnType("decimal(10,2)");
-            entity.Property(x => x.DiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.SubtotalOriginal).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ProductDiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.SubtotalAfterProductDiscount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.CouponDiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.TotalProductAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ShippingFeeOriginal).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ShippingDiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ShippingFeeActual).HasColumnType("decimal(10,2)");
             entity.Property(x => x.TaxAmount).HasColumnType("decimal(10,2)");
-            entity.Property(x => x.ShippingAmount).HasColumnType("decimal(10,2)");
             entity.Property(x => x.FinalAmount).HasColumnType("decimal(10,2)");
             entity.Property(x => x.PaymentStatus).HasConversion<int>();
             entity.Property(x => x.OrderStatus).HasConversion<int>();
@@ -408,8 +414,10 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         // OrderItem
         builder.Entity<OrderItem>(entity =>
         {
-            entity.Property(x => x.UnitPrice).HasColumnType("decimal(10,2)");
-            entity.Property(x => x.DiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.UnitPriceOriginal).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.UnitPriceAfterDiscount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.UnitDiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.LineTotal).HasColumnType("decimal(10,2)");
             
             entity.HasOne(x => x.Order)
                 .WithMany(x => x.OrderItems)
@@ -436,6 +444,12 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         // OrderShippingMethod
         builder.Entity<OrderShippingMethod>(entity =>
         {
+            entity.Property(x => x.ShippingFeeOriginal).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ShippingDiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ShippingFeeActual).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.CodFee).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.InsuranceFee).HasColumnType("decimal(10,2)");
+            
             entity.HasOne(x => x.Order)
                 .WithMany(x => x.OrderShippingMethods)
                 .HasForeignKey(x => x.OrderId)
@@ -449,6 +463,30 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.HasIndex(x => x.OrderId);
             entity.HasIndex(x => x.ShippingMethodId);
             entity.HasIndex(x => x.TrackingNumber).HasFilter("TrackingNumber IS NOT NULL");
+            entity.HasIndex(x => x.ProviderName).HasFilter("ProviderName IS NOT NULL");
+        });
+
+        // ShippingHistory
+        builder.Entity<ShippingHistory>(entity =>
+        {
+            entity.HasOne(x => x.OrderShippingMethod)
+                .WithMany()
+                .HasForeignKey(x => x.OrderShippingMethodId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            // Use NO ACTION instead of CASCADE to avoid multiple cascade paths
+            // Order -> OrderShippingMethod -> ShippingHistory (CASCADE)
+            // Order -> ShippingHistory (NO ACTION) - prevents deletion if history exists
+            entity.HasOne(x => x.Order)
+                .WithMany()
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.NoAction);
+                
+            entity.HasIndex(x => x.OrderShippingMethodId);
+            entity.HasIndex(x => x.OrderId);
+            entity.HasIndex(x => x.TrackingNumber).HasFilter("TrackingNumber IS NOT NULL");
+            entity.HasIndex(x => x.EventTime);
+            entity.HasIndex(x => new { x.OrderId, x.EventTime });
         });
 
         // PaymentMethod
@@ -517,6 +555,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         builder.Entity<Coupon>(entity =>
         {
             entity.Property(x => x.DiscountValue).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.MaxDiscountCap).HasColumnType("decimal(10,2)");
             entity.Property(x => x.MinOrderAmount).HasColumnType("decimal(10,2)");
             entity.Property(x => x.DiscountType).HasConversion<int>();
             
@@ -550,6 +589,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.HasIndex(x => x.OrderId).HasFilter("OrderId IS NOT NULL");
             entity.HasIndex(x => x.UsedDate).HasFilter("UsedDate IS NOT NULL");
         });
+
 
         // PostCategory
         builder.Entity<PostCategory>(entity =>

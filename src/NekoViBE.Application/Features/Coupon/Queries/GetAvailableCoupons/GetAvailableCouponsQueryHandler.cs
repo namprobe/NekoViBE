@@ -51,6 +51,7 @@ public class GetAvailableCouponsQueryHandler : IRequestHandler<GetAvailableCoupo
                 Description = c.Description,
                 DiscountType = c.DiscountType.ToString(),
                 DiscountValue = c.DiscountValue,
+                MaxDiscountCap = c.MaxDiscountCap,
                 MinOrderAmount = c.MinOrderAmount,
                 StartDate = c.StartDate,
                 EndDate = c.EndDate,

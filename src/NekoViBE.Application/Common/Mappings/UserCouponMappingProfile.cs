@@ -16,6 +16,7 @@ public class UserCouponMappingProfile : Profile
             .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Coupon.Description))
             .ForMember(dest => dest.DiscountType, opt => opt.MapFrom(src => src.Coupon.DiscountType))
             .ForMember(dest => dest.DiscountValue, opt => opt.MapFrom(src => src.Coupon.DiscountValue))
+            .ForMember(dest => dest.MaxDiscountCap, opt => opt.MapFrom(src => src.Coupon.MaxDiscountCap))
             .ForMember(dest => dest.MinOrderAmount, opt => opt.MapFrom(src => src.Coupon.MinOrderAmount))
             .ForMember(dest => dest.StartDate, opt => opt.MapFrom(src => src.Coupon.StartDate))
             .ForMember(dest => dest.EndDate, opt => opt.MapFrom(src => src.Coupon.EndDate))

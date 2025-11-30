@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NekoViBE.Infrastructure.Context;
 
@@ -11,9 +12,11 @@ using NekoViBE.Infrastructure.Context;
 namespace NekoViBE.Infrastructure.Migrations
 {
     [DbContext(typeof(NekoViDbContext))]
-    partial class NekoViDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251130051800_UpdateOrder")]
+    partial class UpdateOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1736,88 +1739,6 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.ToTable("ProductTags");
                 });
 
-            modelBuilder.Entity("NekoViBE.Domain.Entities.ShippingHistory", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("AdditionalData")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CallerIpAddress")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("EventTime")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("EventType")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
-                    b.Property<Guid>("OrderId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("OrderShippingMethodId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<int>("StatusCode")
-                        .HasColumnType("int");
-
-                    b.Property<string>("StatusDescription")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("StatusName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TrackingNumber")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventTime");
-
-                    b.HasIndex("OrderId");
-
-                    b.HasIndex("OrderShippingMethodId");
-
-                    b.HasIndex("TrackingNumber")
-                        .HasFilter("TrackingNumber IS NOT NULL");
-
-                    b.HasIndex("OrderId", "EventTime");
-
-                    b.ToTable("ShippingHistories");
-                });
-
             modelBuilder.Entity("NekoViBE.Domain.Entities.ShippingMethod", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2813,25 +2734,6 @@ namespace NekoViBE.Infrastructure.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("Tag");
-                });
-
-            modelBuilder.Entity("NekoViBE.Domain.Entities.ShippingHistory", b =>
-                {
-                    b.HasOne("NekoViBE.Domain.Entities.Order", "Order")
-                        .WithMany()
-                        .HasForeignKey("OrderId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("NekoViBE.Domain.Entities.OrderShippingMethod", "OrderShippingMethod")
-                        .WithMany()
-                        .HasForeignKey("OrderShippingMethodId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Order");
-
-                    b.Navigation("OrderShippingMethod");
                 });
 
             modelBuilder.Entity("NekoViBE.Domain.Entities.ShoppingCart", b =>

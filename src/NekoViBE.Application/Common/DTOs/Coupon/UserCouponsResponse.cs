@@ -13,6 +13,7 @@ public class UserCouponItem
     public string? Description { get; set; }
     public string DiscountType { get; set; } = string.Empty;
     public decimal DiscountValue { get; set; }
+    public decimal? MaxDiscountCap { get; set; }
     public decimal MinOrderAmount { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }

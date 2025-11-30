@@ -47,11 +47,35 @@ namespace NekoViBE.Application.Common.Mappings
                 .ForMember(dest => dest.ProductName,
                     opt => opt.MapFrom(src => src.Product.Name))
                 .ForMember(dest => dest.ProductImage,
-                    opt => opt.ConvertUsing<FilePathUrlConverter, string?>(src => ExtractProductImagePath(src)));
+                    opt => opt.ConvertUsing<FilePathUrlConverter, string?>(src => ExtractProductImagePath(src)))
+                .ForMember(dest => dest.UnitPrice,
+                    opt => opt.MapFrom(src => src.UnitPriceAfterDiscount))
+                .ForMember(dest => dest.DiscountAmount,
+                    opt => opt.MapFrom(src => src.UnitDiscountAmount * src.Quantity));
 
             CreateMap<Order, CustomerOrderListItem>()
                 .ForMember(dest => dest.Items,
-                    opt => opt.MapFrom(src => src.OrderItems));
+                    opt => opt.MapFrom(src => src.OrderItems))
+                .ForMember(dest => dest.SubtotalOriginal,
+                    opt => opt.MapFrom(src => src.SubtotalOriginal))
+                .ForMember(dest => dest.ProductDiscountAmount,
+                    opt => opt.MapFrom(src => src.ProductDiscountAmount))
+                .ForMember(dest => dest.SubtotalAfterProductDiscount,
+                    opt => opt.MapFrom(src => src.SubtotalAfterProductDiscount))
+                .ForMember(dest => dest.CouponDiscountAmount,
+                    opt => opt.MapFrom(src => src.CouponDiscountAmount))
+                .ForMember(dest => dest.TotalProductAmount,
+                    opt => opt.MapFrom(src => src.TotalProductAmount))
+                .ForMember(dest => dest.ShippingFeeOriginal,
+                    opt => opt.MapFrom(src => src.ShippingFeeOriginal))
+                .ForMember(dest => dest.ShippingDiscountAmount,
+                    opt => opt.MapFrom(src => src.ShippingDiscountAmount))
+                .ForMember(dest => dest.ShippingFeeActual,
+                    opt => opt.MapFrom(src => src.ShippingFeeActual))
+                .ForMember(dest => dest.TaxAmount,
+                    opt => opt.MapFrom(src => src.TaxAmount))
+                .ForMember(dest => dest.TotalAmount,
+                    opt => opt.MapFrom(src => src.SubtotalOriginal)); // Legacy: map to SubtotalOriginal
 
             CreateMap<OrderItem, CustomerOrderDetailItemDto>()
                 .IncludeBase<OrderItem, CustomerOrderItemDTO>()
@@ -70,11 +94,23 @@ namespace NekoViBE.Application.Common.Mappings
                 .ForMember(dest => dest.PaymentMethodName,
                     opt => opt.MapFrom(src => src.PaymentMethod.Name));
 
+            CreateMap<Domain.Entities.UserCoupon, CustomerOrderCouponDto>()
+                .ForMember(dest => dest.CouponId, opt => opt.MapFrom(src => src.CouponId))
+                .ForMember(dest => dest.CouponCode, opt => opt.MapFrom(src => src.Coupon.Code))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Coupon.Description))
+                .ForMember(dest => dest.DiscountType, opt => opt.MapFrom(src => src.Coupon.DiscountType))
+                .ForMember(dest => dest.DiscountValue, opt => opt.MapFrom(src => src.Coupon.DiscountValue))
+                .ForMember(dest => dest.UsedDate, opt => opt.MapFrom(src => src.UsedDate));
+
             CreateMap<Order, CustomerOrderDetailDto>()
                 .IncludeBase<Order, CustomerOrderListItem>()
                 .ForMember(dest => dest.Payment, opt => opt.MapFrom(src => src.Payment))
                 .ForMember(dest => dest.Items,
-                    opt => opt.MapFrom(src => src.OrderItems));
+                    opt => opt.MapFrom(src => src.OrderItems))
+                .ForMember(dest => dest.AppliedCoupons,
+                    opt => opt.MapFrom(src => src.UserCoupons.Where(uc => uc.UsedDate != null && uc.Coupon != null)))
+                .ForMember(dest => dest.DiscountAmount,
+                    opt => opt.MapFrom(src => src.CouponDiscountAmount + src.ProductDiscountAmount)); // Legacy: sum of all discounts
         }
     }
 }

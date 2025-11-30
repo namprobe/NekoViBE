@@ -60,8 +60,7 @@ public class ProcessVnPayCallbackCommandHandler : IRequestHandler<ProcessVnPayCa
                     var failedOrder = await _unitOfWork.Repository<Domain.Entities.Order>()
                         .GetFirstOrDefaultAsync(x => x.Id == failedOrderId && x.OrderStatus == OrderStatusEnum.Processing, 
                             o => o.Payment, 
-                            o => o.OrderItems, 
-                            o => o.UserCoupons);
+                            o => o.OrderItems);
                     
                     if (failedOrder != null)
                     {

@@ -13,6 +13,7 @@ public class PlaceOrderRequest
     public Guid? ShippingMethodId { get; set; }
     public Guid? UserAddressId { get; set; } // Địa chỉ giao hàng cho user đã đăng nhập
     public decimal? ShippingAmount { get; set; } // Phí vận chuyển (client tính và truyền lên)
+    public DateTime? EstimatedDeliveryDate { get; set; }
 
     //Nếu IsOneClickToBuy true nghĩa là đặt hàng thông qua 1 click, cần có email để đặt hàng
     public bool IsOneClick { get; set; } = false;
