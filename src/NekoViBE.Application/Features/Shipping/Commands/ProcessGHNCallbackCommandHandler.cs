@@ -8,6 +8,7 @@ using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Common.Models.GHN;
 using NekoViBE.Application.Features.Payment.Services;
+using NekoViBE.Domain.Common;
 using NekoViBE.Domain.Enums;
 
 namespace NekoViBE.Application.Features.Shipping.Commands;
@@ -113,6 +114,33 @@ public class ProcessGHNCallbackCommandHandler : IRequestHandler<ProcessGHNCallba
             }
 
             _unitOfWork.Repository<Domain.Entities.OrderShippingMethod>().Update(orderShippingMethod);
+
+            // Create shipping history record
+            // Map status using helper to get proper description
+            // Note: callbackData.StatusName is the GHN status string (e.g., "picked", "delivered")
+            var (_, _, statusDescription) = ShippingStatusHelper.MapGHNStatus(ghnRequest.Status);
+            
+            var shippingHistory = new Domain.Entities.ShippingHistory
+            {
+                OrderShippingMethodId = orderShippingMethod.Id,
+                OrderId = order.Id,
+                TrackingNumber = callbackData.OrderCode,
+                StatusCode = callbackData.Status,
+                StatusName = callbackData.StatusName,
+                StatusDescription = statusDescription, // Use mapped description from helper
+                EventType = ghnRequest.Type,
+                EventTime = callbackData.UpdatedAt ?? DateTime.UtcNow,
+                CallerIpAddress = request.CallerIpAddress,
+                AdditionalData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    TotalFee = ghnRequest.TotalFee,
+                    CODAmount = ghnRequest.CODAmount,
+                    OrderCode = ghnRequest.OrderCode,
+                    ClientOrderCode = ghnRequest.ClientOrderCode
+                })
+            };
+            shippingHistory.InitializeEntity(Guid.Empty); // System update
+            await _unitOfWork.Repository<Domain.Entities.ShippingHistory>().AddAsync(shippingHistory);
 
             // Update Order status based on shipping status
             // Reference: GHN status mapping from MapGHNStatus method

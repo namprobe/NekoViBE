@@ -65,12 +65,7 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
             var newOrder = _mapper.Map<Domain.Entities.Order>(request);
             var newOrderItems = new List<Domain.Entities.OrderItem>();
             var productNames = new List<string>(); // Store product names for metadata
-            decimal productDiscountAmount = 0m;
-            decimal couponDiscountAmount = 0m;
-            decimal shippingDiscountAmount = 0m;
-            decimal shippingAmount = 0m;
-            var appliedCoupons = new List<Domain.Entities.Coupon>();
-            var appliedUserCoupons = new List<Domain.Entities.UserCoupon>();
+            var appliedCoupons = new List<(Domain.Entities.Coupon coupon, Domain.Entities.UserCoupon userCoupon, decimal discountAmount, decimal baseAmount)>();
             string? paymentUrl = null;
             PaymentGatewayType? paymentGatewayType = null;
             Domain.Entities.OrderShippingMethod? orderShippingMethod = null;
@@ -95,13 +90,13 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                     }
                     orderItem.ProductId = request.ProductId.Value;
                     orderItem.Quantity = request.Quantity.Value;
-                    var (unitPrice, discountAmount) = CalculateProductPricing(product, orderItem.Quantity);
-                    orderItem.UnitPrice = unitPrice;
-                    orderItem.DiscountAmount = discountAmount;
-                    productDiscountAmount += discountAmount;
+                    var (unitPriceOriginal, unitPriceAfterDiscount, unitDiscountAmount, lineTotal) = CalculateProductPricing(product, orderItem.Quantity);
+                    orderItem.UnitPriceOriginal = unitPriceOriginal;
+                    orderItem.UnitPriceAfterDiscount = unitPriceAfterDiscount;
+                    orderItem.UnitDiscountAmount = unitDiscountAmount;
+                    orderItem.LineTotal = lineTotal;
                     orderItem.Status = EntityStatusEnum.Active;
                     orderItem.InitializeEntity(userId.Value);
-                    //Apply discount if any (future)
                     newOrderItems.Add(orderItem);
                     productNames.Add(product.Name); // Store product name for metadata
                     //update product stock
@@ -130,14 +125,14 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                         var orderItem = new Domain.Entities.OrderItem();
                         orderItem.ProductId = cartItem.ProductId;
                         orderItem.Quantity = cartItem.Quantity;
-                        var (unitPrice, discountAmount) = CalculateProductPricing(cartItem.Product, orderItem.Quantity);
-                        orderItem.UnitPrice = unitPrice;
-                        orderItem.DiscountAmount = discountAmount;
-                        productDiscountAmount += discountAmount;
+                        var (unitPriceOriginal, unitPriceAfterDiscount, unitDiscountAmount, lineTotal) = CalculateProductPricing(cartItem.Product, orderItem.Quantity);
+                        orderItem.UnitPriceOriginal = unitPriceOriginal;
+                        orderItem.UnitPriceAfterDiscount = unitPriceAfterDiscount;
+                        orderItem.UnitDiscountAmount = unitDiscountAmount;
+                        orderItem.LineTotal = lineTotal;
                         //update product stock
                         cartItem.Product.StockQuantity -= cartItem.Quantity;
                         _unitOfWork.Repository<Domain.Entities.Product>().Update(cartItem.Product);
-                        //Apply discount if any (future)
                         orderItem.Status = EntityStatusEnum.Active;
                         orderItem.InitializeEntity(userId.Value);
                         newOrderItems.Add(orderItem);
@@ -146,57 +141,219 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                     _unitOfWork.Repository<Domain.Entities.CartItem>().DeleteRange(cartItems);
                 }
 
-                // Tính TotalAmount từ OrderItems (chưa gán vào Order để tránh tracking sớm)
-                newOrder.TotalAmount = newOrderItems.Sum(x => x.UnitPrice * x.Quantity);
+                // ============================================
+                // STEP 1: Tính subtotal và product discount
+                // ============================================
+                newOrder.SubtotalOriginal = newOrderItems.Sum(x => x.UnitPriceOriginal * x.Quantity);
+                newOrder.ProductDiscountAmount = newOrderItems.Sum(x => x.UnitDiscountAmount * x.Quantity);
+                newOrder.SubtotalAfterProductDiscount = newOrder.SubtotalOriginal - newOrder.ProductDiscountAmount;
 
-                var amountAfterProductDiscount = newOrder.TotalAmount - productDiscountAmount;
+                // ============================================
+                // STEP 2: Validate và apply coupons (gộp validate rules và calculate discount)
+                // ============================================
                 if (request.UserCouponIds != null &&
-                    request.UserCouponIds.Any() &&
-                    amountAfterProductDiscount > 0)
+                    request.UserCouponIds.Any())
                 {
-                    // Validate và áp dụng coupons: Mỗi loại chỉ được chọn 1 voucher
-                    var couponTypeGroups = new Dictionary<DiscountTypeEnum, (Domain.Entities.Coupon coupon, Domain.Entities.UserCoupon userCoupon, decimal discountAmount)>();
+                    var distinctUserCouponIds = request.UserCouponIds.Distinct().ToList();
                     
-                    foreach (var userCouponId in request.UserCouponIds.Distinct())
-                    {
-                        var couponResult = await ValidateUserCouponAsync(
-                            userCouponId,
-                            amountAfterProductDiscount,
-                            userId.Value,
-                            cancellationToken);
+                    // Load tất cả UserCoupons một lần với Coupon navigation property
+                    var userCoupons = (await _unitOfWork.Repository<Domain.Entities.UserCoupon>()
+                        .FindAsync(
+                            x => x.UserId == userId.Value && 
+                                 distinctUserCouponIds.Contains(x.Id) && 
+                                 x.UsedDate == null,
+                            x => x.Coupon))
+                        .ToList();
 
-                        var discountType = couponResult.coupon.DiscountType;
-                        
-                        // Kiểm tra xem đã có coupon cùng loại chưa
-                        if (couponTypeGroups.ContainsKey(discountType))
-                        {
-                            throw new ArgumentException(
-                                $"Chỉ được chọn 1 voucher cho mỗi loại. Đã phát hiện nhiều voucher cùng loại {discountType}");
-                        }
-                        
-                        couponTypeGroups[discountType] = couponResult;
+                    // Validate số lượng UserCoupons tìm được
+                    if (userCoupons.Count != distinctUserCouponIds.Count)
+                    {
+                        var foundIds = userCoupons.Select(uc => uc.Id).ToHashSet();
+                        var missingIds = distinctUserCouponIds.Where(id => !foundIds.Contains(id)).ToList();
+                        throw new ArgumentException($"User coupon(s) not found, already used, or does not belong to user: {string.Join(", ", missingIds)}");
                     }
 
-                    // Áp dụng các coupon đã validate
-                    foreach (var (discountType, couponResult) in couponTypeGroups)
+                    // Validate tất cả Coupons đã được load
+                    var coupons = userCoupons.Select(uc => uc.Coupon).Where(c => c != null).Cast<Domain.Entities.Coupon>().ToList();
+                    if (coupons.Count != userCoupons.Count)
                     {
-                        appliedCoupons.Add(couponResult.coupon);
-                        appliedUserCoupons.Add(couponResult.userCoupon);
-
-                        if (discountType != DiscountTypeEnum.FreeShipping)
-                        {
-                            couponDiscountAmount += couponResult.discountAmount;
-                        }
+                        throw new ArgumentException("Some coupons not found");
                     }
 
-                    couponDiscountAmount = Math.Min(couponDiscountAmount, amountAfterProductDiscount);
+                    // Validate coupon rules (chỉ được 1 FreeShip, 1 Percentage/Fixed, không được dùng cả 2 cùng lúc)
+                    var validationResult = ValidateCouponRules(coupons);
+                    if (!validationResult.IsValid)
+                    {
+                        throw new ArgumentException(string.Join("; ", validationResult.Errors));
+                    }
+
+                    // Validate và tính discount cho tất cả coupons
+                    // Note: FreeShipping coupons will be validated with MinOrderAmount on SubtotalAfterProductDiscount
+                    var now = DateTime.UtcNow;
+                    foreach (var userCoupon in userCoupons)
+                    {
+                        var coupon = userCoupon.Coupon!;
+                        
+                        // Kiểm tra coupon status
+                        if (coupon.Status != EntityStatusEnum.Active)
+                        {
+                            throw new ArgumentException($"Coupon {coupon.Code} is not active");
+                        }
+
+                        // Kiểm tra thời gian hiệu lực
+                        if (now < coupon.StartDate || now > coupon.EndDate)
+                        {
+                            throw new ArgumentException($"Mã {coupon.Code} đã hết hạn hoặc chưa đến thời gian sử dụng");
+                        }
+
+                        decimal discountAmount = 0m;
+                        decimal baseAmount = 0m;
+
+                        if (coupon.DiscountType == DiscountTypeEnum.FreeShipping)
+                        {
+                            // FreeShipping: Kiểm tra MinOrderAmount trên SubtotalAfterProductDiscount
+                            if (newOrder.SubtotalAfterProductDiscount < coupon.MinOrderAmount)
+                            {
+                                throw new ArgumentException($"Minimum order amount of {coupon.MinOrderAmount:N0} is required for coupon {coupon.Code}");
+                            }
+                            
+                            // baseAmount và discountAmount sẽ được set sau khi có shipping fee
+                            baseAmount = 0m; // Will be updated when shipping is calculated
+                            discountAmount = 0m; // Will be calculated based on shipping fee
+                        }
+                        else
+                        {
+                            // Kiểm tra minimum order amount (chỉ cho Percentage/Fixed)
+                            if (newOrder.SubtotalAfterProductDiscount < coupon.MinOrderAmount)
+                            {
+                                throw new ArgumentException($"Minimum order amount of {coupon.MinOrderAmount:N0} is required for coupon {coupon.Code}");
+                            }
+
+                            baseAmount = newOrder.SubtotalAfterProductDiscount;
+
+                            // Tính discount amount
+                            if (coupon.DiscountType == DiscountTypeEnum.Percentage)
+                            {
+                                var calculated = newOrder.SubtotalAfterProductDiscount * (coupon.DiscountValue / 100);
+                                discountAmount = coupon.MaxDiscountCap.HasValue 
+                                    ? Math.Min(calculated, coupon.MaxDiscountCap.Value)
+                                    : calculated;
+                            }
+                            else if (coupon.DiscountType == DiscountTypeEnum.Fixed)
+                            {
+                                discountAmount = Math.Min(coupon.DiscountValue, newOrder.SubtotalAfterProductDiscount);
+                            }
+                        }
+
+                        appliedCoupons.Add((coupon, userCoupon, discountAmount, baseAmount));
+                    }
+
+                    // Apply product discount coupons (Percentage/Fixed)
+                    var productDiscountCoupons = appliedCoupons
+                        .Where(c => c.coupon.DiscountType != DiscountTypeEnum.FreeShipping)
+                        .ToList();
+
+                    decimal couponDiscountAmount = 0m;
+                    foreach (var couponResult in productDiscountCoupons)
+                    {
+                        couponDiscountAmount += couponResult.discountAmount;
+                    }
+
+                    // Đảm bảo discount không vượt quá subtotal
+                    couponDiscountAmount = Math.Min(couponDiscountAmount, newOrder.SubtotalAfterProductDiscount);
+                    newOrder.CouponDiscountAmount = couponDiscountAmount;
+                    newOrder.TotalProductAmount = newOrder.SubtotalAfterProductDiscount - newOrder.CouponDiscountAmount;
+                }
+                else
+                {
+                    newOrder.CouponDiscountAmount = 0m;
+                    newOrder.TotalProductAmount = newOrder.SubtotalAfterProductDiscount;
                 }
 
-                newOrder.DiscountAmount = productDiscountAmount + couponDiscountAmount;
-                newOrder.ShippingAmount = 0m; // Will be updated after shipping calculation
-                newOrder.FinalAmount = Math.Max(0, newOrder.TotalAmount - newOrder.DiscountAmount);
                 newOrder.UserId = userId.Value;
                 newOrder.InitializeEntity(userId.Value);
+
+                // ============================================
+                // STEP 3: Handle Shipping (if authenticated user)
+                // ============================================
+                if (userId.HasValue && request.ShippingMethodId.HasValue)
+                {
+                    var shippingMethod = await _unitOfWork.Repository<Domain.Entities.ShippingMethod>()
+                        .GetFirstOrDefaultAsync(x => x.Id == request.ShippingMethodId.Value);
+                    if (shippingMethod == null)
+                        throw new KeyNotFoundException("Shipping method not found");
+
+                    // Get shipping fee from request (client already calculated)
+                    var shippingFeeOriginal = request.ShippingAmount ?? 0m;
+                    
+                    // Apply FreeShipping coupon discount if any
+                    var freeShippingCoupons = appliedCoupons
+                        .Where(c => c.coupon.DiscountType == DiscountTypeEnum.FreeShipping)
+                        .ToList();
+                    
+                    decimal shippingDiscountAmount = 0m;
+                    if (freeShippingCoupons.Any())
+                    {
+                        // Only apply first FreeShip coupon (validation already ensures only 1)
+                        shippingDiscountAmount = shippingFeeOriginal; // 100% freeship
+                    }
+                    
+                    var shippingFeeActual = Math.Max(0m, shippingFeeOriginal - shippingDiscountAmount);
+                    
+                    newOrder.ShippingFeeOriginal = shippingFeeOriginal;
+                    newOrder.ShippingDiscountAmount = shippingDiscountAmount;
+                    newOrder.ShippingFeeActual = shippingFeeActual;
+
+                    // Create OrderShippingMethod record
+                    orderShippingMethod = new Domain.Entities.OrderShippingMethod
+                    {
+                        OrderId = newOrder.Id,
+                        ShippingMethodId = shippingMethod.Id,
+                        ProviderName = shippingMethod.Name,
+                        TrackingNumber = null, // Will be set after shipping order is created
+                        ShippingFeeOriginal = shippingFeeOriginal,
+                        ShippingDiscountAmount = shippingDiscountAmount,
+                        ShippingFeeActual = shippingFeeActual,
+                        IsFreeshipping = shippingDiscountAmount > 0,
+                        FreeshippingNote = freeShippingCoupons.Any() 
+                            ? $"Coupon {freeShippingCoupons.First().coupon.Code}" 
+                            : null,
+                        EstimatedDeliveryDate = request.EstimatedDeliveryDate,
+                        Status = EntityStatusEnum.Active
+                    };
+                    orderShippingMethod.InitializeEntity(userId.Value);
+                    await _unitOfWork.Repository<Domain.Entities.OrderShippingMethod>().AddAsync(orderShippingMethod);
+                    
+                    // Only create shipping order immediately for COD (offline payment)
+                    // For online payment, shipping order will be created after payment success
+                    if (!paymentMethod.IsOnlinePayment)
+                    {
+                        await CreateShippingOrderAfterPaymentAsync(
+                            newOrder,
+                            orderShippingMethod,
+                            userId.Value,
+                            paymentMethod,
+                            cancellationToken);
+                    }
+                }
+                else
+                {
+                    // No shipping method selected, shipping amount should be 0
+                    newOrder.ShippingFeeOriginal = 0m;
+                    newOrder.ShippingDiscountAmount = 0m;
+                    newOrder.ShippingFeeActual = 0m;
+                }
+
+                // ============================================
+                // STEP 4: Tính tổng cuối
+                // ============================================
+                newOrder.FinalAmount = newOrder.TotalProductAmount + newOrder.ShippingFeeActual + newOrder.TaxAmount;
+                
+                // Validate FinalAmount before creating payment
+                if (newOrder.FinalAmount <= 0)
+                {
+                    throw new ArgumentException("Cannot place order with zero or negative final amount. Please ensure cart has items or order has valid products.");
+                }
 
                 //2. init payment
                 var payment = new Domain.Entities.Payment();
@@ -233,7 +390,8 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                     }
                     
                     // Add order amounts
-                    metadata["TotalAmount"] = newOrder.TotalAmount.ToString("N0");
+                    metadata["SubtotalOriginal"] = newOrder.SubtotalOriginal.ToString("N0");
+                    metadata["TotalProductAmount"] = newOrder.TotalProductAmount.ToString("N0");
                     metadata["FinalAmount"] = newOrder.FinalAmount.ToString("N0");
                     metadata["OrderId"] = newOrder.Id.ToString();
                     
@@ -262,114 +420,10 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                     }
                 }
 
+                // Mark UserCoupons as used
                 if (appliedCoupons.Any())
                 {
-                    await AttachCouponsToOrderAsync(newOrder, appliedCoupons, appliedUserCoupons);
-                }
-
-                //3. Handle Shipping (Client đã tính phí và truyền lên)
-                // Client sẽ gọi API calculate-fee trước, rồi truyền ShippingAmount vào request
-                if (request.ShippingMethodId.HasValue)
-                {
-                    // Validate shipping method exists and is active
-                    var shippingMethod = await _unitOfWork.Repository<Domain.Entities.ShippingMethod>()
-                        .GetFirstOrDefaultAsync(x => x.Id == request.ShippingMethodId.Value && x.Status == EntityStatusEnum.Active);
-                    
-                    if (shippingMethod == null)
-                    {
-                        throw new KeyNotFoundException("Shipping method not found or invalid");
-                    }
-
-                    // Validate user address if provided
-                    if (request.UserAddressId.HasValue)
-                    {
-                        var userAddress = await _unitOfWork.Repository<Domain.Entities.UserAddress>()
-                            .GetFirstOrDefaultAsync(x => x.Id == request.UserAddressId.Value && x.UserId == userId.Value);
-                        
-                        if (userAddress == null)
-                        {
-                            throw new KeyNotFoundException("User address not found");
-                        }
-                    }
-
-                    // Use shipping amount from client request (client đã tính phí trước)
-                    shippingAmount = request.ShippingAmount ?? 0m;
-                    
-                    // Validate shipping amount is not negative
-                    if (shippingAmount < 0)
-                    {
-                        throw new ArgumentException("Shipping amount cannot be negative");
-                    }
-
-                    // Create OrderShippingMethod record (without tracking number - will be updated after shipping order is created)
-                    orderShippingMethod = new Domain.Entities.OrderShippingMethod
-                    {
-                        OrderId = newOrder.Id,
-                        ShippingMethodId = shippingMethod.Id,
-                        TrackingNumber = null, // Will be set after shipping order is created
-                        Status = EntityStatusEnum.Active
-                    };
-                    orderShippingMethod.InitializeEntity(userId.Value);
-                    await _unitOfWork.Repository<Domain.Entities.OrderShippingMethod>().AddAsync(orderShippingMethod);
-
-                    // Apply freeship coupons if available
-                    var freeShippingCoupons = appliedCoupons
-                        .Where(c => c.DiscountType == DiscountTypeEnum.FreeShipping)
-                        .ToList();
-
-                    if (freeShippingCoupons.Any())
-                    {
-                        var remainingShipping = shippingAmount;
-                        foreach (var coupon in freeShippingCoupons)
-                        {
-                            if (remainingShipping <= 0)
-                            {
-                                break;
-                            }
-
-                            if (coupon.DiscountValue > 0)
-                            {
-                                var applied = Math.Min(remainingShipping, coupon.DiscountValue);
-                                shippingDiscountAmount += applied;
-                                remainingShipping -= applied;
-                            }
-                            else
-                            {
-                                shippingDiscountAmount += remainingShipping;
-                                remainingShipping = 0;
-                            }
-                        }
-                    }
-
-                    // Update order with shipping amount and discounts
-                    var totalDiscountAmount = productDiscountAmount + couponDiscountAmount + shippingDiscountAmount;
-                    var userShippingPayable = Math.Max(0, shippingAmount - shippingDiscountAmount);
-
-                    newOrder.ShippingAmount = shippingAmount;
-                    newOrder.DiscountAmount = totalDiscountAmount;
-                    newOrder.FinalAmount = Math.Max(0, newOrder.TotalAmount - (productDiscountAmount + couponDiscountAmount) + userShippingPayable);
-                    //_unitOfWork.Repository<Domain.Entities.Order>().Update(newOrder);
-                    
-                    // Only create shipping order immediately for COD (offline payment)
-                    // For online payment, shipping order will be created after payment success
-                    if (!paymentMethod.IsOnlinePayment)
-                    {
-                        await CreateShippingOrderAfterPaymentAsync(
-                            newOrder,
-                            orderShippingMethod,
-                            userId.Value,
-                            paymentMethod,
-                            cancellationToken);
-                    }
-                }
-                else
-                {
-                    // No shipping method selected, shipping amount should be 0
-                    shippingAmount = 0m;
-                    newOrder.ShippingAmount = 0m;
-                    newOrder.DiscountAmount = productDiscountAmount + couponDiscountAmount;
-                    newOrder.FinalAmount = Math.Max(0, newOrder.TotalAmount - newOrder.DiscountAmount);
-                    // _unitOfWork.Repository<Domain.Entities.Order>().Update(newOrder);
+                    MarkUserCouponsAsUsed(newOrder, userId.Value, appliedCoupons);
                 }
                 newOrder.OrderItems = newOrderItems;
                 await _unitOfWork.Repository<Domain.Entities.Order>().AddAsync(newOrder);
@@ -434,119 +488,84 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
         return (true, null);
     }
 
-    private (decimal unitPrice, decimal discountAmount) CalculateProductPricing(Domain.Entities.Product product, int quantity)
+    private (decimal unitPriceOriginal, decimal unitPriceAfterDiscount, decimal unitDiscountAmount, decimal lineTotal) CalculateProductPricing(Domain.Entities.Product product, int quantity)
     {
-        var unitPrice = product.Price;
-        decimal discountAmount = 0m;
-
-        // Chỉ tính discount khi có DiscountPrice hợp lệ (có giá trị, > 0, và <= Price)
-        if (product.DiscountPrice.HasValue 
+        var unitPriceOriginal = product.Price;
+        var unitPriceAfterDiscount = product.DiscountPrice.HasValue 
             && product.DiscountPrice.Value > 0  
-            && product.DiscountPrice.Value <= product.Price)
-        {
-            var perItemDiscount = product.Price - product.DiscountPrice.Value;
-            discountAmount = perItemDiscount * quantity;
-        }
-
-        return (unitPrice, discountAmount);
-    }
-
-    private async Task<(Domain.Entities.Coupon coupon, Domain.Entities.UserCoupon userCoupon, decimal discountAmount)> ValidateUserCouponAsync(
-        Guid userCouponId,
-        decimal orderAmountAfterProductDiscount,
-        Guid userId,
-        CancellationToken cancellationToken)
-    {
-        // Load UserCoupon với Coupon navigation property
-        var userCoupon = await _unitOfWork.Repository<Domain.Entities.UserCoupon>()
-            .GetFirstOrDefaultAsync(x => x.Id == userCouponId, x => x.Coupon);
+            && product.DiscountPrice.Value <= product.Price
+            ? product.DiscountPrice.Value 
+            : product.Price;
         
-        if (userCoupon is null)
-            throw new ArgumentException("User coupon not found");
+        // tính toán giá trị giảm giá trên từng sản phẩm
+        var unitDiscountAmount = unitPriceOriginal - unitPriceAfterDiscount;
+        // tính toán giá trị giảm giá trên tổng sản phẩm
+        var lineTotal = unitPriceAfterDiscount * quantity;
 
-        // Kiểm tra UserCoupon thuộc về user hiện tại
-        if (userCoupon.UserId != userId)
-            throw new ArgumentException("This coupon does not belong to the current user");
-
-        // Kiểm tra UserCoupon chưa được sử dụng
-        if (userCoupon.UsedDate.HasValue)
-            throw new ArgumentException("This coupon has already been used");
-
-        // Load Coupon nếu chưa được load
-        if (userCoupon.Coupon is null)
-        {
-            userCoupon.Coupon = await _unitOfWork.Repository<Domain.Entities.Coupon>()
-                .GetFirstOrDefaultAsync(x => x.Id == userCoupon.CouponId);
-        }
-
-        var coupon = userCoupon.Coupon;
-        if (coupon is null)
-            throw new ArgumentException("Coupon not found");
-
-        // Kiểm tra coupon status
-        if (coupon.Status != EntityStatusEnum.Active)
-            throw new ArgumentException("Coupon is not active");
-
-        // Kiểm tra thời gian hiệu lực
-        var now = DateTime.UtcNow;
-        if (now < coupon.StartDate || now > coupon.EndDate)
-        {
-            throw new ArgumentException("Coupon is not valid at this time");
-        }
-
-        // Kiểm tra usage limit
-        if (coupon.UsageLimit.HasValue && coupon.CurrentUsage >= coupon.UsageLimit.Value)
-        {
-            throw new ArgumentException("Coupon usage limit exceeded");
-        }
-
-        // Kiểm tra minimum order amount
-        if (orderAmountAfterProductDiscount < coupon.MinOrderAmount)
-        {
-            throw new ArgumentException($"Minimum order amount of {coupon.MinOrderAmount:N0} is required for this coupon");
-        }
-
-        // Tính discount amount
-        var discountAmount = coupon.DiscountType switch
-        {
-            DiscountTypeEnum.Percentage => orderAmountAfterProductDiscount * (coupon.DiscountValue / 100),
-            DiscountTypeEnum.Fixed => coupon.DiscountValue,
-            _ => 0m
-        };
-
-        // Đảm bảo discount không vượt quá order amount
-        if (discountAmount > orderAmountAfterProductDiscount)
-        {
-            discountAmount = orderAmountAfterProductDiscount;
-        }
-
-        return (coupon, userCoupon, discountAmount);
+        return (unitPriceOriginal, unitPriceAfterDiscount, unitDiscountAmount, lineTotal);
     }
 
-    private Task AttachCouponsToOrderAsync(
-        Domain.Entities.Order order,
-        IReadOnlyList<Domain.Entities.Coupon> coupons,
-        IReadOnlyList<Domain.Entities.UserCoupon> userCoupons)
+    /// <summary>
+    /// Validate coupon rules (chỉ được 1 FreeShip, 1 Percentage/Fixed, không được dùng cả 2 cùng lúc)
+    /// </summary>
+    private (bool IsValid, List<string> Errors) ValidateCouponRules(List<Domain.Entities.Coupon> coupons)
     {
-        if (coupons.Count == 0 || userCoupons.Count == 0)
-    {
-            return Task.CompletedTask;
-        }
+        var errors = new List<string>();
 
-        var pairCount = Math.Min(coupons.Count, userCoupons.Count);
-        for (var i = 0; i < pairCount; i++)
+        // Đếm số lượng coupon theo loại
+        var freeShipCount = coupons.Count(c => c.DiscountType == DiscountTypeEnum.FreeShipping);
+        var percentageCount = coupons.Count(c => c.DiscountType == DiscountTypeEnum.Percentage);
+        var fixedCount = coupons.Count(c => c.DiscountType == DiscountTypeEnum.Fixed);
+
+        // RULE 1: Chỉ được 1 FreeShip coupon
+        if (freeShipCount > 1)
         {
-            var userCoupon = userCoupons[i];
-        userCoupon.OrderId = order.Id;
-        userCoupon.UsedDate = DateTime.UtcNow;
-        userCoupon.UpdatedAt = DateTime.UtcNow;
-        _unitOfWork.Repository<Domain.Entities.UserCoupon>().Update(userCoupon);
-
-            order.UserCoupons ??= new List<Domain.Entities.UserCoupon>();
-        order.UserCoupons.Add(userCoupon);
+            errors.Add("Chỉ được áp dụng tối đa 1 mã miễn phí vận chuyển");
         }
 
-        return Task.CompletedTask;
+        // RULE 2: Chỉ được chọn Percentage HOẶC Fixed (KHÔNG được dùng cả 2 cùng lúc)
+        if (percentageCount > 0 && fixedCount > 0)
+        {
+            errors.Add("Chỉ được chọn mã giảm theo phần trăm HOẶC giảm cố định, không được dùng cả hai");
+        }
+
+        // RULE 3: Chỉ được 1 Percentage coupon
+        if (percentageCount > 1)
+        {
+            errors.Add("Chỉ được áp dụng tối đa 1 mã giảm theo phần trăm");
+        }
+
+        // RULE 4: Chỉ được 1 Fixed coupon
+        if (fixedCount > 1)
+        {
+            errors.Add("Chỉ được áp dụng tối đa 1 mã giảm cố định");
+        }
+
+        // RULE 5: Tổng số coupon không quá 2
+        if (coupons.Count > 2)
+        {
+            errors.Add("Chỉ được áp dụng tối đa 2 mã giảm giá (1 FreeShip + 1 Percentage/Fixed)");
+        }
+
+        return (errors.Count == 0, errors);
+    }
+
+
+    /// <summary>
+    /// Mark UserCoupons as used after order is placed
+    /// </summary>
+    private void MarkUserCouponsAsUsed(
+        Domain.Entities.Order order,
+        Guid? currentUserId,
+        List<(Domain.Entities.Coupon coupon, Domain.Entities.UserCoupon userCoupon, decimal discountAmount, decimal baseAmount)> appliedCoupons)
+    {
+        foreach (var couponResult in appliedCoupons)
+        {
+            couponResult.userCoupon.OrderId = order.Id;
+            couponResult.userCoupon.UsedDate = DateTime.UtcNow;
+            couponResult.userCoupon.UpdateEntity(currentUserId!.Value);
+            _unitOfWork.Repository<Domain.Entities.UserCoupon>().Update(couponResult.userCoupon);
+        }
     }
 
 
@@ -608,7 +627,7 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                 Name = item.Product?.Name ?? "Product",
                 Code = item.ProductId.ToString(),
                 Quantity = item.Quantity,
-                Price = (int)item.UnitPrice,
+                Price = (int)item.UnitPriceAfterDiscount,
                 Weight = 500,
                 Length = 20,
                 Width = 20,
@@ -655,6 +674,13 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
             orderShippingMethod.TrackingNumber = createResult.Data.OrderCode;
             orderShippingMethod.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Repository<Domain.Entities.OrderShippingMethod>().Update(orderShippingMethod);
+
+            // Update Order shipping fields if needed
+            order.ShippingFeeOriginal = orderShippingMethod.ShippingFeeOriginal;
+            order.ShippingDiscountAmount = orderShippingMethod.ShippingDiscountAmount;
+            order.ShippingFeeActual = orderShippingMethod.ShippingFeeActual;
+            order.FinalAmount = order.TotalProductAmount + order.ShippingFeeActual + order.TaxAmount;
+            _unitOfWork.Repository<Domain.Entities.Order>().Update(order);
 
             return orderShippingMethod;
         }

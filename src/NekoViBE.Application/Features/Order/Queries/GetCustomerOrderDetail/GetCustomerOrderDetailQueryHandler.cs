@@ -66,7 +66,9 @@ public class GetCustomerOrderDetailQueryHandler
                 .Include(o => o.Payment!)
                     .ThenInclude(p => p.PaymentMethod!)
                 .Include(o => o.OrderShippingMethods!)
-                    .ThenInclude(os => os.ShippingMethod!);
+                    .ThenInclude(os => os.ShippingMethod!)
+                .Include(o => o.UserCoupons!)
+                    .ThenInclude(uc => uc.Coupon!);
 
             var order = await query.FirstOrDefaultAsync(cancellationToken);
 

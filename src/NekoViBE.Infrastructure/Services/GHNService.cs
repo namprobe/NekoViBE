@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NekoViBE.Application.Common.Helpers;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Common.Models.GHN;
@@ -554,8 +555,8 @@ public class GHNService : IShippingService
                 };
             }
 
-            // Map GHN status to internal status
-            var (status, statusName) = MapGHNStatus(ghnCallback.Status);
+            // Map GHN status to internal status using helper
+            var (status, statusName, _) = ShippingStatusHelper.MapGHNStatus(ghnCallback.Status);
 
             // Parse Time field (ISO 8601 format: "2021-11-11T03:52:50.158Z")
             DateTime? updatedAt = null;
@@ -812,36 +813,7 @@ public class GHNService : IShippingService
         };
     }
 
-    private (int Status, string StatusName) MapGHNStatus(string ghnStatus)
-    {
-        // Map GHN status codes to internal status
-        // Reference: https://api.ghn.vn/home/docs/detail?id=84
-        return ghnStatus switch
-        {
-            "ready_to_pick" => (1, "Chờ lấy hàng"),
-            "picking" => (2, "Đang lấy hàng"),
-            "cancel" => (3, "Đã hủy"),
-            "money_collect_picking" => (4, "Đang thu tiền người gửi"),
-            "picked" => (5, "Đã lấy hàng"),
-            "storing" => (6, "Đang lưu kho"),
-            "transporting" => (7, "Đang vận chuyển"),
-            "sorting" => (8, "Đang phân loại"),
-            "delivering" => (9, "Đang giao hàng"),
-            "money_collect_delivering" => (10, "Đang thu tiền người nhận"),
-            "delivered" => (11, "Đã giao hàng"),
-            "delivery_fail" => (12, "Giao hàng thất bại"),
-            "waiting_to_return" => (13, "Chờ trả hàng"),
-            "return" => (14, "Đang trả hàng"),
-            "return_transporting" => (15, "Đang vận chuyển trả hàng"),
-            "return_sorting" => (16, "Đang phân loại trả hàng"),
-            "returning" => (17, "Đang trả hàng"),
-            "return_fail" => (18, "Trả hàng thất bại"),
-            "returned" => (19, "Đã trả hàng"),
-            "exception" => (20, "Ngoại lệ"),
-            "damage" => (21, "Hàng hỏng"),
-            "lost" => (22, "Hàng mất"),
-            _ => (0, "Không xác định")
-        };
-    }
+    // MapGHNStatus method removed - now using ShippingStatusHelper.MapGHNStatus
+    // This ensures consistent status mapping across the application
 }
 

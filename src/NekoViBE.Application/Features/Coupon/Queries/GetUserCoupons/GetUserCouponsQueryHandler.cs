@@ -45,6 +45,7 @@ public class GetUserCouponsQueryHandler : IRequestHandler<GetUserCouponsQuery, R
                 Description = uc.Coupon.Description,
                 DiscountType = uc.Coupon.DiscountType.ToString(),
                 DiscountValue = uc.Coupon.DiscountValue,
+                MaxDiscountCap = uc.Coupon.MaxDiscountCap,
                 MinOrderAmount = uc.Coupon.MinOrderAmount,
                 StartDate = uc.Coupon.StartDate,
                 EndDate = uc.Coupon.EndDate,

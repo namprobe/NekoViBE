@@ -17,7 +17,6 @@ public static class OrderQueryBuilder
         return filter.SortBy.ToLowerInvariant() switch
         {
             "finalamount" => o => o.FinalAmount,
-            "totalamount" => o => o.TotalAmount,
             "paymentstatus" => o => o.PaymentStatus,
             "orderstatus" => o => o.OrderStatus,
             "useremail" => o => o.User != null

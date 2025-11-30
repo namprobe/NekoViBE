@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
@@ -43,8 +44,9 @@ namespace NekoViBE.Application.Features.Coupon.Commands.DeleteCoupon
                     return Result.Failure("Coupon not found", ErrorCodeEnum.NotFound);
                 }
 
-                // Check if coupon has been used
-                if (coupon.CurrentUsage > 0)
+                // Check if coupon has been used (có UserCoupon nào đã được sử dụng)
+                var hasUsedCoupons = await _unitOfWork.Repository<Domain.Entities.UserCoupon>().AnyAsync(uc => uc.CouponId == request.Id && uc.UsedDate != null);
+                if (hasUsedCoupons)
                 {
                     return Result.Failure("Cannot delete coupon that has been used", ErrorCodeEnum.Conflict);
                 }

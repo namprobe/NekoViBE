@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
+using NekoViBE.Application.Common.Helpers;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
+using NekoViBE.Domain.Common;
 using NekoViBE.Domain.Enums;
 using System.Linq;
 
@@ -67,28 +69,19 @@ public class CallBackShareLogic : ICallBackShareLogic
             // Revert coupon usage nếu có
             var userCoupons = await unitOfWork.Repository<Domain.Entities.UserCoupon>()
                 .FindAsync(x => x.OrderId == order.Id && x.UsedDate != null, x => x.Coupon);
-            order.UserCoupons = userCoupons.ToList();
 
-            foreach (var userCoupon in order.UserCoupons.Where(uc => uc.UsedDate != null))
+            foreach (var userCoupon in userCoupons.Where(uc => uc.UsedDate != null))
             {
-                if (userCoupon.Coupon == null)
-                {
-                    userCoupon.Coupon = await unitOfWork.Repository<Domain.Entities.Coupon>()
-                        .GetFirstOrDefaultAsync(x => x.Id == userCoupon.CouponId);
-                }
-
-                if (userCoupon.Coupon != null && userCoupon.Coupon.CurrentUsage > 0)
-                {
-                    logger.LogInformation(
-                        "[Order Rollback] Reverted coupon usage for coupon {CouponId}: CurrentUsage = {CurrentUsage} (OrderId: {OrderId})",
-                        userCoupon.CouponId, userCoupon.Coupon.CurrentUsage, order.Id);
-                }
-
                 // Revert UserCoupon
                 userCoupon.UsedDate = null;
                 userCoupon.OrderId = null;
-                userCoupon.UpdatedAt = DateTime.UtcNow;
+                // Use UpdateEntity with userId from order (system update if userId is null)
+                userCoupon.UpdateEntity(order.UserId ?? Guid.Empty);
                 unitOfWork.Repository<Domain.Entities.UserCoupon>().Update(userCoupon);
+                
+                logger.LogInformation(
+                    "[Order Rollback] Reverted UserCoupon {UserCouponId} for OrderId {OrderId}",
+                    userCoupon.Id, order.Id);
             }
 
             logger.LogInformation("[Order Rollback] Successfully reverted order changes for OrderId: {OrderId}", order.Id);
@@ -376,7 +369,7 @@ public class CallBackShareLogic : ICallBackShareLogic
                 Name = item.Product?.Name ?? "Product",
                 Code = item.ProductId.ToString(),
                 Quantity = item.Quantity,
-                Price = (int)item.UnitPrice,
+                Price = (int)item.UnitPriceAfterDiscount,
                 Weight = 500,
                 Length = 20,
                 Width = 20,
@@ -511,6 +504,32 @@ public class CallBackShareLogic : ICallBackShareLogic
                 createResult.Data.EstimatedDeliveryDate ?? createResult.Data.ExpectedDeliveryTime;
             orderShippingMethod.UpdatedAt = DateTime.UtcNow;
             unitOfWork.Repository<Domain.Entities.OrderShippingMethod>().Update(orderShippingMethod);
+
+            // Create shipping history record for initial order creation
+            // When order is created successfully, default status is "ready_to_pick"
+            var (statusCode, statusName, statusDescription) = ShippingStatusHelper.MapGHNStatus("ready_to_pick");
+            
+            var shippingHistory = new Domain.Entities.ShippingHistory
+            {
+                OrderShippingMethodId = orderShippingMethod.Id,
+                OrderId = order.Id,
+                TrackingNumber = createResult.Data.OrderCode,
+                StatusCode = statusCode,
+                StatusName = statusName,
+                StatusDescription = statusDescription,
+                EventType = "order_created", // Custom event type for initial creation
+                EventTime = DateTime.UtcNow,
+                AdditionalData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    OrderCode = createResult.Data.OrderCode,
+                    TotalFee = createResult.Data.TotalFee,
+                    ExpectedDeliveryTime = createResult.Data.ExpectedDeliveryTime,
+                    EstimatedDeliveryDate = createResult.Data.EstimatedDeliveryDate
+                })
+            };
+            shippingHistory.InitializeEntity(Guid.Empty); // System update
+            await unitOfWork.Repository<Domain.Entities.ShippingHistory>().AddAsync(shippingHistory);
+
             // Removed SaveChangesAsync - caller should manage transaction and save changes
 
             logger.LogInformation("[Shipping] Shipping order created successfully for order {OrderId} with tracking {TrackingNumber}",

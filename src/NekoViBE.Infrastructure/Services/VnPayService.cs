@@ -29,6 +29,25 @@ public class VnPayService : IPaymentGatewayService
         string vnp_ReturnUrl = _vnPaySettings.ReturnUrl ?? throw new InvalidOperationException("VNPay:ReturnUrl not configured");
         string vnp_TmnCode = _vnPaySettings.TmnCode ?? throw new InvalidOperationException("VNPay:TmnCode not configured");
         
+        // Validate and round amount for VNPay
+        // VNPay requires: amount must be integer, between 5,000 VND and 999,999,999 VND
+        const decimal minAmount = 5000m; // 5,000 VND
+        const decimal maxAmount = 999999999m; // 999,999,999 VND (under 1 billion)
+        
+        // Round to nearest integer (VNPay doesn't accept decimal amounts)
+        decimal roundedAmount = Math.Round(request.Amount, MidpointRounding.AwayFromZero);
+        
+        // Validate amount range
+        if (roundedAmount < minAmount)
+        {
+            throw new ArgumentException($"Số tiền giao dịch không hợp lệ. Số tiền tối thiểu là {minAmount:N0} VND. Số tiền hiện tại: {request.Amount:N0} VND", nameof(request.Amount));
+        }
+        
+        if (roundedAmount > maxAmount)
+        {
+            throw new ArgumentException($"Số tiền giao dịch không hợp lệ. Số tiền tối đa là {maxAmount:N0} VND (dưới 1 tỷ đồng). Số tiền hiện tại: {request.Amount:N0} VND", nameof(request.Amount));
+        }
+        
         // Clear previous data
         _vnPayLibrary.ClearRequestData();
         
@@ -40,7 +59,9 @@ public class VnPayService : IPaymentGatewayService
         _vnPayLibrary.AddRequestData("vnp_Version", VnPayLibrary.VERSION);
         _vnPayLibrary.AddRequestData("vnp_Command", "pay");
         _vnPayLibrary.AddRequestData("vnp_TmnCode", vnp_TmnCode);
-        _vnPayLibrary.AddRequestData("vnp_Amount", (request.Amount * 100).ToString()); // Convert to smallest currency unit
+        // Convert rounded amount to smallest currency unit (multiply by 100 to get xu)
+        // VNPay expects amount in xu (smallest unit), so 1 VND = 100 xu
+        _vnPayLibrary.AddRequestData("vnp_Amount", ((long)(roundedAmount * 100)).ToString());
         _vnPayLibrary.AddRequestData("vnp_CurrCode", request.Currency);
         _vnPayLibrary.AddRequestData("vnp_BankCode", ""); // Optional: empty for user to choose payment method
         _vnPayLibrary.AddRequestData("vnp_CreateDate", vietnamCreateDate);
