@@ -44,7 +44,7 @@ namespace NekoViBE.Application.Features.BlogPost.Commands.CreateBlogPost
             // Upload image
             if (cmd.Request.FeaturedImageFile != null)
             {
-                entity.FeaturedImagePath = await _fileService.UploadFileAsync(cmd.Request.FeaturedImageFile, "blog", ct);
+                entity.FeaturedImagePath = await _fileService.UploadFileAsync(cmd.Request.FeaturedImageFile, "uploads", ct);
             }
 
             try

@@ -66,7 +66,7 @@ namespace NekoViBE.Application.Features.BlogPost.Commands.UpdateBlogPost
                     if (!string.IsNullOrEmpty(oldImagePath))
                         await _fileService.DeleteFileAsync(oldImagePath, cancellationToken);
 
-                    var newPath = await _fileService.UploadFileAsync(command.Request.FeaturedImageFile, "blog", cancellationToken);
+                    var newPath = await _fileService.UploadFileAsync(command.Request.FeaturedImageFile, "uploads", cancellationToken);
                     entity.FeaturedImagePath = newPath;
                 }
                 else if (command.Request.RemoveFeaturedImage)
