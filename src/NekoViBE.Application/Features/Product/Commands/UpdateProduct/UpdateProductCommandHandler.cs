@@ -59,7 +59,6 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                     return Result.Failure("Product not found", ErrorCodeEnum.NotFound);
                 }
 
-                _logger.LogInformation("Product found: {Product}", JsonSerializer.Serialize(entity));
 
                 var oldValue = JsonSerializer.Serialize(_mapper.Map<UpdateProductDto>(entity));
                 var oldStatus = entity.Status;
@@ -73,7 +72,6 @@ namespace NekoViBE.Application.Features.Product.Commands.UpdateProduct
                 entity.UpdatedBy = userId;
                 entity.UpdatedAt = DateTime.UtcNow;
 
-                _logger.LogInformation("Product mapped: {Product}", JsonSerializer.Serialize(entity));
 
                 var productImageRepo = _unitOfWork.Repository<Domain.Entities.ProductImage>();
                 var productTagRepo = _unitOfWork.Repository<Domain.Entities.ProductTag>();
