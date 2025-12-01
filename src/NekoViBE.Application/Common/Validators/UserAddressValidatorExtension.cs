@@ -33,50 +33,73 @@ public static class UserAddressValidatorExtension
     }
     
     /// <summary>
-    /// Validates city with business rules
-    /// Required | 2-50 chars | Letters and spaces
+    /// Validates GHN ProvinceId
     /// </summary>
-    public static IRuleBuilderOptions<T, string> ValidCity<T>(this IRuleBuilder<T, string> ruleBuilder)
+    public static IRuleBuilderOptions<T, int> ValidProvinceId<T>(this IRuleBuilder<T, int> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("City is required")
-            .Length(2, 50).WithMessage("City must be between 2 and 50 characters")
-            .Matches(@"^[\p{L}\s\-'.]+$").WithMessage("City can only contain letters, spaces, hyphens, apostrophes, and dots");
+            .GreaterThan(0).WithMessage("ProvinceId is required");
     }
     
     /// <summary>
-    /// Validates state (optional field)
-    /// Only validates when not null/empty
+    /// Validates GHN ProvinceName
     /// </summary>
-    public static IRuleBuilderOptions<T, string?> ValidState<T>(this IRuleBuilder<T, string?> ruleBuilder)
+    public static IRuleBuilderOptions<T, string> ValidProvinceName<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .Length(2, 50).WithMessage("State must be between 2 and 50 characters")
-            .When(x => !string.IsNullOrWhiteSpace(x as string));
+            .NotEmpty().WithMessage("Province name is required")
+            .Length(2, 100).WithMessage("Province name must be between 2 and 100 characters");
     }
     
     /// <summary>
-    /// Validates postal code with business rules
-    /// Required | 4-10 chars | Alphanumeric with optional spaces/hyphens
+    /// Validates GHN DistrictId
     /// </summary>
-    public static IRuleBuilderOptions<T, string> ValidPostalCode<T>(this IRuleBuilder<T, string> ruleBuilder)
+    public static IRuleBuilderOptions<T, int> ValidDistrictId<T>(this IRuleBuilder<T, int> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Postal code is required")
+            .GreaterThan(0).WithMessage("DistrictId is required");
+    }
+    
+    /// <summary>
+    /// Validates GHN DistrictName
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> ValidDistrictName<T>(this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage("District name is required")
+            .Length(2, 100).WithMessage("District name must be between 2 and 100 characters");
+    }
+    
+    /// <summary>
+    /// Validates GHN WardCode
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> ValidWardCode<T>(this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage("Ward code is required")
+            .Length(2, 20).WithMessage("Ward code must be between 2 and 20 characters")
+            .Matches(@"^[a-zA-Z0-9]+$").WithMessage("Ward code can only contain letters and numbers");
+    }
+    
+    /// <summary>
+    /// Validates GHN WardName
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> ValidWardName<T>(this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage("Ward name is required")
+            .Length(2, 100).WithMessage("Ward name must be between 2 and 100 characters");
+    }
+    
+    /// <summary>
+    /// Validates postal code when provided
+    /// </summary>
+    public static IRuleBuilderOptions<T, string?> ValidOptionalPostalCode<T>(this IRuleBuilder<T, string?> ruleBuilder)
+    {
+        return ruleBuilder
             .Length(4, 10).WithMessage("Postal code must be between 4 and 10 characters")
-            .Matches(@"^[a-zA-Z0-9\s\-]+$").WithMessage("Postal code can only contain letters, numbers, spaces, and hyphens");
-    }
-    
-    /// <summary>
-    /// Validates country with business rules
-    /// Required | 2-50 chars | Letters and spaces
-    /// </summary>
-    public static IRuleBuilderOptions<T, string> ValidCountry<T>(this IRuleBuilder<T, string> ruleBuilder)
-    {
-        return ruleBuilder
-            .NotEmpty().WithMessage("Country is required")
-            .Length(2, 50).WithMessage("Country must be between 2 and 50 characters")
-            .Matches(@"^[\p{L}\s\-'.]+$").WithMessage("Country can only contain letters, spaces, hyphens, apostrophes, and dots");
+            .Matches(@"^[a-zA-Z0-9\s\-]+$").WithMessage("Postal code can only contain letters, numbers, spaces, and hyphens")
+            .When(x => !string.IsNullOrWhiteSpace(x as string));
     }
     
     /// <summary>
@@ -121,14 +144,26 @@ public static class UserAddressValidatorExtension
         validator.RuleFor(x => requestFunc(x).Address)
             .ValidAddress();
             
-        validator.RuleFor(x => requestFunc(x).City)
-            .ValidCity();
+        validator.RuleFor(x => requestFunc(x).ProvinceId)
+            .ValidProvinceId();
+            
+        validator.RuleFor(x => requestFunc(x).ProvinceName)
+            .ValidProvinceName();
+            
+        validator.RuleFor(x => requestFunc(x).DistrictId)
+            .ValidDistrictId();
+            
+        validator.RuleFor(x => requestFunc(x).DistrictName)
+            .ValidDistrictName();
+            
+        validator.RuleFor(x => requestFunc(x).WardCode)
+            .ValidWardCode();
+            
+        validator.RuleFor(x => requestFunc(x).WardName)
+            .ValidWardName();
             
         validator.RuleFor(x => requestFunc(x).PostalCode)
-            .ValidPostalCode();
-            
-        validator.RuleFor(x => requestFunc(x).Country)
-            .ValidCountry();
+            .ValidOptionalPostalCode();
             
         validator.RuleFor(x => requestFunc(x).AddressType)
             .ValidAddressType();
@@ -140,12 +175,6 @@ public static class UserAddressValidatorExtension
         // Optional fields validation
         if (requireAll)
         {
-            // For Update: State is required if provided initially
-            validator.RuleFor(x => requestFunc(x).State)
-                .NotEmpty().WithMessage("State is required")
-                .Length(2, 50).WithMessage("State must be between 2 and 50 characters")
-                .When(x => requestFunc(x).State != null);
-                
             // For Update: PhoneNumber is required if provided initially
             validator.RuleFor(x => requestFunc(x).PhoneNumber)
                 .NotEmpty().WithMessage("Phone number is required")
@@ -154,10 +183,6 @@ public static class UserAddressValidatorExtension
         }
         else
         {
-            // For Create: Optional fields validation
-            validator.RuleFor(x => requestFunc(x).State)
-                .ValidState();
-                
             validator.RuleFor(x => requestFunc(x).PhoneNumber)
                 .ValidAddressPhoneNumber();
         }

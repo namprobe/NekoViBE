@@ -14,12 +14,19 @@ namespace NekoViBE.Application.Common.Mappings
     {
         public CouponMappingProfile()
         {
-            CreateMap<Coupon, CouponDto>();
-            CreateMap<CreateCouponRequest, Coupon>();
-            CreateMap<UpdateCouponRequest, Coupon>();
+            CreateMap<Coupon, CouponDto>()
+                .ForMember(dest => dest.CurrentUsage, opt => opt.MapFrom(src => src.CurrentUsage));
+            
+            CreateMap<CreateCouponRequest, Coupon>()
+                .ForMember(dest => dest.CurrentUsage, opt => opt.Ignore()); // Initialize to 0 by default
+            
+            CreateMap<UpdateCouponRequest, Coupon>()
+                .ForMember(dest => dest.CurrentUsage, opt => opt.Ignore()); // Never update CurrentUsage from request
+            
             CreateMap<Coupon, CouponItem>()
                 .ForMember(dest => dest.IsActive,
-                    opt => opt.MapFrom(src => src.Status == EntityStatusEnum.Active));
+                    opt => opt.MapFrom(src => src.Status == EntityStatusEnum.Active))
+                .ForMember(dest => dest.CurrentUsage, opt => opt.MapFrom(src => src.CurrentUsage));
         }
     }
 }

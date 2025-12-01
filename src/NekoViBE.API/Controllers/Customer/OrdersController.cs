@@ -8,6 +8,7 @@ using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.Order.Commands.PlaceOrder;
 using NekoViBE.Application.Features.Order.Queries.GetCustomerOrderDetail;
 using NekoViBE.Application.Features.Order.Queries.GetCustomerOrderList;
+using NekoViBE.Application.Features.Shipping.Queries.GetShippingHistory;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace NekoViBE.API.Controllers.Customer
@@ -93,6 +94,30 @@ namespace NekoViBE.API.Controllers.Customer
             }
 
             var query = new GetCustomerOrderDetailQuery(orderId);
+            var result = await _mediator.Send(query, cancellationToken);
+            return StatusCode(result.GetHttpStatusCode(), result);
+        }
+
+        [HttpGet("{orderId}/shipping-history")]
+        [ProducesResponseType(typeof(Result<List<NekoViBE.Application.Common.DTOs.Shipping.ShippingHistoryDto>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<List<NekoViBE.Application.Common.DTOs.Shipping.ShippingHistoryDto>>), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(Result<List<NekoViBE.Application.Common.DTOs.Shipping.ShippingHistoryDto>>), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(Result<List<NekoViBE.Application.Common.DTOs.Shipping.ShippingHistoryDto>>), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(Result<List<NekoViBE.Application.Common.DTOs.Shipping.ShippingHistoryDto>>), StatusCodes.Status500InternalServerError)]
+        [SwaggerOperation(
+            Summary = "Get shipping history for an order",
+            Description = "Returns shipping history/tracking events for the specified order",
+            OperationId = "GetShippingHistory",
+            Tags = new[] { "Customer", "Customer_Order" }
+        )]
+        public async Task<IActionResult> GetShippingHistory(Guid orderId, CancellationToken cancellationToken)
+        {
+            if (orderId == Guid.Empty)
+            {
+                return BadRequest(Result<List<NekoViBE.Application.Common.DTOs.Shipping.ShippingHistoryDto>>.Failure("Invalid order id", ErrorCodeEnum.InvalidInput));
+            }
+
+            var query = new GetShippingHistoryQuery(orderId);
             var result = await _mediator.Send(query, cancellationToken);
             return StatusCode(result.GetHttpStatusCode(), result);
         }

@@ -7,6 +7,7 @@ public class Product : BaseEntity
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public decimal Price { get; set; }
+    // đây là trường giá sale, không phải giá trị giảm giá
     public decimal? DiscountPrice { get; set; }
     public int StockQuantity { get; set; } = 0;
     public Guid CategoryId { get; set; }

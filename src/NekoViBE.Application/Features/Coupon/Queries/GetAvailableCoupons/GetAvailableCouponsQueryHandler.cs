@@ -51,13 +51,15 @@ public class GetAvailableCouponsQueryHandler : IRequestHandler<GetAvailableCoupo
                 Description = c.Description,
                 DiscountType = c.DiscountType.ToString(),
                 DiscountValue = c.DiscountValue,
+                MaxDiscountCap = c.MaxDiscountCap,
                 MinOrderAmount = c.MinOrderAmount,
                 StartDate = c.StartDate,
                 EndDate = c.EndDate,
                 UsageLimit = c.UsageLimit,
                 CurrentUsage = c.CurrentUsage,
                 RemainingSlots = c.UsageLimit.HasValue ? c.UsageLimit.Value - c.CurrentUsage : int.MaxValue,
-                IsCollected = userId.HasValue && c.UserCoupons.Any(uc => uc.UserId == userId.Value && uc.UsedDate == null)
+                // Check if user has collected this coupon (regardless of whether it's been used or not)
+                IsCollected = userId.HasValue && c.UserCoupons.Any(uc => uc.UserId == userId.Value)
             }).ToList()
         };
 

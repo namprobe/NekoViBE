@@ -182,11 +182,14 @@ public class UserAddressController : ControllerBase
     ///     
     ///     {
     ///        "fullName": "Nguyen Van A Updated",
-    ///        "address": "456 Main Street, District 1",
-    ///        "city": "Ho Chi Minh City",
-    ///        "state": "Ho Chi Minh",
+    ///        "address": "456 Nguyen Hue",
+    ///        "provinceId": 202,
+    ///        "provinceName": "Hồ Chí Minh",
+    ///        "districtId": 3695,
+    ///        "districtName": "Thành phố Thủ Đức",
+    ///        "wardCode": "90768",
+    ///        "wardName": "Phường An Khánh",
     ///        "postalCode": "700000",
-    ///        "country": "Vietnam",
     ///        "phoneNumber": "0901234567",
     ///        "addressType": 1,
     ///        "isDefault": true,

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Linq.Expressions;
 using AutoMapper;
 using MediatR;
@@ -63,7 +64,11 @@ public class GetCustomerOrderDetailQueryHandler
                     .ThenInclude(oi => oi.Product!)
                         .ThenInclude(p => p.AnimeSeries!)
                 .Include(o => o.Payment!)
-                    .ThenInclude(p => p.PaymentMethod!);
+                    .ThenInclude(p => p.PaymentMethod!)
+                .Include(o => o.OrderShippingMethods!)
+                    .ThenInclude(os => os.ShippingMethod!)
+                .Include(o => o.UserCoupons!)
+                    .ThenInclude(uc => uc.Coupon!);
 
             var order = await query.FirstOrDefaultAsync(cancellationToken);
 
@@ -75,6 +80,7 @@ public class GetCustomerOrderDetailQueryHandler
             }
 
             var dto = _mapper.Map<CustomerOrderDetailDto>(order);
+            dto.Shipping = MapShippingInfo(order);
             // ProductImage is already converted to full URL by ProductImageUrlResolver
             return Result<CustomerOrderDetailDto>.Success(dto);
         }
@@ -85,6 +91,28 @@ public class GetCustomerOrderDetailQueryHandler
                 "An error occurred while retrieving order detail",
                 ErrorCodeEnum.InternalError);
         }
+    }
+
+    private static CustomerOrderShippingDto? MapShippingInfo(Domain.Entities.Order order)
+    {
+        var shipping = order.OrderShippingMethods?
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefault();
+
+        if (shipping == null)
+        {
+            return null;
+        }
+
+        return new CustomerOrderShippingDto
+        {
+            ShippingMethodName = shipping.ShippingMethod?.Name,
+            TrackingNumber = shipping.TrackingNumber,
+            ShippedDate = shipping.ShippedDate,
+            EstimatedDeliveryDate = shipping.EstimatedDeliveryDate,
+            DeliveredDate = shipping.DeliveredDate,
+            ShippingStatus = order.OrderStatus
+        };
     }
 }
 
