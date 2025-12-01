@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NekoViBE.Infrastructure.Context;
 
@@ -11,9 +12,11 @@ using NekoViBE.Infrastructure.Context;
 namespace NekoViBE.Infrastructure.Migrations
 {
     [DbContext(typeof(NekoViDbContext))]
-    partial class NekoViDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251201163656_AddUniqueConstraintUserCoupon")]
+    partial class AddUniqueConstraintUserCoupon
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

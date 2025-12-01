@@ -33,6 +33,7 @@ namespace NekoViBE.Application.Common.Mappings
             CreateMap<Product, ProductItem>()
                 .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Category))
                 .ForMember(dest => dest.AnimeSeriesId, opt => opt.MapFrom(src => src.AnimeSeriesId))
+                .ForMember(dest => dest.AnimeSeries, opt => opt.MapFrom(src => src.AnimeSeries))
                 .ForMember(dest => dest.AverageRating, opt => opt.Ignore())
                 .ForMember(dest => dest.ReviewCount, opt => opt.Ignore())
                 .ForMember(dest => dest.PrimaryImage, opt => opt.MapFrom(src =>

@@ -588,6 +588,12 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.HasIndex(x => x.CouponId);
             entity.HasIndex(x => x.OrderId).HasFilter("OrderId IS NOT NULL");
             entity.HasIndex(x => x.UsedDate).HasFilter("UsedDate IS NOT NULL");
+            
+            // Unique constraint: One user can only have one active coupon of each type
+            entity.HasIndex(x => new { x.UserId, x.CouponId })
+                .IsUnique()
+                .HasFilter("UserId IS NOT NULL AND Status = 1")
+                .HasDatabaseName("UX_UserCoupons_UserId_CouponId_Active");
         });
 
 
