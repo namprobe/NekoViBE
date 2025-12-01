@@ -37,9 +37,12 @@ namespace NekoViBE.Application.Features.UserBadge.Command.ProcessBadgeEligibilit
 
                 var targetUserId = request.UserId ?? currentUserId;
 
-                // Get all active badges
+                // Get all active badges with their linked coupons
                 var allBadges = await _unitOfWork.Repository<Domain.Entities.Badge>()
-                    .FindAsync(b => b.Status == EntityStatusEnum.Active);
+                    .GetQueryable()
+                    .Include(b => b.LinkedCoupon)
+                    .Where(b => b.Status == EntityStatusEnum.Active)
+                    .ToListAsync(cancellationToken);
 
                 // Get badges user already has
                 var existingUserBadges = await _unitOfWork.Repository<Domain.Entities.UserBadge>()
@@ -79,6 +82,58 @@ namespace NekoViBE.Application.Features.UserBadge.Command.ProcessBadgeEligibilit
                         }
 
                         await _unitOfWork.Repository<Domain.Entities.UserBadge>().AddAsync(userBadge);
+
+                        // If badge has a linked coupon, automatically collect it for the user
+                        if (badge.LinkedCouponId.HasValue && badge.LinkedCoupon != null)
+                        {
+                            _logger.LogInformation("🔗 Badge {BadgeName} has LinkedCouponId: {LinkedCouponId}, Code: {CouponCode}",
+                                badge.Name, badge.LinkedCouponId, badge.LinkedCoupon.Code);
+
+                            // Check if user already has this coupon
+                            var existingUserCoupon = await _unitOfWork.Repository<Domain.Entities.UserCoupon>()
+                                .GetQueryable()
+                                .AnyAsync(uc => 
+                                    uc.UserId == targetUserId.Value && 
+                                    uc.CouponId == badge.LinkedCouponId.Value &&
+                                    uc.Status == EntityStatusEnum.Active,
+                                    cancellationToken);
+
+                            if (!existingUserCoupon)
+                            {
+                                var userCoupon = new Domain.Entities.UserCoupon
+                                {
+                                    Id = Guid.NewGuid(),
+                                    UserId = targetUserId.Value,
+                                    CouponId = badge.LinkedCouponId.Value,
+                                    Status = EntityStatusEnum.Active,
+                                    CreatedAt = DateTime.UtcNow,
+                                    CreatedBy = targetUserId
+                                };
+
+                                try
+                                {
+                                    await _unitOfWork.Repository<Domain.Entities.UserCoupon>().AddAsync(userCoupon);
+                                    
+                                    _logger.LogInformation("🎟️ Auto-collected badge coupon {CouponCode} (ID: {CouponId}) for user {UserId} when awarding badge {BadgeName}",
+                                        badge.LinkedCoupon.Code, badge.LinkedCouponId, targetUserId, badge.Name);
+                                }
+                                catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("UX_UserCoupons_UserId_CouponId_Active") == true)
+                                {
+                                    _logger.LogDebug("⏭️ Duplicate key: User {UserId} already has coupon {CouponCode} (race condition caught by DB)",
+                                        targetUserId, badge.LinkedCoupon.Code);
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogInformation("⏭️ User {UserId} already has coupon {CouponCode}, skipping", 
+                                    targetUserId, badge.LinkedCoupon.Code);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("⚠️ Badge {BadgeName} (ID: {BadgeId}) has NO linked coupon. LinkedCouponId: {LinkedCouponId}",
+                                badge.Name, badge.Id, badge.LinkedCouponId);
+                        }
 
                         newlyAwardedBadges.Add(new NewlyAwardedBadgeResponse
                         {

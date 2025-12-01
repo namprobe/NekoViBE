@@ -33,6 +33,11 @@ public class CollectCouponCommandHandler : IRequestHandler<CollectCouponCommand,
         if (coupon == null)
             return Result.Failure("Coupon not found", Common.Enums.ErrorCodeEnum.NotFound);
 
+        // CRITICAL: Prevent collection of badge coupons
+        // Badge coupons are auto-applied when badge is equipped, not manually collected
+        if (coupon.IsBadgeCoupon)
+            return Result.Failure("This coupon is linked to a badge and cannot be collected manually. Equip the badge to use this discount.", Common.Enums.ErrorCodeEnum.InvalidOperation);
+
         // Kiểm tra coupon còn hiệu lực không
         var now = DateTime.UtcNow;
         if (coupon.Status != Domain.Enums.EntityStatusEnum.Active)

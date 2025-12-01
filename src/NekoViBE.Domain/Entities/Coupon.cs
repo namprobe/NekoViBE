@@ -52,6 +52,13 @@ public class Coupon : BaseEntity
     /// </summary>
     public int CurrentUsage { get; set; } = 0;
     
+    /// <summary>
+    /// Indicates if this coupon was auto-generated for a badge
+    /// Badge coupons cannot be collected manually - only applied when badge is equipped
+    /// </summary>
+    public bool IsBadgeCoupon { get; set; } = false;
+    
     // === NAVIGATION PROPERTIES ===
     public virtual ICollection<UserCoupon> UserCoupons { get; set; } = new List<UserCoupon>();
+    public virtual Badge? LinkedBadge { get; set; }
 }
