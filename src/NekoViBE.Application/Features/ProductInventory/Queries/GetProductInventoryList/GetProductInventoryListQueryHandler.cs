@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace NekoViBE.Application.Features.ProductInventory.Queries.GetProductInventoryList
 {
@@ -58,6 +59,16 @@ namespace NekoViBE.Application.Features.ProductInventory.Queries.GetProductInven
                 );
 
                 var productInventoryItems = _mapper.Map<List<ProductInventoryItem>>(items);
+
+                    foreach (var dto in productInventoryItems)
+                    {
+                        var entity = items.First(x => x.Id.ToString() == dto.Id);
+
+                        var importerId = entity.UpdatedBy ?? entity.CreatedBy;
+
+                        var appUser = await _unitOfWork.Repository<Domain.Entities.AppUser>().GetFirstOrDefaultAsync(x => x.Id == importerId);
+                        dto.Importer = appUser?.LastName;
+                    }
 
                 return PaginationResult<ProductInventoryItem>.Success(
                     productInventoryItems,
