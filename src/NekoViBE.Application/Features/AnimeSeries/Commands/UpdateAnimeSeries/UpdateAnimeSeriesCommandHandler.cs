@@ -72,11 +72,6 @@ namespace NekoViBE.Application.Features.AnimeSeries.Commands.UpdateAnimeSeries
                     var imagePath = await _fileService.UploadFileAsync(command.Request.ImageFile, "uploads", cancellationToken);
                     entity.ImagePath = imagePath;
                 }
-                else
-                {
-                    // If no new image provided, keep the old image or set to null if explicitly cleared
-                    entity.ImagePath = null;
-                }
 
                 try
                 {
