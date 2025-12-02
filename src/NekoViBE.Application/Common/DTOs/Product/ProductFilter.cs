@@ -27,5 +27,11 @@ namespace NekoViBE.Application.Common.DTOs.Product
 
         [JsonPropertyName("sortType")]
         public string? SortType { get; set; }    // "price-asc", "price-desc", "name-asc", "name-desc"
+
+        [JsonPropertyName("tagIds")]
+        public List<Guid>? TagIds { get; set; }
+
+        [JsonPropertyName("stockStatus")]
+        public string? StockStatus { get; set; }
     }
 }

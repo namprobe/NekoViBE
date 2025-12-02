@@ -440,3 +440,4 @@ wwwroot/uploads/
 **/PublishProfiles/**
 *.pubxml.user
 *.PublishSettings
+src/NekoViBE.API/appsettings.Production.txt

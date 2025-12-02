@@ -42,7 +42,11 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProductList
 
             var predicate = request.Filter.BuildPredicate();
             var orderBy = request.Filter.BuildOrderBy();
-            var isAscending = request.Filter.SortType?.EndsWith("asc") ?? false;
+            if (request.Filter.SortType?.StartsWith("updated") == true)
+            {
+                orderBy = x => x.UpdatedAt ?? x.CreatedAt!;
+            }
+            var isAscending = request.Filter.GetIsAscending();
 
 
             var (items, totalCount) = await _unitOfWork.Repository<Domain.Entities.Product>().GetPagedAsync(
@@ -54,17 +58,33 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProductList
                 includes: new Expression<Func<Domain.Entities.Product, object>>[]
                 {
                     x => x.ProductImages,
-                    x => x.Category
+                    x => x.Category,
+                    x => x.ProductTags,
+                    x => x.ProductReviews
                 });
 
             var productItems = _mapper.Map<List<ProductItem>>(items);
 
             // Gán URL đầy đủ cho ảnh chính (hoặc fallback nếu không có)
-            foreach (var (product, entity) in productItems.Zip(items))
+            foreach (var (product, entity) in productItems.Zip(items, (dto, ent) => (dto, ent)))
             {
+                // Gán ảnh chính
                 var primaryImage = entity.ProductImages.FirstOrDefault(img => img.IsPrimary);
-                    product.PrimaryImage = _fileService.GetFileUrl(primaryImage.ImagePath);
-                
+                product.PrimaryImage = primaryImage != null
+                    ? _fileService.GetFileUrl(primaryImage.ImagePath)
+                    : null;
+
+                // Tính rating trung bình
+                if (entity.ProductReviews != null && entity.ProductReviews.Any())
+                {
+                    product.AverageRating = Math.Round(entity.ProductReviews.Average(r => r.Rating), 1);
+                    product.ReviewCount = entity.ProductReviews.Count;
+                }
+                else
+                {
+                    product.AverageRating = null;
+                    product.ReviewCount = 0;
+                }
             }
 
             // Log nếu có sản phẩm chưa có ảnh chính

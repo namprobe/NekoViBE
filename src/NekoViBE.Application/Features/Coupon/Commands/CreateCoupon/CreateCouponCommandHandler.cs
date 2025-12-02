@@ -6,6 +6,7 @@ using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Domain.Common;
+using NekoViBE.Domain.Enums;
 
 namespace NekoViBE.Application.Features.Coupon.Commands.CreateCoupon
 {
@@ -45,6 +46,12 @@ namespace NekoViBE.Application.Features.Coupon.Commands.CreateCoupon
                 if (existingCoupons.Any())
                 {
                     return Result<CouponDto>.Failure("Coupon code already exists", ErrorCodeEnum.Conflict);
+                }
+
+                // Ensure discount value is zero for free shipping coupons
+                if (command.Request.DiscountType == Domain.Enums.DiscountTypeEnum.FreeShipping)
+                {
+                    command.Request.DiscountValue = 0;
                 }
 
                 // Validate dates

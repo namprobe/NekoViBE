@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NekoViBE.Application.Common.DTOs.ProductInventory;
 using NekoViBE.Application.Common.Enums;
@@ -13,7 +12,8 @@ using System.Transactions;
 
 namespace NekoViBE.Application.Features.ProductInventory.Commands.UpdateProductInventory
 {
-    public class UpdateProductInventoryCommandHandler : IRequestHandler<UpdateProductInventoryCommand, Result>
+    public class UpdateProductInventoryCommandHandler
+        : IRequestHandler<UpdateProductInventoryCommand, Result>
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
@@ -38,82 +38,83 @@ namespace NekoViBE.Application.Features.ProductInventory.Commands.UpdateProductI
             {
                 var (isValid, userId) = await _currentUserService.IsUserValidAsync();
                 if (!isValid || userId == null)
-                {
-                    _logger.LogWarning("Invalid or unauthenticated user attempting to update product inventory");
                     return Result.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
-                }
 
-                var repository = _unitOfWork.Repository<Domain.Entities.ProductInventory>();
+                var inventoryRepo = _unitOfWork.Repository<Domain.Entities.ProductInventory>();
                 var productRepo = _unitOfWork.Repository<Domain.Entities.Product>();
 
-                var existingInventory = await repository.GetFirstOrDefaultAsync(x => x.Id == command.Id);
+                var existingInventory = await inventoryRepo.GetFirstOrDefaultAsync(x => x.Id == command.Id);
                 if (existingInventory == null)
-                {
-                    _logger.LogWarning("Product inventory with ID {Id} not found", command.Id);
                     return Result.Failure("Product inventory not found", ErrorCodeEnum.NotFound);
-                }
 
                 var oldProductId = existingInventory.ProductId;
                 var oldQuantity = existingInventory.Quantity;
                 var oldStatus = existingInventory.Status;
-                var oldValue = JsonSerializer.Serialize(_mapper.Map<ProductInventoryRequest>(existingInventory));
 
                 var newProductId = command.Request.ProductId;
                 var newQuantity = command.Request.Quantity;
 
-                
+                var oldValueJson = JsonSerializer.Serialize(_mapper.Map<ProductInventoryRequest>(existingInventory));
 
                 using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    // Validate new ProductId
+                    var oldProduct = await productRepo.GetFirstOrDefaultAsync(x => x.Id == oldProductId);
                     var newProduct = await productRepo.GetFirstOrDefaultAsync(x => x.Id == newProductId);
 
-                    // Update StockQuantity
-                   
-                        // Subtract old quantity from old product
-                        var oldProduct = await productRepo.GetFirstOrDefaultAsync(x => x.Id == oldProductId);
-                        
-                            oldProduct.StockQuantity -= oldQuantity;
-                            if (oldProduct.StockQuantity < 0)
-                            {
-                                _logger.LogWarning("Stock quantity for product {ProductId} would become negative", oldProductId);
-                                return Result.Failure("Stock quantity cannot be negative", ErrorCodeEnum.InvalidOperation);
-                            }
-                            productRepo.Update(oldProduct);
-                            await _unitOfWork.SaveChangesAsync(cancellationToken);
-                        
+                    if (oldProduct == null || newProduct == null)
+                        return Result.Failure("Product not found", ErrorCodeEnum.NotFound);
 
-                        // Add new quantity to new product
+                    // CASE 1: ProductId KHÔNG đổi → chỉ cập nhật số lượng
+                    if (oldProductId == newProductId)
+                    {
+                        int diff = newQuantity - oldQuantity;
+                        oldProduct.StockQuantity += diff;
+
+                        if (oldProduct.StockQuantity < 0)
+                            return Result.Failure("Stock quantity cannot be negative", ErrorCodeEnum.InvalidOperation);
+
+                        productRepo.Update(oldProduct);
+                    }
+                    else
+                    {
+                        // CASE 2: ProductId ĐỔI → chuyển stock
+                        oldProduct.StockQuantity -= oldQuantity;
+                        if (oldProduct.StockQuantity < 0)
+                            return Result.Failure("Stock quantity cannot be negative", ErrorCodeEnum.InvalidOperation);
+
                         newProduct.StockQuantity += newQuantity;
-                        productRepo.Update(newProduct);
-                    
 
-                    // Update inventory
+                        productRepo.Update(oldProduct);
+                        productRepo.Update(newProduct);
+                    }
+
+                    // Update ProductInventory
                     _mapper.Map(command.Request, existingInventory);
                     existingInventory.UpdatedBy = userId;
                     existingInventory.UpdatedAt = DateTime.UtcNow;
-                    repository.Update(existingInventory);
+                    inventoryRepo.Update(existingInventory);
 
-                    // Log user action
+                    // Log
                     var userAction = new UserAction
                     {
                         UserId = userId.Value,
                         Action = UserActionEnum.Update,
                         EntityId = existingInventory.Id,
                         EntityName = "ProductInventory",
-                        OldValue = oldValue,
+                        OldValue = oldValueJson,
                         NewValue = JsonSerializer.Serialize(command.Request),
                         IPAddress = _currentUserService.IPAddress ?? "Unknown",
-                        ActionDetail = $"Updated product inventory for product ID: {newProductId} with quantity: {newQuantity}",
+                        ActionDetail = $"Updated product inventory {existingInventory.Id}",
                         CreatedAt = DateTime.UtcNow,
                         Status = EntityStatusEnum.Active
                     };
+
                     await _unitOfWork.Repository<UserAction>().AddAsync(userAction);
 
-                    // Log status change if applicable
+                    // Log status
                     if (oldStatus != command.Request.Status)
                     {
-                        var statusChangeAction = new UserAction
+                        await _unitOfWork.Repository<UserAction>().AddAsync(new UserAction
                         {
                             UserId = userId.Value,
                             Action = UserActionEnum.StatusChange,
@@ -122,15 +123,14 @@ namespace NekoViBE.Application.Features.ProductInventory.Commands.UpdateProductI
                             OldValue = oldStatus.ToString(),
                             NewValue = command.Request.Status.ToString(),
                             IPAddress = _currentUserService.IPAddress ?? "Unknown",
-                            ActionDetail = $"Changed status of product inventory ID: {existingInventory.Id} from {oldStatus} to {command.Request.Status}",
+                            ActionDetail =
+                                $"Changed status of product inventory {existingInventory.Id} from {oldStatus} to {command.Request.Status}",
                             CreatedAt = DateTime.UtcNow,
                             Status = EntityStatusEnum.Active
-                        };
-                        await _unitOfWork.Repository<UserAction>().AddAsync(statusChangeAction);
+                        });
                     }
 
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
-
                     scope.Complete();
                 }
 
@@ -138,7 +138,7 @@ namespace NekoViBE.Application.Features.ProductInventory.Commands.UpdateProductI
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating product inventory with ID: {Id}", command.Id);
+                _logger.LogError(ex, "Error updating product inventory {Id}", command.Id);
                 return Result.Failure("Error updating product inventory", ErrorCodeEnum.InternalError);
             }
         }

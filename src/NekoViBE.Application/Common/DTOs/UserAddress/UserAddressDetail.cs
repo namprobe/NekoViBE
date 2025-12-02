@@ -8,10 +8,13 @@ public class UserAddressDetail : BaseResponse
     public AddressTypeEnum AddressType { get; set; }
     public string AddressTypeEnumName => AddressType.ToString();
     public string Address { get; set; } = string.Empty;
-    public string City { get; set; } = string.Empty;
-    public string? State { get; set; }
-    public string PostalCode { get; set; } = string.Empty;
-    public string Country { get; set; } = string.Empty;
+    public int? ProvinceId { get; set; }
+    public string? ProvinceName { get; set; }
+    public int? DistrictId { get; set; }
+    public string? DistrictName { get; set; }
+    public string? WardCode { get; set; }
+    public string? WardName { get; set; }
+    public string? PostalCode { get; set; }
     public bool IsDefault { get; set; } = true;
     public string? PhoneNumber { get; set; }
 }

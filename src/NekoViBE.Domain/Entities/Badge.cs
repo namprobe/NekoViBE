@@ -15,6 +15,13 @@ public class Badge : BaseEntity
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     
+    /// <summary>
+    /// Link to auto-generated coupon for this badge
+    /// This allows the badge discount to be applied through the existing coupon system
+    /// </summary>
+    public Guid? LinkedCouponId { get; set; }
+    
     // navigation properties
+    public virtual Coupon? LinkedCoupon { get; set; }
     public virtual ICollection<UserBadge> UserBadges { get; set; } = new List<UserBadge>();
 }

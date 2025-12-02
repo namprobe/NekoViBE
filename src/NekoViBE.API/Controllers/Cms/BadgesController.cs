@@ -10,6 +10,7 @@ using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.Badge.Command.CreateBadge;
 using NekoViBE.Application.Features.Badge.Command.DeleteBadge;
 using NekoViBE.Application.Features.Badge.Command.UpdateBadge;
+using NekoViBE.Application.Features.Badge.Command.UpdateBadgeImage;
 using NekoViBE.Application.Features.Badge.Queries.GetBadeById;
 using NekoViBE.Application.Features.Badge.Queries.GetBadge;
 using NekoViBE.Application.Features.UserBadge.Command.AssignBadge;
@@ -139,6 +140,38 @@ namespace NekoViBE.API.Controllers.Cms
         public async Task<IActionResult> UpdateBadge(Guid id, [FromForm] UpdateBadgeRequest request)
         {
             var command = new UpdateBadgeCommand(id, request);
+            var result = await _mediator.Send(command);
+            return StatusCode(result.GetHttpStatusCode(), result);
+        }
+
+
+
+
+        [HttpPatch("{id}/image")]
+        [AuthorizeRoles("Admin", "Staff")]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
+        [SwaggerOperation(
+                Summary = "Update badge image",
+                Description = "This API updates only the badge image/icon. It requires Admin or Staff role access",
+                OperationId = "UpdateBadgeImage",
+                Tags = new[] { "CMS", "CMS_Badge" }
+            )]
+        public async Task<IActionResult> UpdateBadgeImage(Guid id, [FromForm] UpdateBadgeImageRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid model state for UpdateBadgeImage: {Errors}",
+                    string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                return BadRequest(Result.Failure("Invalid request parameters", ErrorCodeEnum.InvalidInput));
+            }
+
+            var command = new UpdateBadgeImageCommand(id, request);
             var result = await _mediator.Send(command);
             return StatusCode(result.GetHttpStatusCode(), result);
         }

@@ -16,6 +16,9 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
     public DbSet<StaffProfile> StaffProfiles { get; set; }
     public DbSet<UserAddress> UserAddresses { get; set; }
     public DbSet<UserAction> UserActions { get; set; }
+    // public DbSet<Province> Provinces { get; set; }
+    // public DbSet<District> Districts { get; set; }
+    // public DbSet<Ward> Wards { get; set; }
     public DbSet<Category> Categories { get; set; }
     public DbSet<AnimeSeries> AnimeSeries { get; set; }
     public DbSet<Product> Products { get; set; }
@@ -32,6 +35,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<ShippingMethod> ShippingMethods { get; set; }
     public DbSet<OrderShippingMethod> OrderShippingMethods { get; set; }
+    public DbSet<ShippingHistory> ShippingHistories { get; set; }
     public DbSet<Payment> Payments { get; set; }
     public DbSet<PaymentMethod> PaymentMethods { get; set; }
     public DbSet<Wishlist> Wishlists { get; set; }
@@ -43,6 +47,8 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
     public DbSet<PostTag> PostTags { get; set; }
     public DbSet<Event> Events { get; set; }
     public DbSet<EventProduct> EventProducts { get; set; }
+    public DbSet<HomeImage> HomeImages { get; set; } = null!;
+    public DbSet<UserHomeImage> UserHomeImages { get; set; } = null!;
 
 
     public NekoViDbContext(DbContextOptions<NekoViDbContext> options) : base(options)
@@ -114,16 +120,61 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.HasKey(ur => new { ur.UserId, ur.RoleId });
         });
 
+        // // Province
+        // builder.Entity<Province>(entity =>
+        // {
+        //     entity.HasIndex(x => x.ProvinceId).IsUnique();
+        //     entity.HasIndex(x => x.ProvinceName);
+        //     entity.HasIndex(x => x.Code);
+        //     entity.HasIndex(x => x.Status);
+        // });
+
+        // // District
+        // builder.Entity<District>(entity =>
+        // {
+        //     entity.HasIndex(x => x.DistrictId).IsUnique();
+        //     entity.HasIndex(x => x.DistrictName);
+        //     entity.HasIndex(x => x.ProvinceId);
+        //     entity.HasIndex(x => x.GHNStatus);
+            
+        //     entity.HasOne(x => x.Province)
+        //         .WithMany(x => x.Districts)
+        //         .HasForeignKey(x => x.ProvinceId)
+        //         .HasPrincipalKey(x => x.ProvinceId) // Use ProvinceId as key, not Id
+        //         .OnDelete(DeleteBehavior.Restrict);
+        // });
+
+        // // Ward
+        // builder.Entity<Ward>(entity =>
+        // {
+        //     entity.HasIndex(x => x.WardCode).IsUnique();
+        //     entity.HasIndex(x => x.WardName);
+        //     entity.HasIndex(x => x.DistrictId);
+        //     entity.HasIndex(x => x.GHNStatus);
+            
+        //     entity.HasOne(x => x.District)
+        //         .WithMany(x => x.Wards)
+        //         .HasForeignKey(x => x.DistrictId)
+        //         .HasPrincipalKey(x => x.DistrictId) // Use DistrictId as key, not Id
+        //         .OnDelete(DeleteBehavior.Restrict);
+        // });
+
         // UserAddress
         builder.Entity<UserAddress>(entity =>
         {
             entity.Property(x => x.AddressType).HasConversion<int>();
             entity.Property(x => x.IsDefault).HasDefaultValue(true);
-            
+            entity.Property(x => x.ProvinceName).HasMaxLength(256);
+            entity.Property(x => x.DistrictName).HasMaxLength(256);
+            entity.Property(x => x.WardName).HasMaxLength(256);
+            entity.Property(x => x.WardCode).HasMaxLength(64);
+
             // Performance indexes
             entity.HasIndex(x => new { x.UserId, x.IsDefault }).HasFilter("IsDefault = 1");
             entity.HasIndex(x => x.AddressType);
-            entity.HasIndex(x => new { x.Country, x.State, x.City });
+            entity.HasIndex(x => x.ProvinceId).HasFilter("ProvinceId IS NOT NULL");
+            entity.HasIndex(x => x.DistrictId).HasFilter("DistrictId IS NOT NULL");
+            entity.HasIndex(x => x.WardCode).HasFilter("WardCode IS NOT NULL");
         });
 
         // StaffProfile
@@ -336,10 +387,15 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         // Order
         builder.Entity<Order>(entity =>
         {
-            entity.Property(x => x.TotalAmount).HasColumnType("decimal(10,2)");
-            entity.Property(x => x.DiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.SubtotalOriginal).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ProductDiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.SubtotalAfterProductDiscount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.CouponDiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.TotalProductAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ShippingFeeOriginal).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ShippingDiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ShippingFeeActual).HasColumnType("decimal(10,2)");
             entity.Property(x => x.TaxAmount).HasColumnType("decimal(10,2)");
-            entity.Property(x => x.ShippingAmount).HasColumnType("decimal(10,2)");
             entity.Property(x => x.FinalAmount).HasColumnType("decimal(10,2)");
             entity.Property(x => x.PaymentStatus).HasConversion<int>();
             entity.Property(x => x.OrderStatus).HasConversion<int>();
@@ -348,8 +404,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
                 .WithMany(x => x.Orders)
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
-                
-            entity.HasIndex(x => x.OrderNumber).IsUnique();
+            
             entity.HasIndex(x => x.UserId).HasFilter("UserId IS NOT NULL");
             entity.HasIndex(x => x.PaymentStatus);
             entity.HasIndex(x => x.OrderStatus);
@@ -359,8 +414,10 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         // OrderItem
         builder.Entity<OrderItem>(entity =>
         {
-            entity.Property(x => x.UnitPrice).HasColumnType("decimal(10,2)");
-            entity.Property(x => x.DiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.UnitPriceOriginal).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.UnitPriceAfterDiscount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.UnitDiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.LineTotal).HasColumnType("decimal(10,2)");
             
             entity.HasOne(x => x.Order)
                 .WithMany(x => x.OrderItems)
@@ -387,6 +444,12 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         // OrderShippingMethod
         builder.Entity<OrderShippingMethod>(entity =>
         {
+            entity.Property(x => x.ShippingFeeOriginal).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ShippingDiscountAmount).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.ShippingFeeActual).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.CodFee).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.InsuranceFee).HasColumnType("decimal(10,2)");
+            
             entity.HasOne(x => x.Order)
                 .WithMany(x => x.OrderShippingMethods)
                 .HasForeignKey(x => x.OrderId)
@@ -400,6 +463,30 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.HasIndex(x => x.OrderId);
             entity.HasIndex(x => x.ShippingMethodId);
             entity.HasIndex(x => x.TrackingNumber).HasFilter("TrackingNumber IS NOT NULL");
+            entity.HasIndex(x => x.ProviderName).HasFilter("ProviderName IS NOT NULL");
+        });
+
+        // ShippingHistory
+        builder.Entity<ShippingHistory>(entity =>
+        {
+            entity.HasOne(x => x.OrderShippingMethod)
+                .WithMany()
+                .HasForeignKey(x => x.OrderShippingMethodId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            // Use NO ACTION instead of CASCADE to avoid multiple cascade paths
+            // Order -> OrderShippingMethod -> ShippingHistory (CASCADE)
+            // Order -> ShippingHistory (NO ACTION) - prevents deletion if history exists
+            entity.HasOne(x => x.Order)
+                .WithMany()
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.NoAction);
+                
+            entity.HasIndex(x => x.OrderShippingMethodId);
+            entity.HasIndex(x => x.OrderId);
+            entity.HasIndex(x => x.TrackingNumber).HasFilter("TrackingNumber IS NOT NULL");
+            entity.HasIndex(x => x.EventTime);
+            entity.HasIndex(x => new { x.OrderId, x.EventTime });
         });
 
         // PaymentMethod
@@ -432,7 +519,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.HasIndex(x => x.OrderId).IsUnique();
             entity.HasIndex(x => x.PaymentMethodId);
             entity.HasIndex(x => x.PaymentStatus);
-            entity.HasIndex(x => x.TransactionId).HasFilter("TransactionId IS NOT NULL");
+            entity.HasIndex(x => x.TransactionNo).HasFilter("TransactionNo IS NOT NULL");
             entity.HasIndex(x => x.PaymentDate).HasFilter("PaymentDate IS NOT NULL");
         });
 
@@ -468,6 +555,7 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
         builder.Entity<Coupon>(entity =>
         {
             entity.Property(x => x.DiscountValue).HasColumnType("decimal(10,2)");
+            entity.Property(x => x.MaxDiscountCap).HasColumnType("decimal(10,2)");
             entity.Property(x => x.MinOrderAmount).HasColumnType("decimal(10,2)");
             entity.Property(x => x.DiscountType).HasConversion<int>();
             
@@ -500,7 +588,14 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
             entity.HasIndex(x => x.CouponId);
             entity.HasIndex(x => x.OrderId).HasFilter("OrderId IS NOT NULL");
             entity.HasIndex(x => x.UsedDate).HasFilter("UsedDate IS NOT NULL");
+            
+            // Unique constraint: One user can only have one active coupon of each type
+            entity.HasIndex(x => new { x.UserId, x.CouponId })
+                .IsUnique()
+                .HasFilter("UserId IS NOT NULL AND Status = 1")
+                .HasDatabaseName("UX_UserCoupons_UserId_CouponId_Active");
         });
+
 
         // PostCategory
         builder.Entity<PostCategory>(entity =>
@@ -568,6 +663,58 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
                 
             entity.HasIndex(x => new { x.EventId, x.ProductId }).IsUnique();
             entity.HasIndex(x => x.IsFeatured);
+        });
+
+        // HomeImage
+        builder.Entity<HomeImage>(entity =>
+        {
+            entity.Property(x => x.ImagePath).IsRequired().HasMaxLength(500);
+
+            entity.Property(x => x.Name)
+                  .IsRequired()        
+                  .HasMaxLength(200);
+
+            entity.HasIndex(x => x.AnimeSeriesId)
+                  .HasFilter("AnimeSeriesId IS NOT NULL");
+
+            entity.HasOne(x => x.AnimeSeries)
+                  .WithMany()
+                  .HasForeignKey(x => x.AnimeSeriesId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // UserHomeImage – bảng trung gian có thứ tự
+        builder.Entity<UserHomeImage>(entity =>
+        {
+            entity.HasKey(x => new { x.UserId, x.HomeImageId });
+
+            entity.HasOne(x => x.User)
+                  .WithMany(u => u.SelectedHomeImages)
+                  .HasForeignKey(x => x.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.HomeImage)
+                  .WithMany(h => h.UserSelections)
+                  .HasForeignKey(x => x.HomeImageId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Ràng buộc: mỗi user chỉ được chọn tối đa 3 ảnh
+            // Position chỉ được là 1, 2, 3
+            entity.Property(x => x.Position)
+                  .IsRequired()
+                  .HasConversion<byte>() // lưu dưới dạng TINYINT cho nhẹ
+                  .HasDefaultValue(1);
+
+            // Đảm bảo Position trong khoảng 1-3
+            entity.HasCheckConstraint("CK_UserHomeImage_Position", "Position BETWEEN 1 AND 3");
+
+            // Unique: mỗi user chỉ được chọn 1 ảnh ở 1 vị trí
+            entity.HasIndex(x => new { x.UserId, x.Position })
+                  .IsUnique()
+                  .HasDatabaseName("UX_UserHomeImage_UserId_Position");
+
+            // Index hỗ trợ query nhanh
+            entity.HasIndex(x => x.HomeImageId);
         });
 
         // Gọi cấu hình chung cho BaseEntity

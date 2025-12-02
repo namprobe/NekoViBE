@@ -49,9 +49,9 @@ namespace NekoViBE.Application.Features.AnimeSeries.Commands.DeleteAnimeSeries
                     return Result.Failure("Anime series not found", ErrorCodeEnum.NotFound);
 
                 // Check for dependencies
-                var hasProducts = await _unitOfWork.Repository<Domain.Entities.Product>().AnyAsync(x => x.AnimeSeriesId == command.Id);
-                if (hasProducts)
-                    return Result.Failure("Cannot delete anime series with associated products", ErrorCodeEnum.ResourceConflict);
+                //var hasProducts = await _unitOfWork.Repository<Domain.Entities.Product>().AnyAsync(x => x.AnimeSeriesId == command.Id);
+                //if (hasProducts)
+                //    return Result.Failure("Cannot delete anime series with associated products", ErrorCodeEnum.ResourceConflict);
 
                 // Delete image if exists
                 if (!string.IsNullOrEmpty(entity.ImagePath))

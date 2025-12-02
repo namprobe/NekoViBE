@@ -14,5 +14,8 @@ namespace NekoViBE.Application.Common.DTOs.ProductInventory
 
         [JsonPropertyName("quantity")]
         public int Quantity { get; set; }
+
+        [JsonPropertyName("importer")]
+        public string Importer { get; set; } = string.Empty;
     }
 }

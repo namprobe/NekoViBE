@@ -49,9 +49,11 @@ namespace NekoViBE.Application.Common.Validators
                 .GreaterThan(0).WithMessage("Price must be greater than 0");
 
             validator.RuleFor(x => requestFunc(x).DiscountPrice)
-     .InclusiveBetween(0, 100)
-     .When(x => requestFunc(x).DiscountPrice.HasValue)
-     .WithMessage("Discount percent must be between 0 and 100");
+                .GreaterThanOrEqualTo(0)
+                .WithMessage("Discount price cannot be negative")
+                .LessThanOrEqualTo(x => requestFunc(x).Price)
+                .When(x => requestFunc(x).DiscountPrice.HasValue && requestFunc(x).Price > 0)
+                .WithMessage("Discount price cannot be greater than original price ({PropertyValue}) VND");
 
 
             validator.RuleFor(x => requestFunc(x).StockQuantity)
@@ -111,9 +113,11 @@ namespace NekoViBE.Application.Common.Validators
                 .GreaterThan(0).WithMessage("Price must be greater than 0");
 
             validator.RuleFor(x => requestFunc(x).DiscountPrice)
-     .InclusiveBetween(0, 100)
-     .When(x => requestFunc(x).DiscountPrice.HasValue)
-     .WithMessage("Discount percent must be between 0 and 100");
+                .GreaterThanOrEqualTo(0)
+                .WithMessage("Discount price cannot be negative")
+                .LessThanOrEqualTo(x => requestFunc(x).Price)
+                .When(x => requestFunc(x).DiscountPrice.HasValue && requestFunc(x).Price > 0)
+                .WithMessage("Discount price cannot be greater than original price ({PropertyValue}) VND");
 
             validator.RuleFor(x => requestFunc(x).StockQuantity)
                 .GreaterThanOrEqualTo(0).WithMessage("Stock quantity must be non-negative");

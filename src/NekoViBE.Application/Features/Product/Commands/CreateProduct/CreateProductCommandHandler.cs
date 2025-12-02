@@ -78,7 +78,7 @@ namespace NekoViBE.Application.Features.Product.Commands.CreateProduct
                         ImagePath = filePath,
                         IsPrimary = (i == 0),  // ảnh đầu tiên là Primary
                         DisplayOrder = i + 1,
-                        CreatedBy = userId.Value
+                        CreatedBy = userId
                     };
 
                     await _unitOfWork.Repository<Domain.Entities.ProductImage>().AddAsync(productImage);

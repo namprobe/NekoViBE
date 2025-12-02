@@ -30,4 +30,5 @@ public class AppUser : IdentityUser<Guid>, IEntityLike
     public virtual Wishlist? Wishlist { get; set; }
     public virtual ICollection<UserCoupon> UserCoupons { get; set; } = new List<UserCoupon>();
     public virtual ICollection<BlogPost> BlogPosts { get; set; } = new List<BlogPost>();
+    public virtual ICollection<UserHomeImage> SelectedHomeImages { get; set; } = new List<UserHomeImage>();
 }

@@ -14,6 +14,7 @@ namespace NekoViBE.Application.Common.Mappings
                 .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.Id, opt => opt.Ignore());
+            CreateMap<Tag, TagRequest>();
             CreateMap<Tag, TagItem>();
             CreateMap<Tag, TagResponse>();
         }
