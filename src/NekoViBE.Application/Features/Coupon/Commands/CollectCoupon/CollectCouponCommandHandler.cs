@@ -33,6 +33,11 @@ public class CollectCouponCommandHandler : IRequestHandler<CollectCouponCommand,
         if (coupon == null)
             return Result.Failure("Coupon not found", Common.Enums.ErrorCodeEnum.NotFound);
 
+        // CRITICAL: Prevent collection of badge coupons
+        // Badge coupons are auto-applied when badge is equipped, not manually collected
+        if (coupon.IsBadgeCoupon)
+            return Result.Failure("This coupon is linked to a badge and cannot be collected manually. Equip the badge to use this discount.", Common.Enums.ErrorCodeEnum.InvalidOperation);
+
         // Kiểm tra coupon còn hiệu lực không
         var now = DateTime.UtcNow;
         if (coupon.Status != Domain.Enums.EntityStatusEnum.Active)
@@ -44,17 +49,17 @@ public class CollectCouponCommandHandler : IRequestHandler<CollectCouponCommand,
         if (coupon.EndDate < now)
             return Result.Failure("Coupon has expired", Common.Enums.ErrorCodeEnum.InvalidOperation);
 
-        // Kiểm tra còn slot không (dựa trên CurrentUsage, không phải CurrentUsage)
+        // Kiểm tra còn slot không
         if (coupon.UsageLimit.HasValue && coupon.CurrentUsage >= coupon.UsageLimit.Value)
             return Result.Failure("Coupon usage limit has been reached", Common.Enums.ErrorCodeEnum.InvalidOperation);
 
-        // Kiểm tra user đã collect coupon này chưa (không phân biệt đã sử dụng hay chưa)
+        // Kiểm tra user đã collect coupon này chưa
         var existingUserCoupon = await _unitOfWork.Repository<Domain.Entities.UserCoupon>()
             .GetQueryable()
-            .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.CouponId == request.CouponId, cancellationToken);
+            .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.CouponId == request.CouponId && uc.UsedDate == null, cancellationToken);
 
         if (existingUserCoupon != null)
-            return Result.Failure("You have already collected this coupon. Each user can only collect a coupon once.", Common.Enums.ErrorCodeEnum.DuplicateEntry);
+            return Result.Failure("You have already collected this coupon", Common.Enums.ErrorCodeEnum.DuplicateEntry);
 
         // Tạo UserCoupon mới
         var userCoupon = new Domain.Entities.UserCoupon
@@ -67,7 +72,7 @@ public class CollectCouponCommandHandler : IRequestHandler<CollectCouponCommand,
 
         await _unitOfWork.Repository<Domain.Entities.UserCoupon>().AddAsync(userCoupon);
         
-        // Tăng CurrentUsage của coupon (không thay đổi UsageLimit)
+        // Tăng CurrentUsage của coupon
         coupon.CurrentUsage++;
         coupon.UpdatedAt = now;
         _unitOfWork.Repository<Domain.Entities.Coupon>().Update(coupon);

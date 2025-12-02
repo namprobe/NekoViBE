@@ -46,6 +46,7 @@ namespace NekoViBE.Application.Features.Badge.Command.CreateBadge
                 }
 
                 var badgeRepo = _unitOfWork.Repository<Domain.Entities.Badge>();
+                var couponRepo = _unitOfWork.Repository<Domain.Entities.Coupon>();
                 
 
                 var entity = _mapper.Map<Domain.Entities.Badge>(command.Request);
@@ -64,10 +65,37 @@ namespace NekoViBE.Application.Features.Badge.Command.CreateBadge
                     _logger.LogWarning("No ImageFile provided for badge {Name}", command.Request.Name);
                 }
 
+                // Auto-generate a coupon for this badge
+                var badgeCoupon = new Domain.Entities.Coupon
+                {
+                    Code = $"SYS_BADGE_{Guid.NewGuid():N}".ToUpper(), // Unique code
+                    Description = $"Auto-generated coupon for badge: {entity.Name}",
+                    DiscountType = DiscountTypeEnum.Percentage,
+                    DiscountValue = entity.DiscountPercentage,
+                    MaxDiscountCap = null, // No cap for badge discounts
+                    MinOrderAmount = 0, // No minimum for badge discounts
+                    StartDate = entity.StartDate ?? DateTime.UtcNow,
+                    EndDate = entity.EndDate ?? DateTime.UtcNow.AddYears(10), // Default 10 years if not time-limited
+                    UsageLimit = null, // Unlimited usage
+                    CurrentUsage = 0,
+                    IsBadgeCoupon = true, // Mark as badge-generated
+                    CreatedBy = userId,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = EntityStatusEnum.Active
+                };
+
                 try
                 {
                     await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                    
+                    // Create the coupon first to get its ID
+                    await couponRepo.AddAsync(badgeCoupon);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                    
+                    // Link the badge to the coupon
+                    entity.LinkedCouponId = badgeCoupon.Id;
                     await badgeRepo.AddAsync(entity);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                     var userAction = new UserAction
                     {
@@ -75,15 +103,23 @@ namespace NekoViBE.Application.Features.Badge.Command.CreateBadge
                         Action = UserActionEnum.Create,
                         EntityId = entity.Id,
                         EntityName = "Badge",
-                        NewValue = JsonSerializer.Serialize(command.Request),
+                        NewValue = JsonSerializer.Serialize(new 
+                        { 
+                            Badge = command.Request,
+                            LinkedCouponId = badgeCoupon.Id,
+                            CouponCode = badgeCoupon.Code
+                        }),
                         IPAddress = _currentUserService.IPAddress ?? "Unknown",
-                        ActionDetail = $"Created badge with name: {command.Request.Name}",
+                        ActionDetail = $"Created badge '{command.Request.Name}' with linked coupon '{badgeCoupon.Code}'",
                         CreatedAt = DateTime.UtcNow,
                         Status = EntityStatusEnum.Active
                     };
                     await _unitOfWork.Repository<UserAction>().AddAsync(userAction);
 
                     await _unitOfWork.CommitTransactionAsync(cancellationToken);
+                    
+                    _logger.LogInformation("Badge {BadgeId} created with linked coupon {CouponId} (Code: {Code})", 
+                        entity.Id, badgeCoupon.Id, badgeCoupon.Code);
                 }
                 catch
                 {

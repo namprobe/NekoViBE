@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NekoViBE.Application.Common.DTOs.UserBadge;
 using NekoViBE.Application.Common.Enums;
@@ -49,7 +50,11 @@ namespace NekoViBE.Application.Features.UserBadge.Command.AssignBadge
                 }
 
                 // Check if badge exists
-                var badge = await _unitOfWork.Repository<Domain.Entities.Badge>().GetByIdAsync(command.Request.BadgeId);
+                var badge = await _unitOfWork.Repository<Domain.Entities.Badge>()
+                    .GetQueryable()
+                    .Include(b => b.LinkedCoupon)
+                    .FirstOrDefaultAsync(b => b.Id == command.Request.BadgeId, cancellationToken);
+                    
                 if (badge == null)
                 {
                     return Result<UserBadgeDto>.Failure("Badge not found", ErrorCodeEnum.NotFound);
@@ -81,6 +86,46 @@ namespace NekoViBE.Application.Features.UserBadge.Command.AssignBadge
                 userBadge.InitializeEntity(currentUserId);
 
                 await _unitOfWork.Repository<Domain.Entities.UserBadge>().AddAsync(userBadge);
+
+                // If badge has a linked coupon, automatically collect it for the user
+                if (badge.LinkedCouponId.HasValue && badge.LinkedCoupon != null)
+                {
+                    // Check if user already has this coupon
+                    var existingUserCoupon = await _unitOfWork.Repository<Domain.Entities.UserCoupon>()
+                        .GetQueryable()
+                        .AnyAsync(uc => 
+                            uc.UserId == command.Request.UserId && 
+                            uc.CouponId == badge.LinkedCouponId.Value &&
+                            uc.Status == EntityStatusEnum.Active,
+                            cancellationToken);
+
+                    if (!existingUserCoupon)
+                    {
+                        var userCoupon = new Domain.Entities.UserCoupon
+                        {
+                            Id = Guid.NewGuid(),
+                            UserId = command.Request.UserId,
+                            CouponId = badge.LinkedCouponId.Value,
+                            Status = EntityStatusEnum.Active,
+                            CreatedAt = DateTime.UtcNow,
+                            CreatedBy = currentUserId
+                        };
+
+                        try
+                        {
+                            await _unitOfWork.Repository<Domain.Entities.UserCoupon>().AddAsync(userCoupon);
+                            
+                            _logger.LogInformation("🎟️ Auto-collected badge coupon {CouponCode} for user {UserId} when manually assigning badge {BadgeName}",
+                                badge.LinkedCoupon.Code, command.Request.UserId, badge.Name);
+                        }
+                        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("UX_UserCoupons_UserId_CouponId_Active") == true)
+                        {
+                            _logger.LogDebug("⏭️ Duplicate key: User {UserId} already has coupon {CouponCode} (race condition caught by DB)",
+                                command.Request.UserId, badge.LinkedCoupon.Code);
+                        }
+                    }
+                }
+
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 var userBadgeDto = _mapper.Map<UserBadgeDto>(userBadge);

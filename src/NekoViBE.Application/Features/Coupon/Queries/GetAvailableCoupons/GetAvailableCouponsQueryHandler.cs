@@ -32,13 +32,15 @@ public class GetAvailableCouponsQueryHandler : IRequestHandler<GetAvailableCoupo
         }
 
         // Lấy tất cả coupon còn hiệu lực
+        // IMPORTANT: Exclude badge coupons - they cannot be collected manually
         var coupons = await _unitOfWork.Repository<Domain.Entities.Coupon>()
             .GetQueryable()
             .Include(c => c.UserCoupons)
             .Where(c => c.Status == Domain.Enums.EntityStatusEnum.Active && 
                         c.StartDate <= now && 
                         c.EndDate >= now &&
-                        (c.UsageLimit == null || c.CurrentUsage < c.UsageLimit))
+                        (c.UsageLimit == null || c.CurrentUsage < c.UsageLimit) &&
+                        !c.IsBadgeCoupon) // Hide badge coupons from available coupons list
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync(cancellationToken);
 
