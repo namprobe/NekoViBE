@@ -105,15 +105,197 @@ public record GetProductListQuery(ProductFilter Filter)
 
 ### 2. Repository Pattern + Unit of Work
 
-Generic repository for all entities with Unit of Work pattern for transaction management:
+Generic repository pattern with Unit of Work for centralized data access and transaction management. **The key advantage is that you don't need to create repository classes for each entity** - one generic repository handles all CRUD operations.
+
+#### 2.1. Generic Repository
+
+A single generic repository implementation works for all entities that implement `IEntityLike`:
 
 ```csharp
-// Usage
+// Interface - supports all common operations
+public interface IGenericRepository<T> where T : class, IEntityLike
+{
+    // Basic CRUD
+    Task AddAsync(T entity);
+    Task AddRangeAsync(IEnumerable<T> entities);
+    void Update(T entity);
+    void UpdateRange(IEnumerable<T> entities);
+    void Delete(T entity);
+    void DeleteRange(IEnumerable<T> entities);
+    
+    // Querying
+    Task<T> GetByIdAsync(object id);
+    Task<T> GetFirstOrDefaultAsync(Expression<Func<T, bool>> predicate, 
+        params Expression<Func<T, object>>[] includes);
+    Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>>? predicate = null, 
+        params Expression<Func<T, object>>[] includes);
+    Task<IEnumerable<T>> GetAllAsync(params Expression<Func<T, object>>[] includes);
+    
+    // Advanced
+    Task<(IEnumerable<T> Items, int TotalCount)> GetPagedAsync(
+        int pageNumber, int pageSize,
+        Expression<Func<T, bool>>? predicate = null,
+        Expression<Func<T, object>>? orderBy = null,
+        bool isAscending = true,
+        params Expression<Func<T, object>>[] includes);
+    
+    Task<bool> AnyAsync(Expression<Func<T, bool>> predicate);
+    Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null);
+    IQueryable<T> GetQueryable();
+}
+
+// Implementation - handles Entity Framework operations
+public class GenericRepository<T> : IGenericRepository<T> where T : class, IEntityLike
+{
+    private readonly DbContext _context;
+    private readonly DbSet<T> _dbSet;
+    
+    // All CRUD operations implemented once, works for ALL entities
+    // Includes automatic entity detachment, tracking management, etc.
+}
+```
+
+**No need to create ProductRepository, OrderRepository, CategoryRepository, etc.** - The generic repository handles everything!
+
+#### 2.2. Unit of Work
+
+Manages repositories and transactions in a single place:
+
+```csharp
+public interface IUnitOfWork
+{
+    // Get repository for any entity type dynamically
+    IGenericRepository<T> Repository<T>() where T : class, IEntityLike;
+    
+    // Transaction management
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+    Task BeginTransactionAsync(CancellationToken cancellationToken = default);
+    Task CommitTransactionAsync(CancellationToken cancellationToken = default);
+    Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
+    void Dispose();
+}
+
+public class UnitOfWork : IUnitOfWork
+{
+    private readonly DbContext _context;
+    private readonly Dictionary<Type, object> _repositories = new();
+    
+    // Repository caching - creates repository once per entity type
+    public IGenericRepository<T> Repository<T>() where T : class, IEntityLike
+    {
+        if (!_repositories.ContainsKey(typeof(T)))
+        {
+            var repo = new GenericRepository<T>(_context);
+            _repositories[typeof(T)] = repo;
+        }
+        return (IGenericRepository<T>)_repositories[typeof(T)];
+    }
+    
+    // Transaction management with proper error handling
+    public async Task CommitTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await SaveChangesAsync(cancellationToken);
+            if (_transaction != null)
+                await _transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+```
+
+#### 2.3. Usage Examples
+
+**Simple CRUD:**
+```csharp
+// Get entity
 var product = await _unitOfWork.Repository<Product>().GetByIdAsync(id);
+
+// Update
 product.Name = "Updated Name";
 _unitOfWork.Repository<Product>().Update(product);
 await _unitOfWork.SaveChangesAsync();
+
+// Add
+var newProduct = new Product { Name = "New Product", Price = 100 };
+await _unitOfWork.Repository<Product>().AddAsync(newProduct);
+await _unitOfWork.SaveChangesAsync();
+
+// Delete
+_unitOfWork.Repository<Product>().Delete(product);
+await _unitOfWork.SaveChangesAsync();
 ```
+
+**Advanced Querying:**
+```csharp
+// Get with includes (eager loading)
+var product = await _unitOfWork.Repository<Product>()
+    .GetFirstOrDefaultAsync(
+        p => p.Id == id,
+        p => p.Category,
+        p => p.ProductImages,
+        p => p.ProductReviews
+    );
+
+// Find with predicate
+var products = await _unitOfWork.Repository<Product>()
+    .FindAsync(
+        p => p.Price > 100 && p.StockQuantity > 0,
+        p => p.Category,
+        p => p.ProductImages
+    );
+
+// Pagination with filtering and sorting
+var (items, totalCount) = await _unitOfWork.Repository<Product>()
+    .GetPagedAsync(
+        pageNumber: 1,
+        pageSize: 10,
+        predicate: p => p.CategoryId == categoryId,
+        orderBy: p => p.CreatedAt,
+        isAscending: false,
+        includes: new[] { p => p.Category, p => p.ProductImages }
+    );
+```
+
+**Transaction Management:**
+```csharp
+await _unitOfWork.BeginTransactionAsync();
+try
+{
+    // Multiple operations in one transaction
+    await _unitOfWork.Repository<Order>().AddAsync(order);
+    await _unitOfWork.Repository<OrderItem>().AddRangeAsync(orderItems);
+    
+    // Update inventory
+    foreach (var item in orderItems)
+    {
+        var product = await _unitOfWork.Repository<Product>().GetByIdAsync(item.ProductId);
+        product.StockQuantity -= item.Quantity;
+        _unitOfWork.Repository<Product>().Update(product);
+    }
+    
+    await _unitOfWork.CommitTransactionAsync(); // Auto saves + commits
+}
+catch (Exception)
+{
+    await _unitOfWork.RollbackTransactionAsync();
+    throw;
+}
+```
+
+**Benefits:**
+- ✅ **No Boilerplate** - Don't need to create repository for each entity
+- ✅ **Type-Safe** - Full IntelliSense and compile-time checking
+- ✅ **Consistent API** - Same methods for all entities
+- ✅ **Transaction Support** - Built-in transaction management
+- ✅ **Include Support** - Easy eager loading with lambda expressions
+- ✅ **Pagination Ready** - Built-in pagination with total count
+- ✅ **Flexible Querying** - Supports complex predicates and ordering
 
 ### 3. MediatR Pipeline Behaviors
 
@@ -305,6 +487,482 @@ services.AddApplication();              // MediatR, AutoMapper, FluentValidation
 services.AddInfrastructure(config);     // DbContext, Repositories, Services
 services.AddApiServices(config);        // Filters, Middlewares
 ```
+
+### 6. Expression Builder Pattern
+
+Build complex LINQ queries dynamically using Expression Trees. This pattern allows flexible filtering without writing repetitive query code.
+
+#### 6.1. Expression Extensions
+
+Utility methods to combine predicates dynamically:
+
+```csharp
+public static class ExpressionExtensions
+{
+    // Combine two predicates with AND logic
+    public static Expression<Func<T, bool>> CombineAnd<T>(
+        this Expression<Func<T, bool>> expr1,
+        Expression<Func<T, bool>> expr2)
+    {
+        var parameter = Expression.Parameter(typeof(T));
+        var leftVisitor = new ReplaceExpressionVisitor(expr1.Parameters[0], parameter);
+        var left = leftVisitor.Visit(expr1.Body)!;
+        var rightVisitor = new ReplaceExpressionVisitor(expr2.Parameters[0], parameter);
+        var right = rightVisitor.Visit(expr2.Body)!;
+        
+        return Expression.Lambda<Func<T, bool>>(
+            Expression.AndAlso(left, right), parameter);
+    }
+    
+    // Combine two predicates with OR logic
+    public static Expression<Func<T, bool>> CombineOr<T>(
+        this Expression<Func<T, bool>> expr1,
+        Expression<Func<T, bool>> expr2)
+    {
+        // Similar implementation with OrElse instead of AndAlso
+    }
+}
+
+// Predicate builder helper
+public static class PredicateBuilder
+{
+    public static Expression<Func<T, bool>> True<T>() => x => true;
+    public static Expression<Func<T, bool>> False<T>() => x => false;
+}
+```
+
+#### 6.2. Query Builder Implementation
+
+Build complex queries from filter DTOs:
+
+```csharp
+public static class ProductQueryBuilder
+{
+    public static Expression<Func<Product, bool>> BuildPredicate(this ProductFilter filter)
+    {
+        // Start with "true" predicate (returns all)
+        var predicate = PredicateBuilder.True<Product>();
+        
+        // Add filters dynamically
+        if (filter.Status.HasValue)
+            predicate = predicate.CombineAnd(x => x.Status == filter.Status.Value);
+        
+        // Complex search across multiple fields
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var searchPredicate = PredicateBuilder.False<Product>();
+            searchPredicate = searchPredicate.CombineOr(x => x.Name.Contains(filter.Search));
+            searchPredicate = searchPredicate.CombineOr(x => x.Description != null && x.Description.Contains(filter.Search));
+            searchPredicate = searchPredicate.CombineOr(x => x.ProductImages.Any(img => img.ImagePath.Contains(filter.Search)));
+            predicate = predicate.CombineAnd(searchPredicate);
+        }
+        
+        if (filter.CategoryId.HasValue)
+            predicate = predicate.CombineAnd(x => x.CategoryId == filter.CategoryId.Value);
+        
+        // Price range filter
+        if (!string.IsNullOrWhiteSpace(filter.PriceRange))
+        {
+            predicate = filter.PriceRange.ToLowerInvariant() switch
+            {
+                "under-500k" => predicate.CombineAnd(x => x.Price < 500000),
+                "500k-1m" => predicate.CombineAnd(x => x.Price >= 500000 && x.Price < 1000000),
+                "1m-2m" => predicate.CombineAnd(x => x.Price >= 1000000 && x.Price < 2000000),
+                "over-2m" => predicate.CombineAnd(x => x.Price >= 2000000),
+                _ => predicate
+            };
+        }
+        
+        // Stock status filter
+        if (!string.IsNullOrWhiteSpace(filter.StockStatus))
+        {
+            predicate = filter.StockStatus.ToLowerInvariant() switch
+            {
+                "out-of-stock" => predicate.CombineAnd(x => x.StockQuantity == 0),
+                "low-stock" => predicate.CombineAnd(x => x.StockQuantity >= 1 && x.StockQuantity <= 10),
+                "in-stock" => predicate.CombineAnd(x => x.StockQuantity > 10),
+                _ => predicate
+            };
+        }
+        
+        // Tag filtering
+        if (filter.TagIds != null && filter.TagIds.Any())
+            predicate = predicate.CombineAnd(x => x.ProductTags.Any(pt => filter.TagIds.Contains(pt.TagId)));
+        
+        return predicate;
+    }
+    
+    // Build OrderBy expression
+    public static Expression<Func<Product, object>> BuildOrderBy(this ProductFilter filter)
+    {
+        return filter.SortBy?.ToLowerInvariant() switch
+        {
+            "name" => x => x.Name,
+            "price" => x => x.Price,
+            "stock" => x => x.StockQuantity,
+            "created" => x => x.CreatedAt!,
+            "updated" => x => x.UpdatedAt ?? x.CreatedAt!,
+            _ => x => x.CreatedAt! // Default sort
+        };
+    }
+    
+    public static bool GetIsAscending(this ProductFilter filter)
+    {
+        return filter.IsAscending ?? false; // Default: descending (newest first)
+    }
+}
+```
+
+#### 6.3. Usage in Handler
+
+Clean and readable query building in handlers:
+
+```csharp
+public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, PaginationResult<ProductItem>>
+{
+    public async Task<PaginationResult<ProductItem>> Handle(GetProductListQuery request, CancellationToken cancellationToken)
+    {
+        // Build predicate from filter
+        var predicate = request.Filter.BuildPredicate();
+        var orderBy = request.Filter.BuildOrderBy();
+        var isAscending = request.Filter.GetIsAscending();
+        
+        // Execute query with generic repository
+        var (items, totalCount) = await _unitOfWork.Repository<Product>().GetPagedAsync(
+            pageNumber: request.Filter.Page,
+            pageSize: request.Filter.PageSize,
+            predicate: predicate,
+            orderBy: orderBy,
+            isAscending: isAscending,
+            includes: new Expression<Func<Product, object>>[]
+            {
+                x => x.ProductImages,
+                x => x.Category,
+                x => x.ProductTags,
+                x => x.ProductReviews
+            });
+        
+        return PaginationResult<ProductItem>.Success(items, ...);
+    }
+}
+```
+
+**Benefits:**
+- ✅ **Dynamic Queries** - Build complex queries from simple DTOs
+- ✅ **Reusable** - Same pattern for all entities (Product, Order, UserAddress, etc.)
+- ✅ **Testable** - Expression trees can be unit tested
+- ✅ **Type-Safe** - Compile-time checking for all filters
+- ✅ **Readable** - Clean separation of query building logic
+- ✅ **Flexible** - Easy to add/remove filters without changing handler code
+
+### 7. Result Pattern with Standardized HTTP Status Codes
+
+Consistent error handling and HTTP status code mapping across the entire API.
+
+#### 7.1. Result Classes
+
+Generic result wrapper for API responses:
+
+```csharp
+// Generic result with data
+public class Result<T>
+{
+    public bool IsSuccess { get; set; }
+    public string? Message { get; set; }
+    public T? Data { get; set; }
+    public List<string>? Errors { get; set; }
+    public string? ErrorCode { get; set; }
+    
+    public static Result<T> Success(T data, string message = "Success")
+        => new Result<T> { IsSuccess = true, Message = message, Data = data };
+    
+    public static Result<T> Failure(string message, ErrorCodeEnum errorCode, List<string>? errors = null)
+        => new Result<T> { IsSuccess = false, Message = message, ErrorCode = errorCode.ToString(), Errors = errors };
+}
+
+// Result without data (for operations like Delete)
+public class Result
+{
+    public bool IsSuccess { get; set; }
+    public string? Message { get; set; }
+    public List<string>? Errors { get; set; }
+    public string? ErrorCode { get; set; }
+    
+    public static Result Success(string message = "Success")
+        => new Result { IsSuccess = true, Message = message };
+    
+    public static Result Failure(string message, ErrorCodeEnum errorCode, List<string>? errors = null)
+        => new Result { IsSuccess = false, Message = message, ErrorCode = errorCode.ToString(), Errors = errors };
+}
+
+// Pagination result
+public class PaginationResult<T>
+{
+    public int CurrentPage { get; set; }
+    public int PageSize { get; set; }
+    public int TotalItems { get; set; }
+    public int TotalPages => (int)Math.Ceiling((double)TotalItems / PageSize);
+    public bool HasPrevious => CurrentPage > 1;
+    public bool HasNext => CurrentPage < TotalPages;
+    public IEnumerable<T> Items { get; set; }
+    public bool IsSuccess { get; set; }
+    public string? Message { get; set; }
+    public List<string>? Errors { get; set; }
+    public string? ErrorCode { get; set; }
+    
+    public static PaginationResult<T> Success(List<T> items, int page, int pageSize, int totalItems)
+        => new PaginationResult<T> { IsSuccess = true, Items = items, CurrentPage = page, PageSize = pageSize, TotalItems = totalItems };
+    
+    public static PaginationResult<T> Failure(string message, ErrorCodeEnum errorCode, List<string>? errors = null)
+        => new PaginationResult<T> { IsSuccess = false, Message = message, ErrorCode = errorCode.ToString(), Errors = errors };
+}
+```
+
+#### 7.2. Error Code Enum
+
+Comprehensive error codes mapped to HTTP status codes:
+
+```csharp
+public enum ErrorCodeEnum
+{
+    // Success (200)
+    Success = 0,
+    
+    // Authentication & Authorization (401, 403)
+    Unauthorized = 1001,              // 401
+    Forbidden = 1002,                 // 403
+    InvalidCredentials = 1003,        // 401
+    TokenExpired = 1004,              // 401
+    InvalidToken = 1005,              // 401
+    
+    // Validation & Bad Request (400)
+    ValidationFailed = 2001,          // 400
+    InvalidInput = 2002,              // 400
+    DuplicateEntry = 2003,            // 400
+    InvalidOperation = 2004,          // 400
+    TooManyRequests = 2005,           // 429
+    
+    // Not Found (404)
+    NotFound = 3001,                  // 404
+    
+    // Business Logic Errors (422)
+    BusinessRuleViolation = 4001,     // 422
+    InsufficientPermissions = 4002,   // 403
+    ResourceConflict = 4003,          // 422
+    
+    // Internal Server Errors (500)
+    InternalError = 5001,             // 500
+    DatabaseError = 5002,             // 500
+    ExternalServiceError = 5003,      // 500
+    
+    // File & Storage Errors
+    FileUploadFailed = 6001,          // 500
+    FileNotFound = 6002,              // 404
+    StorageError = 6003,              // 500
+    InvalidFileType = 6004,           // 400
+    FileSizeTooLarge = 6005,          // 400
+    
+    // Email Errors
+    EmailSendFailed = 8001,           // 500
+    EmailNotConfirmed = 8002,         // 403
+    EmailAlreadyConfirmed = 8003,     // 400
+    InvalidEmailToken = 8004,         // 400
+}
+```
+
+#### 7.3. HTTP Status Code Mapping
+
+Automatic mapping from ErrorCodeEnum to HTTP status codes:
+
+```csharp
+public static class ErrorCodeEnumExtensions
+{
+    public static int ToHttpStatusCode(this ErrorCodeEnum errorCode)
+    {
+        return errorCode switch
+        {
+            ErrorCodeEnum.Success => StatusCodes.Status200OK,
+            
+            // 400 Bad Request
+            ErrorCodeEnum.ValidationFailed => StatusCodes.Status400BadRequest,
+            ErrorCodeEnum.InvalidInput => StatusCodes.Status400BadRequest,
+            ErrorCodeEnum.DuplicateEntry => StatusCodes.Status400BadRequest,
+            ErrorCodeEnum.InvalidOperation => StatusCodes.Status400BadRequest,
+            ErrorCodeEnum.InvalidFileType => StatusCodes.Status400BadRequest,
+            ErrorCodeEnum.FileSizeTooLarge => StatusCodes.Status400BadRequest,
+            
+            // 401 Unauthorized
+            ErrorCodeEnum.Unauthorized => StatusCodes.Status401Unauthorized,
+            ErrorCodeEnum.InvalidCredentials => StatusCodes.Status401Unauthorized,
+            ErrorCodeEnum.TokenExpired => StatusCodes.Status401Unauthorized,
+            
+            // 403 Forbidden
+            ErrorCodeEnum.Forbidden => StatusCodes.Status403Forbidden,
+            ErrorCodeEnum.InsufficientPermissions => StatusCodes.Status403Forbidden,
+            
+            // 404 Not Found
+            ErrorCodeEnum.NotFound => StatusCodes.Status404NotFound,
+            
+            // 422 Unprocessable Entity
+            ErrorCodeEnum.BusinessRuleViolation => StatusCodes.Status422UnprocessableEntity,
+            ErrorCodeEnum.ResourceConflict => StatusCodes.Status422UnprocessableEntity,
+            
+            // 429 Too Many Requests
+            ErrorCodeEnum.TooManyRequests => StatusCodes.Status429TooManyRequests,
+            
+            // 500 Internal Server Error
+            ErrorCodeEnum.InternalError => StatusCodes.Status500InternalServerError,
+            ErrorCodeEnum.DatabaseError => StatusCodes.Status500InternalServerError,
+            ErrorCodeEnum.ExternalServiceError => StatusCodes.Status500InternalServerError,
+            
+            _ => StatusCodes.Status500InternalServerError
+        };
+    }
+}
+
+public static class ResultExtensions
+{
+    public static int GetHttpStatusCode<T>(this Result<T> result)
+    {
+        if (result.IsSuccess) return StatusCodes.Status200OK;
+        
+        if (string.IsNullOrEmpty(result.ErrorCode) || !Enum.TryParse<ErrorCodeEnum>(result.ErrorCode, out var errorCode))
+            return StatusCodes.Status500InternalServerError;
+            
+        return errorCode.ToHttpStatusCode();
+    }
+}
+```
+
+#### 7.4. Usage in Handlers and Controllers
+
+**In Command/Query Handlers:**
+```csharp
+public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand, Result<ProductResponse>>
+{
+    public async Task<Result<ProductResponse>> Handle(CreateProductCommand request, CancellationToken cancellationToken)
+    {
+        // Validation
+        if (await _unitOfWork.Repository<Product>().AnyAsync(p => p.Name == request.Name))
+            return Result<ProductResponse>.Failure("Product name already exists", ErrorCodeEnum.DuplicateEntry);
+        
+        // Business logic
+        var product = _mapper.Map<Product>(request.Request);
+        await _unitOfWork.Repository<Product>().AddAsync(product);
+        await _unitOfWork.SaveChangesAsync();
+        
+        var response = _mapper.Map<ProductResponse>(product);
+        return Result<ProductResponse>.Success(response, "Product created successfully");
+    }
+}
+
+public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, PaginationResult<ProductItem>>
+{
+    public async Task<PaginationResult<ProductItem>> Handle(GetProductListQuery request, CancellationToken cancellationToken)
+    {
+        var predicate = request.Filter.BuildPredicate();
+        var (items, totalCount) = await _unitOfWork.Repository<Product>().GetPagedAsync(...);
+        
+        return PaginationResult<ProductItem>.Success(items, request.Filter.Page, request.Filter.PageSize, totalCount);
+    }
+}
+```
+
+**In Controllers:**
+```csharp
+[HttpPost]
+public async Task<IActionResult> CreateProduct([FromBody] CreateProductRequest request)
+{
+    var command = new CreateProductCommand(request);
+    var result = await _mediator.Send(command);
+    
+    // Automatic HTTP status code mapping
+    return StatusCode(result.GetHttpStatusCode(), result);
+}
+
+[HttpGet]
+public async Task<IActionResult> GetProducts([FromQuery] ProductFilter filter)
+{
+    var query = new GetProductListQuery(filter);
+    var result = await _mediator.Send(query);
+    
+    // Automatic HTTP status code mapping
+    return StatusCode(result.GetHttpStatusCode(), result);
+}
+
+[HttpDelete("{id}")]
+public async Task<IActionResult> DeleteProduct(Guid id)
+{
+    var command = new DeleteProductCommand(id);
+    var result = await _mediator.Send(command);
+    
+    // Returns proper status code based on error:
+    // 200 OK if success
+    // 404 Not Found if product doesn't exist
+    // 422 Unprocessable if business rule violation (e.g., product has orders)
+    return StatusCode(result.GetHttpStatusCode(), result);
+}
+```
+
+**Response Examples:**
+
+Success Response (200 OK):
+```json
+{
+  "isSuccess": true,
+  "message": "Product created successfully",
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "Naruto Figure",
+    "price": 500000
+  }
+}
+```
+
+Validation Error (400 Bad Request):
+```json
+{
+  "isSuccess": false,
+  "message": "Validation failed",
+  "errorCode": "ValidationFailed",
+  "errors": [
+    "Product name is required",
+    "Price must be greater than 0"
+  ]
+}
+```
+
+Not Found (404 Not Found):
+```json
+{
+  "isSuccess": false,
+  "message": "Product not found",
+  "errorCode": "NotFound"
+}
+```
+
+Pagination Response (200 OK):
+```json
+{
+  "isSuccess": true,
+  "currentPage": 1,
+  "pageSize": 10,
+  "totalItems": 45,
+  "totalPages": 5,
+  "hasPrevious": false,
+  "hasNext": true,
+  "items": [...]
+}
+```
+
+**Benefits:**
+- ✅ **Consistent Responses** - Same structure across all endpoints
+- ✅ **Automatic Status Codes** - No manual status code management
+- ✅ **Clear Error Messages** - Descriptive error codes and messages
+- ✅ **Type-Safe** - Generic types preserve data types
+- ✅ **Client-Friendly** - Easy to parse on frontend
+- ✅ **Validation Support** - Built-in error list for validation failures
+- ✅ **Swagger Integration** - Auto-generates proper OpenAPI documentation
 
 ## 💼 Core Features
 
