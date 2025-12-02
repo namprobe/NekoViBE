@@ -42,7 +42,11 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProductList
 
             var predicate = request.Filter.BuildPredicate();
             var orderBy = request.Filter.BuildOrderBy();
-            var isAscending = request.Filter.SortType?.EndsWith("asc") ?? false;
+            if (request.Filter.SortType?.StartsWith("updated") == true)
+            {
+                orderBy = x => x.UpdatedAt ?? x.CreatedAt!;
+            }
+            var isAscending = request.Filter.GetIsAscending();
 
 
             var (items, totalCount) = await _unitOfWork.Repository<Domain.Entities.Product>().GetPagedAsync(

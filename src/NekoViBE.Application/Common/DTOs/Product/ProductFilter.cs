@@ -30,5 +30,8 @@ namespace NekoViBE.Application.Common.DTOs.Product
 
         [JsonPropertyName("tagIds")]
         public List<Guid>? TagIds { get; set; }
+
+        [JsonPropertyName("stockStatus")]
+        public string? StockStatus { get; set; }
     }
 }

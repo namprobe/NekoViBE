@@ -9,7 +9,6 @@ namespace NekoViBE.Application.Common.DTOs.Tag
 {
     public class TagResponse : TagItem
     {
-        [JsonPropertyName("description")]
-        public string? Description { get; set; }
+        
     }
 }
