@@ -40,11 +40,6 @@ namespace NekoViBE.Application.Features.Event.Queries.GetEventList
         {
             try
             {
-                var (isValid, _) = await _currentUserService.IsUserValidAsync();
-                if (!isValid)
-                {
-                    return PaginationResult<EventItem>.Failure("User is not valid", ErrorCodeEnum.Unauthorized);
-                }
 
                 var predicate = request.Filter.BuildPredicate();
                 var orderBy = request.Filter.BuildOrderBy();
