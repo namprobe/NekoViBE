@@ -21,5 +21,8 @@ namespace NekoViBE.Application.Common.DTOs.Event
 
         [JsonPropertyName("location")]
         public string? Location { get; set; }
+
+        [JsonPropertyName("isOngoing")]
+        public bool? IsOngoing { get; set; }
     }
 }

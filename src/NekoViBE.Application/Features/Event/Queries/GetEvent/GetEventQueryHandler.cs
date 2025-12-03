@@ -7,6 +7,7 @@ using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using System;
+using System.Collections.Generic; // Added for List<>
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
@@ -43,7 +44,7 @@ namespace NekoViBE.Application.Features.Event.Queries.GetEvent
                         predicate: x => x.Id == query.Id && !x.IsDeleted,
                         includes: new Expression<Func<Domain.Entities.Event, object>>[]
                         {
-            x => x.EventProducts
+                            x => x.EventProducts
                         });
 
 
@@ -70,22 +71,48 @@ namespace NekoViBE.Application.Features.Event.Queries.GetEvent
                             includes: new Expression<Func<Domain.Entities.Product, object>>[]
                             {
                                 p => p.ProductImages,
-                                p => p.Category
+                                p => p.Category,
+                                p => p.ProductReviews // <--- THÊM: Include ProductReviews để tính rating
                             });
 
-                    // convert image path sang URL
-                    foreach (var img in ep.Product.ProductImages.Where(pi => !pi.IsDeleted))
+                    if (ep.Product != null)
                     {
-                        img.ImagePath = _fileService.GetFileUrl(img.ImagePath);
+                        // convert image path sang URL
+                        foreach (var img in ep.Product.ProductImages.Where(pi => !pi.IsDeleted))
+                        {
+                            img.ImagePath = _fileService.GetFileUrl(img.ImagePath);
+                        }
                     }
                 }
 
+                // Xử lý mapping và tính toán Rating
+                var productDtos = new List<ProductItem>();
+                var validEventProducts = entity.EventProducts.Where(ep => ep.Product != null && !ep.Product.IsDeleted);
 
-                // Gán lại danh sách Product (sau khi cập nhật ảnh)
-                response.Products = entity.EventProducts
-                    .Where(ep => ep.Product != null && !ep.Product.IsDeleted)
-                    .Select(ep => _mapper.Map<ProductItem>(ep.Product))
-                    .ToList();
+                foreach (var ep in validEventProducts)
+                {
+                    // Map Entity sang DTO
+                    var productDto = _mapper.Map<ProductItem>(ep.Product);
+
+                    // --- LOGIC TÍNH AVERAGE RATING (Giống GetProductList) ---
+                    if (ep.Product.ProductReviews != null && ep.Product.ProductReviews.Any())
+                    {
+                        // Tính trung bình cộng rating, làm tròn 1 chữ số thập phân
+                        productDto.AverageRating = Math.Round(ep.Product.ProductReviews.Average(r => r.Rating), 1);
+                        productDto.ReviewCount = ep.Product.ProductReviews.Count;
+                    }
+                    else
+                    {
+                        productDto.AverageRating = null;
+                        productDto.ReviewCount = 0;
+                    }
+                    // --------------------------------------------------------
+
+                    productDtos.Add(productDto);
+                }
+
+                // Gán danh sách đã xử lý vào response
+                response.Products = productDtos;
 
                 // Log thông tin
                 _logger.LogInformation("Retrieved Event {Id} with {ProductCount} products", query.Id, response.Products.Count);
