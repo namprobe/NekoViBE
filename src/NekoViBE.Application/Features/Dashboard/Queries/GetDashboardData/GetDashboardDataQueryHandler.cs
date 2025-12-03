@@ -82,14 +82,12 @@ namespace NekoViBE.Application.Features.Dashboard.Queries.GetDashboardData
 
             // === RECENT ACTIVITIES (tránh dùng .. và ^ trong LINQ to Entities) ===
             var recentOrders = await orderRepo.GetQueryable()
-                .Where(o => o.CreatedAt >= now.AddHours(-24))
                 .OrderByDescending(o => o.CreatedAt)
                 .Take(1)
                 .ToListAsync(ct);
 
             var shippingOrders = await orderRepo.GetQueryable()
-                .Where(o => o.OrderStatus == OrderStatusEnum.Shipping &&
-                           (o.UpdatedAt ?? o.CreatedAt) >= now.AddHours(-24))
+                .Where(o => o.OrderStatus == OrderStatusEnum.Shipping)
                 .OrderByDescending(o => o.UpdatedAt ?? o.CreatedAt)
                 .Take(1)
                 .ToListAsync(ct);
