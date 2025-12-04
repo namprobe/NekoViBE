@@ -24,6 +24,12 @@ namespace NekoViBE.Application.Common.Mappings
             CreateMap<EventProduct, EventProductResponse>();
 
             CreateMap<EventProduct, EventProductRequest>();
+
+            CreateMap<Domain.Entities.EventProduct, EventProductWithProductItem>()
+    .ForMember(dest => dest.EventId, opt => opt.MapFrom(src => src.EventId))
+    .ForMember(dest => dest.IsFeatured, opt => opt.MapFrom(src => src.IsFeatured))
+    .ForMember(dest => dest.DiscountPercentage, opt => opt.MapFrom(src => src.DiscountPercentage))
+    .ForMember(dest => dest.Product, opt => opt.MapFrom(src => src.Product));
         }
     }
 }

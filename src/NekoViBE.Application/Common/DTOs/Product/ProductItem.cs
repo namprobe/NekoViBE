@@ -35,6 +35,9 @@ namespace NekoViBE.Application.Common.DTOs.Product
         [JsonPropertyName("discountPrice")]
         public decimal? DiscountPrice { get; set; }
 
+        [JsonPropertyName("eventDiscountPercentage")]
+        public decimal? EventDiscountPercentage { get; set; }
+
         [JsonPropertyName("primaryImage")]
         public string? PrimaryImage { get; set; }
 

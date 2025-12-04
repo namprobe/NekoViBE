@@ -2,14 +2,16 @@
 using Microsoft.AspNetCore.Mvc;
 using NekoViBE.API.Attributes;
 using NekoViBE.Application.Common.DTOs.EventProduct;
+using NekoViBE.Application.Common.Extensions;
 using NekoViBE.Application.Common.Models;
+using NekoViBE.Application.Features.Event.Commands.SaveEventProducts;
 using NekoViBE.Application.Features.EventProduct.Commands.CreateEventProduct;
 using NekoViBE.Application.Features.EventProduct.Commands.DeleteEventProduct;
 using NekoViBE.Application.Features.EventProduct.Commands.UpdateEventProduct;
 using NekoViBE.Application.Features.EventProduct.Queries.GetEventProduct;
 using NekoViBE.Application.Features.EventProduct.Queries.GetEventProductList;
+using NekoViBE.Application.Features.EventProduct.Queries.GetEventProductsByEventId;
 using Swashbuckle.AspNetCore.Annotations;
-using NekoViBE.Application.Common.Extensions;
 
 namespace NekoViBE.API.Controllers.Cms
 {
@@ -79,7 +81,7 @@ namespace NekoViBE.API.Controllers.Cms
             OperationId = "CreateEventProduct",
             Tags = new[] { "CMS", "CMS_EventProducts" }
         )]
-        public async Task<IActionResult> CreateEventProduct([FromForm] EventProductRequest request)
+        public async Task<IActionResult> CreateEventProduct([FromBody] EventProductRequest request)
         {
             var command = new CreateEventProductCommand(request);
             var result = await _mediator.Send(command);
@@ -101,7 +103,7 @@ namespace NekoViBE.API.Controllers.Cms
             OperationId = "UpdateEventProduct",
             Tags = new[] { "CMS", "CMS_EventProducts" }
         )]
-        public async Task<IActionResult> UpdateEventProduct(Guid id, [FromForm] EventProductRequest request)
+        public async Task<IActionResult> UpdateEventProduct(Guid id, [FromBody] EventProductRequest request)
         {
             var command = new UpdateEventProductCommand(id, request);
             var result = await _mediator.Send(command);
@@ -128,6 +130,41 @@ namespace NekoViBE.API.Controllers.Cms
             var command = new DeleteEventProductCommand(id);
             var result = await _mediator.Send(command);
             return result.IsSuccess ? Ok(result) : StatusCode(result.GetHttpStatusCode(), result);
+        }
+
+        [HttpPost("{eventId}/products/save")]
+        [AuthorizeRoles("Admin")]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status400BadRequest)]
+        [SwaggerOperation(Summary = "Lưu danh sách sản phẩm tham gia Event (reset toàn bộ + cập nhật giá giảm)", OperationId = "SaveEventProducts")]
+        public async Task<IActionResult> SaveEventProducts(Guid eventId, [FromBody] List<EventProductSaveRequest> requests)
+        {
+            var command = new SaveEventProductsCommand(eventId, requests);
+            var result = await _mediator.Send(command);
+            return result.IsSuccess ? Ok(result) : StatusCode(result.GetHttpStatusCode(), result);
+        }
+
+        [HttpGet("by-event/{eventId}")]
+        [AuthorizeRoles]
+        [ProducesResponseType(typeof(Result<List<EventProductWithProductItem>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
+        [SwaggerOperation(
+    Summary = "Lấy danh sách sản phẩm tham gia Event theo EventId (có đầy đủ thông tin Product)",
+    Description = "Trả về danh sách EventProduct kèm thông tin chi tiết Product, giá giảm trong event, ảnh, category, anime series...",
+    OperationId = "GetEventProductsByEventId",
+    Tags = new[] { "CMS", "CMS_EventProducts" }
+)]
+        public async Task<IActionResult> GetEventProductsByEventId(Guid eventId)
+        {
+            var query = new GetEventProductsByEventIdQuery(eventId);
+            var result = await _mediator.Send(query);
+
+            return result.IsSuccess
+                ? Ok(result)
+                : StatusCode(result.GetHttpStatusCode(), result);
         }
     }
 }

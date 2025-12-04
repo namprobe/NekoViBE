@@ -7,7 +7,7 @@ using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using System;
-using System.Collections.Generic; // Added for List<>
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
@@ -47,7 +47,6 @@ namespace NekoViBE.Application.Features.Event.Queries.GetEvent
                             x => x.EventProducts
                         });
 
-
                 if (entity == null)
                 {
                     return Result<EventResponse>.Failure("Event not found", ErrorCodeEnum.NotFound);
@@ -62,7 +61,7 @@ namespace NekoViBE.Application.Features.Event.Queries.GetEvent
                     response.ImagePath = _fileService.GetFileUrl(response.ImagePath);
                 }
 
-                // Với mỗi Product trong Event
+                // Với mỗi Product trong Event (Đoạn này load data chi tiết product)
                 foreach (var ep in entity.EventProducts)
                 {
                     ep.Product = await _unitOfWork.Repository<Domain.Entities.Product>()
@@ -72,7 +71,7 @@ namespace NekoViBE.Application.Features.Event.Queries.GetEvent
                             {
                                 p => p.ProductImages,
                                 p => p.Category,
-                                p => p.ProductReviews // <--- THÊM: Include ProductReviews để tính rating
+                                p => p.ProductReviews
                             });
 
                     if (ep.Product != null)
@@ -91,13 +90,17 @@ namespace NekoViBE.Application.Features.Event.Queries.GetEvent
 
                 foreach (var ep in validEventProducts)
                 {
-                    // Map Entity sang DTO
+                    // Map Entity Product sang DTO ProductItem
                     var productDto = _mapper.Map<ProductItem>(ep.Product);
 
-                    // --- LOGIC TÍNH AVERAGE RATING (Giống GetProductList) ---
+                    // --- [MODIFICATION START] --- 
+                    // Gán DiscountPercentage từ EventProduct (bảng trung gian) vào ProductItem
+                    productDto.EventDiscountPercentage = ep.DiscountPercentage;
+                    // --- [MODIFICATION END] ---
+
+                    // --- LOGIC TÍNH AVERAGE RATING ---
                     if (ep.Product.ProductReviews != null && ep.Product.ProductReviews.Any())
                     {
-                        // Tính trung bình cộng rating, làm tròn 1 chữ số thập phân
                         productDto.AverageRating = Math.Round(ep.Product.ProductReviews.Average(r => r.Rating), 1);
                         productDto.ReviewCount = ep.Product.ProductReviews.Count;
                     }
@@ -106,7 +109,6 @@ namespace NekoViBE.Application.Features.Event.Queries.GetEvent
                         productDto.AverageRating = null;
                         productDto.ReviewCount = 0;
                     }
-                    // --------------------------------------------------------
 
                     productDtos.Add(productDto);
                 }
@@ -114,9 +116,7 @@ namespace NekoViBE.Application.Features.Event.Queries.GetEvent
                 // Gán danh sách đã xử lý vào response
                 response.Products = productDtos;
 
-                // Log thông tin
                 _logger.LogInformation("Retrieved Event {Id} with {ProductCount} products", query.Id, response.Products.Count);
-
                 return Result<EventResponse>.Success(response);
             }
             catch (Exception ex)

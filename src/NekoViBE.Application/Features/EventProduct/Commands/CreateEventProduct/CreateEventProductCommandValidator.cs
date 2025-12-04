@@ -14,8 +14,6 @@ namespace NekoViBE.Application.Features.EventProduct.Commands.CreateEventProduct
         {
             RuleFor(x => x.Request)
                 .NotNull().WithMessage("Event product request is required");
-
-                this.SetupEventProductRules(x => x.Request);
         }
     }
 }

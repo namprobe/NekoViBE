@@ -29,7 +29,6 @@ public class GetPostCategorySelectListQueryHandler : IRequestHandler<GetPostCate
 
         return await query
             .OrderBy(x => x.Name)
-            .Take(50)
             .Select(x => new PostCategorySelectItem { Id = x.Id, Name = x.Name })
             .ToListAsync(cancellationToken);
     }

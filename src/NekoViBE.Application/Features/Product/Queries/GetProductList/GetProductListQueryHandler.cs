@@ -1,17 +1,12 @@
 ﻿using AutoMapper;
 using MediatR;
+using Microsoft.EntityFrameworkCore; // Bắt buộc để dùng Include/ThenInclude
 using Microsoft.Extensions.Logging;
 using NekoViBE.Application.Common.DTOs.Product;
-using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Common.QueryBuilders;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
+using NekoViBE.Domain.Enums; // Để dùng EntityStatusEnum
 
 namespace NekoViBE.Application.Features.Product.Queries.GetProductList
 {
@@ -20,85 +15,115 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProductList
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly ILogger<GetProductListQueryHandler> _logger;
-        private readonly ICurrentUserService _currentUserService;
         private readonly IFileService _fileService;
 
         public GetProductListQueryHandler(
             IUnitOfWork unitOfWork,
             IMapper mapper,
             ILogger<GetProductListQueryHandler> logger,
-            ICurrentUserService currentUserService,
             IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
-            _currentUserService = currentUserService;
             _fileService = fileService;
         }
 
         public async Task<PaginationResult<ProductItem>> Handle(GetProductListQuery request, CancellationToken cancellationToken)
         {
+            var now = DateTime.UtcNow;
 
+            // 1. Khởi tạo Query từ GenericRepository (Đã có AsNoTracking)
+            var query = _unitOfWork.Repository<Domain.Entities.Product>().GetQueryable();
+
+            // 2. [QUAN TRỌNG] Sử dụng Include chuỗi (Chain) để lấy dữ liệu cấp 2
+            query = query
+                .Include(x => x.ProductImages)
+                .Include(x => x.Category)
+                .Include(x => x.ProductTags)
+                .Include(x => x.ProductReviews)
+                // Dùng ThenInclude để lấy thông tin Event từ bảng trung gian EventProducts
+                .Include(x => x.EventProducts)
+                    .ThenInclude(ep => ep.Event);
+
+            // 3. Áp dụng Filter (Predicate)
             var predicate = request.Filter.BuildPredicate();
-            var orderBy = request.Filter.BuildOrderBy();
+            if (predicate != null)
+            {
+                query = query.Where(predicate);
+            }
+
+            // 4. Áp dụng Sorting
             if (request.Filter.SortType?.StartsWith("updated") == true)
             {
-                orderBy = x => x.UpdatedAt ?? x.CreatedAt!;
+                query = query.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt);
             }
-            var isAscending = request.Filter.GetIsAscending();
-
-
-            var (items, totalCount) = await _unitOfWork.Repository<Domain.Entities.Product>().GetPagedAsync(
-                pageNumber: request.Filter.Page,
-                pageSize: request.Filter.PageSize,
-                predicate: predicate,
-                orderBy: orderBy,
-                isAscending: isAscending,
-                includes: new Expression<Func<Domain.Entities.Product, object>>[]
+            else
+            {
+                var orderBy = request.Filter.BuildOrderBy();
+                var isAscending = request.Filter.GetIsAscending();
+                if (orderBy != null)
                 {
-                    x => x.ProductImages,
-                    x => x.Category,
-                    x => x.ProductTags,
-                    x => x.ProductReviews
-                });
+                    query = isAscending ? query.OrderBy(orderBy) : query.OrderByDescending(orderBy);
+                }
+            }
 
+            // 5. Thực hiện Phân trang (Pagination) thủ công
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var items = await query
+                .Skip((request.Filter.Page - 1) * request.Filter.PageSize)
+                .Take(request.Filter.PageSize)
+                .ToListAsync(cancellationToken);
+
+            // 6. Mapping & Tính toán Logic
             var productItems = _mapper.Map<List<ProductItem>>(items);
 
-            // Gán URL đầy đủ cho ảnh chính (hoặc fallback nếu không có)
-            foreach (var (product, entity) in productItems.Zip(items, (dto, ent) => (dto, ent)))
+            // Zip để duyệt song song Entity và DTO
+            foreach (var (dto, entity) in productItems.Zip(items, (d, e) => (d, e)))
             {
-                // Gán ảnh chính
-                var primaryImage = entity.ProductImages.FirstOrDefault(img => img.IsPrimary);
-                product.PrimaryImage = primaryImage != null
+                // Xử lý ảnh đại diện
+                var primaryImage = entity.ProductImages.FirstOrDefault(img => img.IsPrimary && !img.IsDeleted);
+                dto.PrimaryImage = primaryImage != null
                     ? _fileService.GetFileUrl(primaryImage.ImagePath)
                     : null;
 
-                // Tính rating trung bình
-                if (entity.ProductReviews != null && entity.ProductReviews.Any())
+                // Tính Rating
+                var reviews = entity.ProductReviews.Where(r => !r.IsDeleted).ToList();
+                if (reviews.Any())
                 {
-                    product.AverageRating = Math.Round(entity.ProductReviews.Average(r => r.Rating), 1);
-                    product.ReviewCount = entity.ProductReviews.Count;
+                    dto.AverageRating = Math.Round(reviews.Average(r => r.Rating), 1);
+                    dto.ReviewCount = reviews.Count;
+                }
+
+                // [LOGIC GIẢM GIÁ]
+                // Tìm sự kiện đang diễn ra mà sản phẩm này tham gia
+                var activeEventProduct = entity.EventProducts
+                    .Where(ep =>
+                        !ep.IsDeleted &&
+                        ep.Event != null &&               // Kiểm tra Event đã được Load chưa (nhờ ThenInclude)
+                        !ep.Event.IsDeleted &&
+                        ep.Event.Status == EntityStatusEnum.Active && // Sự kiện phải đang Active
+                        ep.Event.StartDate <= now &&      // Đã bắt đầu
+                        ep.Event.EndDate >= now           // Chưa kết thúc
+                    )
+                    .OrderByDescending(ep => ep.DiscountPercentage) // Ưu tiên mức giảm cao nhất
+                    .FirstOrDefault();
+
+                if (activeEventProduct != null)
+                {
+                    dto.EventDiscountPercentage = activeEventProduct.DiscountPercentage;
+
+                    // (Tùy chọn) Nếu bạn muốn hiển thị giá đã giảm luôn ở đây
+                    // dto.DiscountPrice = entity.Price * (1 - activeEventProduct.DiscountPercentage / 100m);
                 }
                 else
                 {
-                    product.AverageRating = null;
-                    product.ReviewCount = 0;
+                    dto.EventDiscountPercentage = null;
                 }
             }
 
-            // Log nếu có sản phẩm chưa có ảnh chính
-            var productsWithoutPrimaryImage = items
-                .Where(x => !x.ProductImages.Any(img => img.IsPrimary))
-                .Select(x => x.Name)
-                .ToList();
-
-
-            return PaginationResult<ProductItem>.Success(
-                productItems,
-                request.Filter.Page,
-                request.Filter.PageSize,
-                totalCount);
+            return PaginationResult<ProductItem>.Success(productItems, request.Filter.Page, request.Filter.PageSize, totalCount);
         }
     }
 }

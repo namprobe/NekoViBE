@@ -27,8 +27,8 @@ namespace NekoViBE.Application.Features.Category.Queries.GetSelectList
                 query = query.Where(x => x.Name.Contains(request.Search));
 
             return await query
+                .Where(x => !x.IsDeleted)
                 .OrderBy(x => x.Name)
-                .Take(50) // giới hạn combobox
                 .Select(x => new CategorySelectItem { Id = x.Id, Name = x.Name })
                 .ToListAsync(cancellationToken);
         }
