@@ -8,9 +8,9 @@ using NekoViBE.Application.Features.Event.Commands.SaveEventProducts;
 using NekoViBE.Application.Features.EventProduct.Commands.CreateEventProduct;
 using NekoViBE.Application.Features.EventProduct.Commands.DeleteEventProduct;
 using NekoViBE.Application.Features.EventProduct.Commands.UpdateEventProduct;
-using NekoViBE.Application.Features.EventProduct.Commands.UpdateEventProductList;
 using NekoViBE.Application.Features.EventProduct.Queries.GetEventProduct;
 using NekoViBE.Application.Features.EventProduct.Queries.GetEventProductList;
+using NekoViBE.Application.Features.EventProduct.Queries.GetEventProductsByEventId;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace NekoViBE.API.Controllers.Cms
@@ -142,6 +142,29 @@ namespace NekoViBE.API.Controllers.Cms
             var command = new SaveEventProductsCommand(eventId, requests);
             var result = await _mediator.Send(command);
             return result.IsSuccess ? Ok(result) : StatusCode(result.GetHttpStatusCode(), result);
+        }
+
+        [HttpGet("by-event/{eventId}")]
+        [AuthorizeRoles]
+        [ProducesResponseType(typeof(Result<List<EventProductWithProductItem>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(Result), StatusCodes.Status500InternalServerError)]
+        [SwaggerOperation(
+    Summary = "Lấy danh sách sản phẩm tham gia Event theo EventId (có đầy đủ thông tin Product)",
+    Description = "Trả về danh sách EventProduct kèm thông tin chi tiết Product, giá giảm trong event, ảnh, category, anime series...",
+    OperationId = "GetEventProductsByEventId",
+    Tags = new[] { "CMS", "CMS_EventProducts" }
+)]
+        public async Task<IActionResult> GetEventProductsByEventId(Guid eventId)
+        {
+            var query = new GetEventProductsByEventIdQuery(eventId);
+            var result = await _mediator.Send(query);
+
+            return result.IsSuccess
+                ? Ok(result)
+                : StatusCode(result.GetHttpStatusCode(), result);
         }
     }
 }
