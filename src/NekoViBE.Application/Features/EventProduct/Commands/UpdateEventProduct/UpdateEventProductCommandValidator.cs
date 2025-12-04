@@ -12,13 +12,12 @@ namespace NekoViBE.Application.Features.EventProduct.Commands.UpdateEventProduct
     {
         public UpdateEventProductCommandValidator()
         {
-            RuleFor(x => x.Id)
+            RuleFor(x => x.EventId)
                 .NotEmpty().WithMessage("Event product ID is required");
 
             RuleFor(x => x.Request)
                 .NotNull().WithMessage("Event product request is required");
 
-                this.SetupEventProductRules(x => x.Request);
         }
     }
 }

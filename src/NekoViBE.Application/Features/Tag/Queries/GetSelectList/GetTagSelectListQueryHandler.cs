@@ -29,7 +29,6 @@ namespace NekoViBE.Application.Features.Tag.Queries.GetSelectList
             return await query
                 .Where(x => !x.IsDeleted) // Chỉ lấy các Tag chưa bị xóa
                 .OrderBy(x => x.Name)
-                .Take(50)
                 .Select(x => new TagSelectItem { Id = x.Id, Name = x.Name })
                 .ToListAsync(cancellationToken);
         }

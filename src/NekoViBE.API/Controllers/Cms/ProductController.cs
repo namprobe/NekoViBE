@@ -12,6 +12,7 @@ using NekoViBE.Application.Features.Product.Commands.DeleteProduct;
 using NekoViBE.Application.Features.Product.Commands.UpdateProduct;
 using NekoViBE.Application.Features.Product.Queries.GetProduct;
 using NekoViBE.Application.Features.Product.Queries.GetProductList;
+using NekoViBE.Application.Features.Product.Queries.GetSelectList;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
 using System.Threading;
@@ -156,5 +157,21 @@ public class ProductController : ControllerBase
         var command = new DeleteProductCommand(id);
         var result = await _mediator.Send(command);
         return StatusCode(result.GetHttpStatusCode(), result);
+    }
+
+    [HttpGet("select-list")]
+    [AuthorizeRoles]
+    [ProducesResponseType(typeof(List<ProductSelectItem>), StatusCodes.Status200OK)]
+    [SwaggerOperation(
+        Summary = "Get product select list",
+        Description = "Get a simplified list of products for dropdown selection",
+        OperationId = "GetProductSelectList",
+        Tags = new[] { "CMS", "CMS_Product" }
+    )]
+    public async Task<IActionResult> GetProductSelectList([FromQuery] string? search)
+    {
+        var query = new GetProductSelectListQuery { Search = search };
+        var result = await _mediator.Send(query);
+        return Ok(result);
     }
 }

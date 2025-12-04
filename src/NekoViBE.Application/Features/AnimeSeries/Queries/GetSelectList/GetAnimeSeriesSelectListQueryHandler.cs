@@ -27,8 +27,8 @@ namespace NekoViBE.Application.Features.AnimeSeries.Queries.GetSelectList
                 query = query.Where(x => x.Title.Contains(request.Search));
 
             return await query
+                .Where(x => !x.IsDeleted)
                 .OrderBy(x => x.Title)
-                .Take(50)
                 .Select(x => new AnimeSeriesSelectItem { Id = x.Id, Title = x.Title })
                 .ToListAsync(cancellationToken);
         }

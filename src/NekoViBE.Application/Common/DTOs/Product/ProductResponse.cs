@@ -39,6 +39,12 @@ namespace NekoViBE.Application.Common.DTOs.Product
         [JsonPropertyName("events")]
         public List<EventItem>? Events { get; set; } = new List<EventItem>();
 
+        [JsonPropertyName("activeEventDiscountPercentage")]
+        public decimal? ActiveEventDiscountPercentage { get; set; }
+
+        [JsonPropertyName("activeEvent")]
+        public EventItem? ActiveEvent { get; set; }
+
         // Thêm trường tính toán
         [JsonPropertyName("totalSales")]
         public int TotalSales { get; set; } = 0; // Tổng Quantity từ OrderItems

@@ -9,5 +9,5 @@ using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Features.EventProduct.Commands.UpdateEventProduct
 {
-    public record UpdateEventProductCommand(Guid Id, EventProductRequest Request) : IRequest<Result>;
+    public record UpdateEventProductCommand(Guid EventId, EventProductRequest Request) : IRequest<Result>;
 }
