@@ -65,6 +65,15 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProduct
                 }
             }
 
+            if (response.Events != null)
+            {
+                foreach (var eventItem in response.Events)
+                {
+                    eventItem.ImagePath = _fileService.GetFileUrl(eventItem.ImagePath);
+                }
+            }
+            
+
             // 5. Tính toán Total Sales
             response.TotalSales = entity.OrderItems
                 .Where(oi => !oi.IsDeleted)
