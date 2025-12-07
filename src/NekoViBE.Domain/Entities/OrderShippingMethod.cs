@@ -11,6 +11,11 @@ public class OrderShippingMethod : BaseEntity
     public Guid ShippingMethodId { get; set; }
     
     /// <summary>
+    /// Reference đến địa chỉ giao hàng (snapshot tại thời điểm đặt hàng)
+    /// </summary>
+    public Guid? UserAddressId { get; set; }
+    
+    /// <summary>
     /// Tên provider (GHN, GHTK, Viettel Post...)
     /// </summary>
     public string? ProviderName { get; set; }
@@ -63,4 +68,5 @@ public class OrderShippingMethod : BaseEntity
     // === NAVIGATION PROPERTIES ===
     public virtual Order Order { get; set; } = null!;
     public virtual ShippingMethod ShippingMethod { get; set; } = null!;
+    public virtual UserAddress? UserAddress { get; set; }
 }

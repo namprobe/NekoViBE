@@ -72,7 +72,7 @@ public class ProcessVnPayCallbackCommandHandler : IRequestHandler<ProcessVnPayCa
                         await _callBackShareLogic.RollbackShippingOrderAsync(
                             failedOrder, _unitOfWork, _logger, cancellationToken);
                         
-                        _callBackShareLogic.UpdateOrderAsFailed(failedOrder, paymentNote, _unitOfWork);
+                        _callBackShareLogic.UpdateOrderAsFailed(failedOrder, _unitOfWork);
                         
                         if (failedOrder.Payment != null)
                         {
@@ -134,7 +134,7 @@ public class ProcessVnPayCallbackCommandHandler : IRequestHandler<ProcessVnPayCa
                 
                 // Update order fail và save changes trước khi throw
                 _callBackShareLogic.UpdateOrderAsFailed(
-                    order, $"{paymentNote} | Payment record not found", _unitOfWork);
+                    order, _unitOfWork);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 LogOrderAction(
@@ -149,7 +149,7 @@ public class ProcessVnPayCallbackCommandHandler : IRequestHandler<ProcessVnPayCa
             // Cập nhật trạng thái order và payment thành công
             order.OrderStatus = OrderStatusEnum.Confirmed;
             order.PaymentStatus = PaymentStatusEnum.Completed;
-            order.Notes = paymentNote;
+            order.Notes = "Order Confirmed";
             order.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Repository<Domain.Entities.Order>().Update(order);
             

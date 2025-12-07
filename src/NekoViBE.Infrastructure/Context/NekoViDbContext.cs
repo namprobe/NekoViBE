@@ -460,8 +460,14 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
                 .HasForeignKey(x => x.ShippingMethodId)
                 .OnDelete(DeleteBehavior.Restrict);
                 
+            entity.HasOne(x => x.UserAddress)
+                .WithMany()
+                .HasForeignKey(x => x.UserAddressId)
+                .OnDelete(DeleteBehavior.SetNull);
+                
             entity.HasIndex(x => x.OrderId);
             entity.HasIndex(x => x.ShippingMethodId);
+            entity.HasIndex(x => x.UserAddressId).HasFilter("UserAddressId IS NOT NULL");
             entity.HasIndex(x => x.TrackingNumber).HasFilter("TrackingNumber IS NOT NULL");
             entity.HasIndex(x => x.ProviderName).HasFilter("ProviderName IS NOT NULL");
         });

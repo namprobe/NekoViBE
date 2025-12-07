@@ -8,25 +8,31 @@ using System.Threading.Tasks;
 
 namespace NekoViBE.Application.Common.DTOs.Order
 {
-    public class OrderDto
+    /// <summary>
+    /// Detailed order information for CMS.
+    /// Extends OrderListItem with additional details for full order view.
+    /// </summary>
+    public class OrderDto : OrderListItem
     {
-        public Guid Id { get; set; }
-        public string OrderNumber { get; set; } = string.Empty;
-        public Guid? UserId { get; set; }
-        public bool IsOneClick { get; set; }
-        public string? GuestEmail { get; set; }
+        // === GUEST DETAILS (additional fields not in list) ===
         public string? GuestFirstName { get; set; }
         public string? GuestLastName { get; set; }
         public string? GuestPhone { get; set; }
-        public decimal TotalAmount { get; set; }
-        public decimal DiscountAmount { get; set; }
-        public decimal TaxAmount { get; set; }
-        public decimal ShippingAmount { get; set; }
-        public decimal FinalAmount { get; set; }
-        public PaymentStatusEnum PaymentStatus { get; set; }
-        public OrderStatusEnum OrderStatus { get; set; }
+        public string? OneClickAddress { get; set; }
+        
+        // === ORDER DETAILS ===
         public string? Notes { get; set; }
-        public DateTime CreatedAt { get; set; }
+        
+        // === ITEMS ===
         public List<OrderItemDto> OrderItems { get; set; } = new();
+        
+        // === SHIPPING ===
+        public OrderShippingDto? Shipping { get; set; }
+        
+        // === PAYMENT ===
+        public OrderPaymentDto? Payment { get; set; }
+        
+        // === COUPONS ===
+        public List<OrderCouponDto> AppliedCoupons { get; set; } = new();
     }
 }

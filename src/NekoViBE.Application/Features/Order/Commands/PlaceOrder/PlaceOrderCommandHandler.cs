@@ -304,11 +304,26 @@ namespace NekoViBE.Application.Features.Order.Commands.PlaceOrder;
                     newOrder.ShippingDiscountAmount = shippingDiscountAmount;
                     newOrder.ShippingFeeActual = shippingFeeActual;
 
+                    // Get user address for shipping
+                    Domain.Entities.UserAddress? userAddress = null;
+                    if (request.UserAddressId.HasValue)
+                    {
+                        userAddress = await _unitOfWork.Repository<Domain.Entities.UserAddress>()
+                            .GetFirstOrDefaultAsync(x => x.Id == request.UserAddressId.Value && x.UserId == userId.Value);
+                    }
+                    else
+                    {
+                        // Fallback to default address if not specified
+                        userAddress = await _unitOfWork.Repository<Domain.Entities.UserAddress>()
+                            .GetFirstOrDefaultAsync(x => x.UserId == userId.Value && x.IsDefault);
+                    }
+                    
                     // Create OrderShippingMethod record
                     orderShippingMethod = new Domain.Entities.OrderShippingMethod
                     {
                         OrderId = newOrder.Id,
                         ShippingMethodId = shippingMethod.Id,
+                        UserAddressId = userAddress?.Id,
                         ProviderName = shippingMethod.Name,
                         TrackingNumber = null, // Will be set after shipping order is created
                         ShippingFeeOriginal = shippingFeeOriginal,
