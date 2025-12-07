@@ -128,9 +128,9 @@ public static class SeedingExtension
             var processorName = gatewayType.ToString().ToLower();
             var name = gatewayType.ToString();
             
-            // Check if payment method already exists
+            // Check if payment method already exists by Name (which has unique index)
             var existing = await dbContext.Set<PaymentMethod>()
-                .FirstOrDefaultAsync(pm => pm.ProcessorName == processorName);
+                .FirstOrDefaultAsync(pm => pm.Name == name);
 
             if (existing == null)
             {
