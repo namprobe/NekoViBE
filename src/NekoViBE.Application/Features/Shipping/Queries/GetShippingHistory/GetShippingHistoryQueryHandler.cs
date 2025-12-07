@@ -33,7 +33,7 @@ public class GetShippingHistoryQueryHandler
         GetShippingHistoryQuery request,
         CancellationToken cancellationToken)
     {
-        var (isValid, currentUserId) = await _currentUserService.IsUserValidAsync();
+        var (isValid, currentUserId, userRoles) = await _currentUserService.ValidateUserWithRolesAsync();
         if (!isValid || currentUserId == null)
         {
             return Result<List<ShippingHistoryDto>>.Failure(
@@ -43,9 +43,23 @@ public class GetShippingHistoryQueryHandler
 
         try
         {
-            // Verify order belongs to current user
-            var order = await _unitOfWork.Repository<Domain.Entities.Order>()
-                .GetFirstOrDefaultAsync(x => x.Id == request.OrderId && x.UserId == currentUserId.Value);
+            // Check if user is Admin or Staff (can view any order)
+            var isAdminOrStaff = userRoles?.Any(r => r == Domain.Enums.RoleEnum.Admin || r == Domain.Enums.RoleEnum.Staff) ?? false;
+            
+            // Verify order exists and belongs to current user (if customer)
+            Domain.Entities.Order? order;
+            if (isAdminOrStaff)
+            {
+                // Admin/Staff can view any order
+                order = await _unitOfWork.Repository<Domain.Entities.Order>()
+                    .GetFirstOrDefaultAsync(x => x.Id == request.OrderId);
+            }
+            else
+            {
+                // Customer can only view their own orders
+                order = await _unitOfWork.Repository<Domain.Entities.Order>()
+                    .GetFirstOrDefaultAsync(x => x.Id == request.OrderId && x.UserId == currentUserId.Value);
+            }
 
             if (order == null)
             {

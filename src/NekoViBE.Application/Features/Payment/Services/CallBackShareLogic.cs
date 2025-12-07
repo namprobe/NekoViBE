@@ -96,7 +96,7 @@ public class CallBackShareLogic : ICallBackShareLogic
     /// <summary>
     /// Update order thành failed
     /// </summary>
-    public void UpdateOrderAsFailed(Domain.Entities.Order order, string note, IUnitOfWork unitOfWork)
+    public void UpdateOrderAsFailed(Domain.Entities.Order order, IUnitOfWork unitOfWork)
     {
         if (order == null)
             throw new ArgumentNullException(nameof(order));
@@ -105,7 +105,7 @@ public class CallBackShareLogic : ICallBackShareLogic
 
         order.OrderStatus = OrderStatusEnum.Failed;
         order.PaymentStatus = PaymentStatusEnum.Failed;
-        order.Notes = note;
+        order.Notes = "Order Failed";
         order.UpdatedAt = DateTime.UtcNow;
         unitOfWork.Repository<Domain.Entities.Order>().Update(order);
     }

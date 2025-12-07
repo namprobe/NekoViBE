@@ -29,13 +29,12 @@ public interface ICallBackShareLogic
     /// <param name="order">Order cần update</param>
     /// <param name="note">Note message</param>
     /// <param name="unitOfWork">Unit of work instance</param>
-    void UpdateOrderAsFailed(Domain.Entities.Order order, string note, IUnitOfWork unitOfWork);
+    void UpdateOrderAsFailed(Domain.Entities.Order order, IUnitOfWork unitOfWork);
 
     /// <summary>
     /// Update payment thành failed
     /// </summary>
     /// <param name="payment">Payment cần update</param>
-    /// <param name="note">Note message</param>
     /// <param name="processorResponse">Processor response message</param>
     /// <param name="unitOfWork">Unit of work instance</param>
     void UpdatePaymentAsFailed(
