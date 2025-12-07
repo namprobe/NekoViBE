@@ -56,7 +56,8 @@ namespace NekoViBE.Application.Features.Order.Queries.GetOrderList
                 {
                     o => o.User!,
                     o => o.OrderItems!,
-                    o => o.UserCoupons!
+                    o => o.UserCoupons!,
+                    o => o.OrderShippingMethods!
                 };
 
                 var (orders, totalCount) = await _unitOfWork.Repository<Domain.Entities.Order>().GetPagedAsync(
@@ -69,8 +70,8 @@ namespace NekoViBE.Application.Features.Order.Queries.GetOrderList
 
                 var orderItems = _mapper.Map<List<OrderListItem>>(orders);
 
-                _logger.LogInformation("Order list retrieved successfully by {CurrentUser}, TotalItems: {TotalCount}",
-                    currentUserId, totalCount);
+                //_logger.LogInformation("Order list retrieved successfully by {CurrentUser}, TotalItems: {TotalCount}",
+                //    currentUserId, totalCount);
 
                 return PaginationResult<OrderListItem>.Success(
                     orderItems,

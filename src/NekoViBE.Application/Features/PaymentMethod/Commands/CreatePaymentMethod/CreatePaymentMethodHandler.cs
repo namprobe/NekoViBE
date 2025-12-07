@@ -42,11 +42,16 @@ public class CreatePaymentMethodHandler : IRequestHandler<CreatePaymentMethodCom
             {
                 return Result.Failure("User is not allowed to create payment method", ErrorCodeEnum.Forbidden);
             }
-            var isNameExists = await _unitOfWork.Repository<Domain.Entities.PaymentMethod>().AnyAsync(x => x.Name == command.Request.Name.ToString());
+            
+            // Check if payment method with the same name already exists
+            var paymentMethodName = command.Request.Name.ToString();
+            var isNameExists = await _unitOfWork.Repository<Domain.Entities.PaymentMethod>()
+                .AnyAsync(x => x.Name == paymentMethodName);
             if (isNameExists)
             {
-                return Result.Failure("Payment method name already exists", ErrorCodeEnum.ValidationFailed);
+                return Result.Failure($"Payment method '{paymentMethodName}' already exists. Please edit the existing one or choose a different gateway.", ErrorCodeEnum.ValidationFailed);
             }
+            
             var paymentMethod = _mapper.Map<Domain.Entities.PaymentMethod>(command.Request);
             
             try

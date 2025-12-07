@@ -35,7 +35,7 @@ public class GetShippingMethodQueryHandler : IRequestHandler<GetShippingMethodQu
         {
             
             var shippingMethod = await _unitOfWork.Repository<Domain.Entities.ShippingMethod>()
-                .GetFirstOrDefaultAsync(x => x.Id == request.Id && x.Status == EntityStatusEnum.Active);
+                .GetFirstOrDefaultAsync(x => x.Id == request.Id);
 
             if (shippingMethod == null)
             {

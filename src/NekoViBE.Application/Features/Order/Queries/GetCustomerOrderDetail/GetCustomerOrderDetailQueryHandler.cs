@@ -67,6 +67,8 @@ public class GetCustomerOrderDetailQueryHandler
                     .ThenInclude(p => p.PaymentMethod!)
                 .Include(o => o.OrderShippingMethods!)
                     .ThenInclude(os => os.ShippingMethod!)
+                .Include(o => o.OrderShippingMethods!)
+                    .ThenInclude(os => os.UserAddress!)
                 .Include(o => o.UserCoupons!)
                     .ThenInclude(uc => uc.Coupon!);
 
@@ -80,7 +82,7 @@ public class GetCustomerOrderDetailQueryHandler
             }
 
             var dto = _mapper.Map<CustomerOrderDetailDto>(order);
-            dto.Shipping = MapShippingInfo(order);
+            // AutoMapper will handle Shipping mapping with address info
             // ProductImage is already converted to full URL by ProductImageUrlResolver
             return Result<CustomerOrderDetailDto>.Success(dto);
         }
@@ -91,28 +93,6 @@ public class GetCustomerOrderDetailQueryHandler
                 "An error occurred while retrieving order detail",
                 ErrorCodeEnum.InternalError);
         }
-    }
-
-    private static CustomerOrderShippingDto? MapShippingInfo(Domain.Entities.Order order)
-    {
-        var shipping = order.OrderShippingMethods?
-            .OrderByDescending(x => x.CreatedAt)
-            .FirstOrDefault();
-
-        if (shipping == null)
-        {
-            return null;
-        }
-
-        return new CustomerOrderShippingDto
-        {
-            ShippingMethodName = shipping.ShippingMethod?.Name,
-            TrackingNumber = shipping.TrackingNumber,
-            ShippedDate = shipping.ShippedDate,
-            EstimatedDeliveryDate = shipping.EstimatedDeliveryDate,
-            DeliveredDate = shipping.DeliveredDate,
-            ShippingStatus = order.OrderStatus
-        };
     }
 }
 

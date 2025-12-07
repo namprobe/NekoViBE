@@ -117,7 +117,7 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
                             await _callBackShareLogic.RevertOrderChangesAsync(
                                 failedOrder, _unitOfWork, _logger, cancellationToken);
                             
-                            _callBackShareLogic.UpdateOrderAsFailed(failedOrder, paymentNote, _unitOfWork);
+                            _callBackShareLogic.UpdateOrderAsFailed(failedOrder, _unitOfWork);
                             
                             if (failedOrder.Payment != null)
                             {
@@ -223,7 +223,7 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
                 
                 // Update order fail và save changes trước khi trả response
                 _callBackShareLogic.UpdateOrderAsFailed(
-                    order, $"{paymentNote} | Payment record not found", _unitOfWork);
+                    order, _unitOfWork);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 LogOrderAction(
@@ -246,7 +246,7 @@ public class ProcessMomoCallbackCommandHandler : IRequestHandler<ProcessMomoCall
             
             order.OrderStatus = OrderStatusEnum.Confirmed;
             order.PaymentStatus = PaymentStatusEnum.Completed;
-            order.Notes = paymentNote;
+            order.Notes = "Order Confirmed";
             order.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Repository<Domain.Entities.Order>().Update(order);
             

@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using NekoViBE.Application.Common.DTOs.Role;
 using NekoViBE.Application.Common.DTOs.User;
+using NekoViBE.Application.Common.Mappings.Resolvers;
 using NekoViBE.Application.Features.User.Commands.CreateUser;
 using NekoViBE.Domain.Entities;
 using System;
@@ -15,7 +16,11 @@ namespace NekoViBE.Application.Common.Mappings
     {
         public UserMappingProfile()
         {
-            CreateMap<AppUser, UserDTO>();
+            // UserDTO mapping - convert AvatarPath to full URL
+            CreateMap<AppUser, UserDTO>()
+                .ForMember(dest => dest.AvatarPath, 
+                    opt => opt.ConvertUsing<FilePathUrlConverter, string?>(src => src.AvatarPath));
+            
             CreateMap<AppRole, RoleInfoDTO>();
 
             // Mapping from command to entity
@@ -28,7 +33,10 @@ namespace NekoViBE.Application.Common.Mappings
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
                 .ForAllMembers(opts => opts.Ignore());
 
+            // UserItem mapping (for CMS list) - convert AvatarPath to full URL
             CreateMap<AppUser, UserItem>()
+                .ForMember(dest => dest.AvatarPath, 
+                    opt => opt.ConvertUsing<FilePathUrlConverter, string?>(src => src.AvatarPath))
                 .ForMember(dest => dest.UserType, opt => opt.Ignore()) // Handled in handler
                 .ForMember(dest => dest.Roles, opt => opt.Ignore()); // Handled in handler
         }
