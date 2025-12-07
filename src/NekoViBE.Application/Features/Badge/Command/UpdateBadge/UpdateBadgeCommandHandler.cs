@@ -73,11 +73,7 @@ namespace NekoViBE.Application.Features.Badge.Command.UpdateBadge
                     entity.IconPath = imagePath;
                     _logger.LogInformation("ImagePath updated to {ImagePath} for badge {Name}", imagePath, entity.Name);
                 }
-                else
-                {
-                    await _fileService.DeleteFileAsync(oldImagePath, cancellationToken);
-                    entity.IconPath = null;
-                }
+                // If no new image provided, keep the old image path (don't delete it)
 
                 try
                 {
