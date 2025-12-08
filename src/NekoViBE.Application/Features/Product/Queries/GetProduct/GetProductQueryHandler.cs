@@ -7,6 +7,7 @@ using NekoViBE.Application.Common.DTOs.Product;
 using NekoViBE.Application.Common.Enums;
 using NekoViBE.Application.Common.Interfaces;
 using NekoViBE.Application.Common.Models;
+using NekoViBE.Domain.Entities;
 using NekoViBE.Domain.Enums;
 using System;
 using System.Linq;
@@ -21,18 +22,22 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProduct
         private readonly IMapper _mapper;
         private readonly ILogger<GetProductQueryHandler> _logger;
         private readonly IFileService _fileService;
+        private readonly ICurrentUserService _currentUserService;
 
-        public GetProductQueryHandler(IUnitOfWork unitOfWork, IMapper mapper, ILogger<GetProductQueryHandler> logger, IFileService fileService)
+        public GetProductQueryHandler(IUnitOfWork unitOfWork, IMapper mapper, ILogger<GetProductQueryHandler> logger, IFileService fileService, ICurrentUserService currentUserService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
             _fileService = fileService;
+            _currentUserService = currentUserService;
         }
 
         public async Task<Result<ProductResponse>> Handle(GetProductQuery query, CancellationToken cancellationToken)
         {
             var now = DateTime.UtcNow;
+
+            var (isValid, userId) = await _currentUserService.IsUserValidAsync();
 
             // 1. Tự build query để dùng được ThenInclude (Thay vì dùng GetFirstOrDefaultAsync của Repo)
             var dbQuery = _unitOfWork.Repository<Domain.Entities.Product>().GetQueryable();
@@ -72,7 +77,28 @@ namespace NekoViBE.Application.Features.Product.Queries.GetProduct
                     eventItem.ImagePath = _fileService.GetFileUrl(eventItem.ImagePath);
                 }
             }
-            
+
+            if (response.Reviews != null && entity.ProductReviews != null)
+            {
+                foreach (var reviewDto in response.Reviews)
+                {
+                    // Tìm lại entity gốc tương ứng với DTO review này
+                    var originalReview = entity.ProductReviews.FirstOrDefault(x => x.Id == reviewDto.Id);
+
+                    // Lấy tên từ người viết review gốc (đã được Include ở trên)
+                    if (originalReview != null && originalReview.User != null)
+                    {
+                        reviewDto.UserName = $"{originalReview.User.FirstName} {originalReview.User.LastName}";
+
+                        // Nếu muốn lấy cả Avatar:
+                        // reviewDto.Avatar = _fileService.GetFileUrl(originalReview.User.AvatarPath);
+                    }
+                    else
+                    {
+                        reviewDto.UserName = "Người dùng ẩn danh";
+                    }
+                }
+            }
 
             // 5. Tính toán Total Sales
             response.TotalSales = entity.OrderItems

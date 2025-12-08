@@ -13,6 +13,9 @@ namespace NekoViBE.Application.Common.DTOs.ProductReview
         [JsonPropertyName("productId")]
         public Guid ProductId { get; set; }
 
+        [JsonPropertyName("orderId")]
+        public Guid? OrderId { get; set; }
+
         [JsonPropertyName("rating")]
         public int Rating { get; set; } // 1-5
 

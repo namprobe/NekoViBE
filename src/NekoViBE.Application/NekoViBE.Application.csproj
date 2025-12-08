@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="LinqKit" Version="1.3.9" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\NekoViBE.Domain\NekoViBE.Domain.csproj" />
   </ItemGroup>
 
