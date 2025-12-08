@@ -7,6 +7,7 @@ using NekoViBE.Application.Common.Models;
 using NekoViBE.Application.Features.ProductReview.Commands.CreateProductReview;
 using NekoViBE.Application.Features.ProductReview.Commands.DeleteProductReview;
 using NekoViBE.Application.Features.ProductReview.Commands.UpdateProductReview;
+using NekoViBE.Application.Features.ProductReview.Queries.GetCurrentUserProductReview;
 using NekoViBE.Application.Features.ProductReview.Queries.GetProductReview;
 using NekoViBE.Application.Features.ProductReview.Queries.GetProductReviewList;
 using Swashbuckle.AspNetCore.Annotations;
@@ -77,7 +78,7 @@ namespace NekoViBE.API.Controllers.Customer
             OperationId = "CreateProductReview",
             Tags = new[] { "Customer", "Customer_ProductReviews" }
         )]
-        public async Task<IActionResult> CreateProductReview([FromForm] ProductReviewRequest request)
+        public async Task<IActionResult> CreateProductReview([FromBody] ProductReviewRequest request)
         {
             var command = new CreateProductReviewCommand(request);
             var result = await _mediator.Send(command);
@@ -98,7 +99,7 @@ namespace NekoViBE.API.Controllers.Customer
             OperationId = "UpdateProductReview",
             Tags = new[] { "Customer", "Customer_ProductReviews" }
         )]
-        public async Task<IActionResult> UpdateProductReview(Guid id, [FromForm] ProductReviewRequest request)
+        public async Task<IActionResult> UpdateProductReview(Guid id, [FromBody] ProductReviewRequest request)
         {
             var command = new UpdateProductReviewCommand(id, request);
             var result = await _mediator.Send(command);
@@ -123,6 +124,27 @@ namespace NekoViBE.API.Controllers.Customer
             var command = new DeleteProductReviewCommand(id);
             var result = await _mediator.Send(command);
             return result.IsSuccess ? Ok(result) : StatusCode(result.GetHttpStatusCode(), result);
+        }
+
+        [HttpGet("my-review")]
+        [AuthorizeRoles] // Bắt buộc đăng nhập
+        [ProducesResponseType(typeof(Result<ProductReviewResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Result<ProductReviewResponse>), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(Result<ProductReviewResponse>), StatusCodes.Status404NotFound)]
+        [SwaggerOperation(
+            Summary = "Get current user's review for a specific product (product + optional order)",
+            Description = "Used to check if user has already reviewed a product in an order. Very useful before creating new review.",
+            OperationId = "GetCurrentUserProductReview",
+            Tags = new[] { "Customer", "Customer_ProductReviews" }
+        )]
+        public async Task<IActionResult> GetCurrentUserProductReview([FromQuery] Guid productId, [FromQuery] Guid? orderId = null)
+        {
+            var query = new GetCurrentUserProductReviewQuery(productId, orderId);
+            var result = await _mediator.Send(query);
+
+            return result.IsSuccess
+                ? Ok(result)
+                : StatusCode(result.GetHttpStatusCode(), result);
         }
     }
 }

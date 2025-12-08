@@ -88,4 +88,6 @@ public class Order : BaseEntity
     public virtual ICollection<OrderShippingMethod> OrderShippingMethods { get; set; } = new List<OrderShippingMethod>();
     public virtual ICollection<UserCoupon> UserCoupons { get; set; } = new List<UserCoupon>();
     public virtual Payment? Payment { get; set; }
+    public virtual ICollection<ProductReview> ProductReviews { get; set; } = new List<ProductReview>();
+
 }

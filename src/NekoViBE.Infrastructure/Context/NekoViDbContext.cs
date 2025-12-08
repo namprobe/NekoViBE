@@ -318,6 +318,11 @@ public class NekoViDbContext : IdentityDbContext<AppUser, AppRole, Guid>, INekoV
                 .WithMany(x => x.ProductReviews)
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.Order)
+                .WithMany(x => x.ProductReviews)
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.Restrict); 
                 
             entity.HasIndex(x => x.ProductId);
             entity.HasIndex(x => x.UserId);

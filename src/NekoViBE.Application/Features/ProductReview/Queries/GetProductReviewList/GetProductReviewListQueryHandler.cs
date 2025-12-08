@@ -51,6 +51,26 @@ namespace NekoViBE.Application.Features.ProductReview.Queries.GetProductReviewLi
                     });
 
                 var reviewItems = _mapper.Map<List<ProductReviewItem>>(items);
+
+
+                foreach (var dto in reviewItems)
+                {
+                    // Tìm lại entity gốc tương ứng
+                    var originalEntity = items.FirstOrDefault(x => x.Id == dto.Id);
+
+                    if (originalEntity?.User != null)
+                    {
+                        // Ghép FirstName và LastName
+                        string fullName = $"{originalEntity.User.FirstName} {originalEntity.User.LastName}".Trim();
+
+                        // Nếu ghép ra chuỗi rỗng (chưa set tên) thì mới fallback về UserName cũ (Email)
+                        if (!string.IsNullOrEmpty(fullName))
+                        {
+                            dto.UserName = fullName;
+                        }
+                    }
+                }
+
                 _logger.LogInformation("Retrieved {Count} product reviews", reviewItems.Count);
 
                 return PaginationResult<ProductReviewItem>.Success(reviewItems, request.Filter.Page, request.Filter.PageSize, totalCount);
