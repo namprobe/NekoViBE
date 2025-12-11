@@ -12,8 +12,7 @@ public static class TagValidatorExtension
     {
         return ruleBuilder
             .NotEmpty().WithMessage("Tag name is required")
-            .Length(1, 50).WithMessage("Tag name must be between 1 and 50 characters")
-            .Matches(@"^[a-zA-Z0-9\s\-_]+$").WithMessage("Tag name can only contain letters, numbers, spaces, hyphens, and underscores");
+            .Length(1, 50).WithMessage("Tag name must be between 1 and 50 characters");
     }
 
     // Thiết lập các quy tắc xác thực cho TagRequest
